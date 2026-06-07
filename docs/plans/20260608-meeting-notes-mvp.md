@@ -17,6 +17,32 @@ Do not proceed to the next task until:
 3. the macOS GitHub Actions workflow passes;
 4. any CI failures have been investigated and repaired.
 
+## Autonomy & Environment (unattended execution — READ FIRST)
+
+This plan is executed UNATTENDED by ralphex inside a Linux Docker container
+(Debian 12, non-root user; Node, git, and gh are available, but there is NO
+Swift / Xcode / clang preinstalled). Follow these rules at all times:
+
+- **Work fully autonomously.** Never pause to ask for confirmation or human
+  input — make a reasonable decision and proceed. Use non-interactive flags
+  everywhere; never leave a command waiting on an interactive prompt.
+- **Install everything that is missing, yourself.** You run as a non-root user
+  with no sudo/apt. Install the Swift-for-Linux toolchain into your home
+  directory: prefer `swiftly`, or download the official Swift Linux tarball from
+  swift.org into `$HOME` and add it to `PATH`. `scripts/local-validate.sh` must
+  bootstrap the toolchain idempotently (install it only if missing) before
+  running tests, so it works from a clean container on every run.
+- **Never block on macOS-only or root-only steps.** If something genuinely
+  requires macOS or root and cannot be done in the container, implement it
+  behind the existing protocol/adapter, mark it clearly as "verified only on the
+  macOS CI runner / physical Mac", and keep going. The macOS GitHub Actions
+  runner is the source of truth for native compilation and tests.
+- **Keep the local gate Linux-safe.** `scripts/local-validate.sh` runs only the
+  Linux-runnable subset and must skip macOS-only steps gracefully — do not fail
+  the gate merely because Swift/macOS APIs are unavailable locally; let CI cover
+  those.
+- **Commit and push after each task.**
+
 ## Validation Commands
 
 * `bash scripts/local-validate.sh`
