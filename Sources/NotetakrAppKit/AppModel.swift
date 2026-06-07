@@ -7,7 +7,11 @@ import NotetakrCore
 ///
 /// For Task 0 this only tracks a placeholder recording flag so the UI has
 /// something to bind to. Real session/recording state arrives in later tasks.
-@MainActor
+///
+/// Intentionally not `@MainActor`-isolated: SwiftUI evaluates a scene's `@State`
+/// default value in a nonisolated context, so a main-actor `init` would not be
+/// callable there. The model is only ever mutated from SwiftUI view bodies
+/// (already on the main actor).
 @Observable
 public final class AppModel {
     /// Whether a (placeholder) recording is currently active.
