@@ -3,15 +3,29 @@ import NoteTakrCore
 
 struct TodayView: View {
     let sessions: [MeetingSession]
+    var nextMeeting: CalendarEvent? = nil
     var onSelectSession: (MeetingSession) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             GroupBox("Next Meeting") {
-                Text("No upcoming meetings detected")
-                    .foregroundStyle(.secondary)
+                if let meeting = nextMeeting {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(meeting.title)
+                            .fontWeight(.medium)
+                            .accessibilityIdentifier("nextMeetingTitle")
+                        Text(meeting.startDate, style: .time)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("nextMeetingTime")
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("nextMeetingPlaceholder")
+                } else {
+                    Text("No upcoming meetings detected")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("nextMeetingPlaceholder")
+                }
             }
             .accessibilityIdentifier("nextMeetingGroup")
 

@@ -16,6 +16,8 @@
 		AAFADE000000000000000510 /* NoteTakrLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */; };
 		AAFADE000000000000000511 /* NoteTakrCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000802 /* NoteTakrCore */; };
 		AAFADE000000000000000512 /* SessionViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000211 /* SessionViewTests.swift */; };
+		AAFADE000000000000000506 /* EventKitCalendarAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */; };
+		AAFADE000000000000000513 /* EventKitAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000212 /* EventKitAdapterTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,8 +37,10 @@
 		AAFADE000000000000000203 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = NoteTakrApp/Info.plist; sourceTree = "<group>"; };
 		AAFADE000000000000000204 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TodayView.swift; path = NoteTakrApp/Views/TodayView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000205 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionDetailView.swift; path = NoteTakrApp/Views/SessionDetailView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitCalendarAdapter.swift; path = NoteTakrApp/Calendar/EventKitCalendarAdapter.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTakrLaunchTests.swift; path = NoteTakrTests/NoteTakrLaunchTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000211 /* SessionViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionViewTests.swift; path = NoteTakrTests/SessionViewTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000212 /* EventKitAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitAdapterTests.swift; path = NoteTakrTests/EventKitAdapterTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000300 /* NoteTakr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteTakr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAFADE000000000000000310 /* NoteTakrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteTakrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -79,6 +83,7 @@
 				AAFADE000000000000000203 /* Info.plist */,
 				AAFADE000000000000000204 /* TodayView.swift */,
 				AAFADE000000000000000205 /* SessionDetailView.swift */,
+				AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */,
 			);
 			name = NoteTakrApp;
 			sourceTree = "<group>";
@@ -88,6 +93,7 @@
 			children = (
 				AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */,
 				AAFADE000000000000000211 /* SessionViewTests.swift */,
+				AAFADE000000000000000212 /* EventKitAdapterTests.swift */,
 			);
 			name = NoteTakrTests;
 			sourceTree = "<group>";
@@ -205,6 +211,7 @@
 				AAFADE000000000000000502 /* StatusBarController.swift in Sources */,
 				AAFADE000000000000000504 /* TodayView.swift in Sources */,
 				AAFADE000000000000000505 /* SessionDetailView.swift in Sources */,
+				AAFADE000000000000000506 /* EventKitCalendarAdapter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -214,6 +221,7 @@
 			files = (
 				AAFADE000000000000000510 /* NoteTakrLaunchTests.swift in Sources */,
 				AAFADE000000000000000512 /* SessionViewTests.swift in Sources */,
+				AAFADE000000000000000513 /* EventKitAdapterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
