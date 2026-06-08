@@ -94,7 +94,7 @@ final class AudioSourceStatusTests: XCTestCase {
         try data.write(to: micURL)
         try data.write(to: sysURL)
 
-        let statuses = RecordingManager.deriveSourceStatuses(
+        let statuses = await RecordingManager.deriveSourceStatuses(
             returnedURLs: [micURL, sysURL],
             missingReasons: [:]
         )
@@ -115,7 +115,7 @@ final class AudioSourceStatusTests: XCTestCase {
         let micURL = dir.appendingPathComponent("microphone.wav")
         try Data(repeating: 1, count: 256).write(to: micURL)
 
-        let statuses = RecordingManager.deriveSourceStatuses(
+        let statuses = await RecordingManager.deriveSourceStatuses(
             returnedURLs: [micURL],
             missingReasons: ["systemAudio": "Screen Recording permission not granted"]
         )
@@ -126,8 +126,8 @@ final class AudioSourceStatusTests: XCTestCase {
         XCTAssertEqual(sys!.missingReason, "Screen Recording permission not granted")
     }
 
-    func testDeriveSourceStatusesMissingNoReason() {
-        let statuses = RecordingManager.deriveSourceStatuses(
+    func testDeriveSourceStatusesMissingNoReason() async {
+        let statuses = await RecordingManager.deriveSourceStatuses(
             returnedURLs: [],
             missingReasons: [:]
         )

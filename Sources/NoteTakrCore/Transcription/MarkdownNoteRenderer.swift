@@ -10,6 +10,7 @@ public struct MarkdownNoteRenderer {
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .long
         dateFormatter.timeStyle = .short
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         lines.append("**Date:** \(dateFormatter.string(from: session.date))")
         lines.append("**Status:** \(session.status.rawValue)")
         lines.append("")
@@ -30,9 +31,10 @@ public struct MarkdownNoteRenderer {
                     }
                     let detail = parts.isEmpty ? "Captured" : "Captured (\(parts.joined(separator: " · ")))"
                     lines.append("- **\(status.source.displayName):** \(detail)")
-                } else {
-                    let reason = status.missingReason ?? "Not captured"
+                } else if let reason = status.missingReason {
                     lines.append("- **\(status.source.displayName):** Not captured — \(reason)")
+                } else {
+                    lines.append("- **\(status.source.displayName):** Not captured")
                 }
             }
             lines.append("")

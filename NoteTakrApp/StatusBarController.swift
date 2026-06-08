@@ -139,7 +139,7 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func openLatestNote() {
-        let sessions = (try? store.loadAll()) ?? []
+        let sessions = ((try? store.loadAll()) ?? []).sorted { $0.date > $1.date }
         for session in sessions {
             let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
             if FileManager.default.fileExists(atPath: noteURL.path) {

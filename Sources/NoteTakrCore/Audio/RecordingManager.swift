@@ -51,7 +51,7 @@ public final class RecordingManager: @unchecked Sendable {
             let urls = try await recorder.stopRecording()
             let missingReasons = (recorder as? AudioCaptureReporter)?.lastMissingReasons ?? [:]
             session.audioFilePaths = urls.map { $0.path }
-            session.audioSourceStatuses = Self.deriveSourceStatuses(
+            session.audioSourceStatuses = await Self.deriveSourceStatuses(
                 returnedURLs: urls,
                 missingReasons: missingReasons
             )
@@ -81,8 +81,9 @@ public final class RecordingManager: @unchecked Sendable {
     static func deriveSourceStatuses(
         returnedURLs: [URL],
         missingReasons: [String: String]
-    ) -> [AudioSourceStatus] {
-        AudioSourceType.allCases.map { source in
+    ) async -> [AudioSourceStatus] {
+        var result: [AudioSourceStatus] = []
+        for source in AudioSourceType.allCases {
             let url = returnedURLs.first {
                 $0.deletingPathExtension().lastPathComponent == source.fileNamePrefix
             }
@@ -90,15 +91,33 @@ public final class RecordingManager: @unchecked Sendable {
                 let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
                 let size = (attrs?[.size] as? NSNumber).map { Int64($0.int64Value) }
                 #if canImport(AVFoundation)
-                let secs = CMTimeGetSeconds(AVURLAsset(url: url).duration)
-                let duration: Double? = (secs.isNaN || secs.isInfinite || secs <= 0) ? nil : secs
+                let duration = await Self.loadDuration(from: url)
                 #else
                 let duration: Double? = nil
                 #endif
-                return AudioSourceStatus(source: source, fileSizeBytes: size, durationSeconds: duration)
+                result.append(AudioSourceStatus(source: source, fileSizeBytes: size, durationSeconds: duration))
             } else {
-                return AudioSourceStatus(source: source, missingReason: missingReasons[source.rawValue])
+                result.append(AudioSourceStatus(source: source, missingReason: missingReasons[source.rawValue]))
+            }
+        }
+        return result
+    }
+
+    #if canImport(AVFoundation)
+    private static func loadDuration(from url: URL) async -> Double? {
+        let asset = AVURLAsset(url: url)
+        if #available(macOS 12, iOS 15, *) {
+            guard let cmDuration = try? await asset.load(.duration) else { return nil }
+            let secs = CMTimeGetSeconds(cmDuration)
+            return (secs.isNaN || secs.isInfinite || secs <= 0) ? nil : secs
+        } else {
+            return await withCheckedContinuation { continuation in
+                asset.loadValuesAsynchronously(forKeys: ["duration"]) {
+                    let secs = CMTimeGetSeconds(asset.duration)
+                    continuation.resume(returning: (secs.isNaN || secs.isInfinite || secs <= 0) ? nil : secs)
+                }
             }
         }
     }
+    #endif
 }

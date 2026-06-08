@@ -27,7 +27,7 @@ public struct AudioSourceStatus: Codable, Identifiable, Equatable, Sendable {
     public var missingReason: String?
 
     public var id: AudioSourceType { source }
-    public var isPresent: Bool { fileSizeBytes != nil }
+    public var isPresent: Bool { (fileSizeBytes ?? 0) > 0 }
 
     public init(
         source: AudioSourceType,

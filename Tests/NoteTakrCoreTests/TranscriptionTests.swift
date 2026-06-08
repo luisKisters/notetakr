@@ -212,7 +212,8 @@ final class MarkdownNoteRendererTests: XCTestCase {
             AudioSourceStatus(source: .systemAudio)
         ]
         let md = MarkdownNoteRenderer.render(session: session)
-        XCTAssertTrue(md.contains("Not captured — Not captured"))
+        XCTAssertTrue(md.contains("Not captured"))
+        XCTAssertFalse(md.contains("Not captured — Not captured"))
     }
 }
 
