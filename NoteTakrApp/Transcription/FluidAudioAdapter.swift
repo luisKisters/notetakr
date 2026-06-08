@@ -19,8 +19,9 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
         guard FileManager.default.fileExists(atPath: modelPath.path) else {
             throw TranscriptionError.modelUnavailable
         }
-        // FluidAudio inference would be invoked here once the package is linked.
-        // Returns empty result until the FluidAudio package is available.
-        return []
+        // FluidAudio SDK is not yet linked as a package dependency.
+        // Throw modelUnavailable so the caller shows the unavailable state rather
+        // than silently producing an empty transcript.
+        throw TranscriptionError.modelUnavailable
     }
 }

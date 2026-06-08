@@ -7,6 +7,23 @@ struct SessionDetailView: View {
     var onStopRecording: (() -> Void)? = nil
     var onTranscribe: (() -> Void)? = nil
     var onGenerateNote: (() -> Void)? = nil
+    @ObservedObject var transcriptionCoordinator: TranscriptionCoordinator
+
+    init(
+        session: Binding<MeetingSession>,
+        isActiveRecording: Bool = false,
+        onStopRecording: (() -> Void)? = nil,
+        onTranscribe: (() -> Void)? = nil,
+        onGenerateNote: (() -> Void)? = nil,
+        transcriptionCoordinator: TranscriptionCoordinator = TranscriptionCoordinator()
+    ) {
+        self._session = session
+        self.isActiveRecording = isActiveRecording
+        self.onStopRecording = onStopRecording
+        self.onTranscribe = onTranscribe
+        self.onGenerateNote = onGenerateNote
+        self.transcriptionCoordinator = transcriptionCoordinator
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -66,16 +83,7 @@ struct SessionDetailView: View {
 
             GroupBox("Transcript") {
                 if session.transcriptSegments.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Transcript will appear here after recording.")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .accessibilityIdentifier("transcriptPlaceholder")
-                        if !session.audioFilePaths.isEmpty, let transcribe = onTranscribe {
-                            Button("Transcribe Audio", action: transcribe)
-                                .accessibilityIdentifier("transcribeButton")
-                        }
-                    }
+                    transcriptEmptyContent
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         ScrollView {
@@ -105,6 +113,52 @@ struct SessionDetailView: View {
         }
         .padding()
         .frame(minWidth: 400)
+    }
+
+    @ViewBuilder
+    private var transcriptEmptyContent: some View {
+        switch transcriptionCoordinator.state {
+        case .transcribing:
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Transcribing…")
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("transcribingIndicator")
+        case .modelUnavailable:
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Transcription model not available", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("transcriptionModelUnavailable")
+                Text("To enable local transcription, download a Parakeet model to:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("~/Library/Application Support/NoteTakr/Models/parakeet-tdt-0.6b.bin")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        case .failed(let message):
+            Label(message, systemImage: "xmark.circle")
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("transcriptionFailed")
+        default:
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Transcript will appear here after recording.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("transcriptPlaceholder")
+                if !session.audioFilePaths.isEmpty, let transcribe = onTranscribe {
+                    Button("Transcribe Audio", action: transcribe)
+                        .accessibilityIdentifier("transcribeButton")
+                        .disabled(transcriptionCoordinator.state == .transcribing)
+                }
+            }
+        }
     }
 }
 

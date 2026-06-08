@@ -176,13 +176,13 @@ The app can record, but it is not yet production-ready:
 
 ### Task 4: Implement Local Transcription
 
-- [ ] Choose and wire the local transcription dependency.
-- [ ] Keep model lookup configurable and local.
-- [ ] Add user-facing model missing state.
-- [ ] Transcribe completed recordings and persist transcript segments.
-- [ ] Preserve mock transcription tests.
-- [ ] Document physical Mac verification requirements.
-- [ ] Run validation and commit.
+- [x] Choose and wire the local transcription dependency.
+- [x] Keep model lookup configurable and local.
+- [x] Add user-facing model missing state.
+- [x] Transcribe completed recordings and persist transcript segments.
+- [x] Preserve mock transcription tests.
+- [x] Document physical Mac verification requirements.
+- [x] Run validation and commit.
 
 ### Task 5: Improve Notes Generation
 

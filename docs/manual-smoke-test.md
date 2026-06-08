@@ -175,6 +175,54 @@ open /Applications/NoteTakr.app
 - [ ] Confirm that when only microphone permission is granted, only
       `microphone.m4a` is present (system audio is silently skipped).
 
+## Local Transcription
+
+Local transcription requires a Parakeet model file downloaded to the correct
+location.  CI does not download the model, so this section is manual-only.
+
+### Prerequisites for Transcription
+
+- Download `parakeet-tdt-0.6b.bin` (or equivalent Parakeet RNNT model).
+- Place it at:
+  ```
+  ~/Library/Application Support/NoteTakr/Models/parakeet-tdt-0.6b.bin
+  ```
+- The FluidAudio SDK must be linked in the Xcode project for inference to run.
+  Until the package is integrated, the adapter throws `modelUnavailable` even
+  when the file is present.
+
+### Model-Unavailable State (no model downloaded)
+
+- [ ] Open Sessions: menu-bar icon > "Sessions…".
+- [ ] Click a completed session that has audio files.
+- [ ] In the Transcript section, click "Transcribe Audio".
+- [ ] Confirm the Transcript section changes to show an orange warning:
+      "Transcription model not available".
+- [ ] Confirm the model path hint is displayed in the transcript area.
+- [ ] Confirm no crash and no empty transcript silently appears.
+
+### Successful Transcription (model present, FluidAudio linked)
+
+- [ ] Place `parakeet-tdt-0.6b.bin` in Application Support as described above.
+- [ ] Open a completed session in the detail view.
+- [ ] Click "Transcribe Audio".
+- [ ] Confirm a spinner and "Transcribing…" text appear immediately.
+- [ ] After completion, confirm the detail view reloads and transcript segments
+      appear with timestamps and speaker labels (where detected).
+- [ ] Confirm the session folder contains an updated `session.json` with
+      `transcriptSegments` populated.
+- [ ] Click "Generate Note…" and confirm the generated `note.md` includes the
+      transcript with formatted timestamps.
+
+### Vocabulary Boosting
+
+- [ ] Open Settings and add a custom vocabulary term (e.g. "NoteTakr").
+- [ ] Enable the entry and set a boosting weight above 1.0.
+- [ ] Run a recording that includes the term.
+- [ ] Transcribe; confirm no error about vocabulary.
+- [ ] (When FluidAudio is linked) Confirm the term appears correctly in the
+      transcript, indicating vocabulary boosting was applied.
+
 ## Note Generation
 
 - [ ] Open Sessions: menu-bar icon > "Sessions…".
@@ -235,4 +283,6 @@ The following cannot be verified in automated CI and require this smoke test:
 - macOS permission prompts (Calendar, Microphone, Screen Recording)
 - Meeting notification banner and "Start Recording" action
 - Note opening in the system default app via `NSWorkspace`
-- FluidAudio / Parakeet local transcription (model download disabled in CI)
+- FluidAudio / Parakeet local transcription (model download and SDK linking disabled in CI)
+- Model-unavailable UI state shown in SessionDetailView when model is absent
+- Transcription spinner and reload behaviour after successful inference

@@ -9,6 +9,8 @@ final class StatusBarController: NSObject {
     private let vocabularyStore: VocabularyStore
     private let notificationScheduler = MeetingNotificationScheduler()
     private var sessionsWindow: NSPanel?
+    private var detailWindow: NSPanel?
+    private var detailCoordinator: TranscriptionCoordinator?
     private var calendarAdapter: (any CalendarAdapter)?
     private var nextCalendarMeeting: CalendarEvent?
     private var nextMeetingMenuItem: NSMenuItem?
@@ -237,10 +239,27 @@ final class StatusBarController: NSObject {
         var mutable = session
         let isActiveSession = recordingManager.activeSession?.id == session.id
 
-        let onTranscribe: (() -> Void)? = mutable.audioFilePaths.isEmpty ? nil : { [weak self] in
-            guard let self else { return }
-            let copy = mutable
-            self.transcribeSession(copy)
+        let coordinator = TranscriptionCoordinator()
+        detailCoordinator = coordinator
+
+        let onTranscribe: (() -> Void)? = mutable.audioFilePaths.isEmpty ? nil : { [weak self, weak coordinator] in
+            guard let self, let coordinator else { return }
+            let sessionSnapshot = mutable
+            Task { @MainActor in
+                let vocab = (try? self.vocabularyStore.enabledEntries()) ?? []
+                let appSupportBase = FileManager.default
+                    .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+                    .first ?? FileManager.default.temporaryDirectory
+                let modelDir = appSupportBase.appendingPathComponent("NoteTakr/Models")
+                let engine = FluidAudioAdapter(modelDirectory: modelDir)
+                let service = TranscriptionService(engine: engine, store: self.store)
+                if let updated = await coordinator.transcribe(
+                    session: sessionSnapshot, service: service, vocabulary: vocab
+                ) {
+                    self.detailWindow?.close()
+                    self.showSessionDetail(updated)
+                }
+            }
         }
         let onGenerateNote: (() -> Void)? = { [weak self] in
             guard let self else { return }
@@ -258,7 +277,8 @@ final class StatusBarController: NSObject {
                 }
             } : nil,
             onTranscribe: onTranscribe,
-            onGenerateNote: onGenerateNote
+            onGenerateNote: onGenerateNote,
+            transcriptionCoordinator: coordinator
         )
         let hostingController = NSHostingController(rootView: view)
         let window = NSPanel(
@@ -272,33 +292,7 @@ final class StatusBarController: NSObject {
         window.title = session.title
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func transcribeSession(_ session: MeetingSession) {
-        let vocab = (try? vocabularyStore.enabledEntries()) ?? []
-        Task { @MainActor in
-            guard let audioPath = session.audioFilePaths.first else { return }
-            let audioURL = URL(fileURLWithPath: audioPath)
-            let appSupportBase = FileManager.default
-                .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-                .first ?? FileManager.default.temporaryDirectory
-            let modelDir = appSupportBase.appendingPathComponent("NoteTakr/Models")
-            do {
-                let segments = try await FluidAudioAdapter(modelDirectory: modelDir)
-                    .transcribe(audioURL: audioURL, vocabulary: vocab)
-                var updated = session
-                updated.transcriptSegments = segments
-                try? self.store.save(updated)
-            } catch TranscriptionError.modelUnavailable {
-                let segments = (try? await MockTranscriptionEngine()
-                    .transcribe(audioURL: audioURL, vocabulary: vocab)) ?? []
-                var updated = session
-                updated.transcriptSegments = segments
-                try? self.store.save(updated)
-            } catch {
-                // Transcription failed — leave existing state.
-            }
-        }
+        detailWindow = window
     }
 
     private func generateNote(for session: MeetingSession) {
