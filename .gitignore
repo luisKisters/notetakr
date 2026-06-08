@@ -1,6 +1,7 @@
 # Swift / Xcode
 .DS_Store
 .build/
+build/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
