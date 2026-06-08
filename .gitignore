@@ -1,0 +1,23 @@
+# Swift / Xcode
+.DS_Store
+.build/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+
+# Xcode
+xcuserdata/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local Swift toolchain installed by local-validate.sh
+.swift-toolchain/

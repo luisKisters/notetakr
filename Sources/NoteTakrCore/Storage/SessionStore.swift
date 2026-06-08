@@ -1,0 +1,87 @@
+import Foundation
+
+public final class SessionStore: @unchecked Sendable {
+    public let baseURL: URL
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
+
+    public init(baseURL: URL) {
+        self.baseURL = baseURL
+        encoder = JSONEncoder()
+        decoder = JSONDecoder()
+        encoder.dateEncodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    }
+
+    public static func sanitizeTitle(_ title: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_ "))
+        let filtered = title.unicodeScalars
+            .filter { allowed.contains($0) }
+            .map { String($0) }
+            .joined()
+        var result = filtered.trimmingCharacters(in: .whitespaces)
+        // Collapse multiple spaces before converting to dashes
+        while result.contains("  ") {
+            result = result.replacingOccurrences(of: "  ", with: " ")
+        }
+        result = result.replacingOccurrences(of: " ", with: "-")
+        return result.isEmpty ? "unnamed" : String(result.prefix(64))
+    }
+
+    public static func folderName(for session: MeetingSession) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate]
+        let dateStr = formatter.string(from: session.date)
+        let titleSlug = sanitizeTitle(session.title)
+        let shortID = String(session.id.uuidString.prefix(8))
+        return "\(dateStr)_\(titleSlug)_\(shortID)"
+    }
+
+    public func sessionURL(for session: MeetingSession) -> URL {
+        baseURL.appendingPathComponent(Self.folderName(for: session), isDirectory: true)
+    }
+
+    public func save(_ session: MeetingSession) throws {
+        let dir = sessionURL(for: session)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fileURL = dir.appendingPathComponent("session.json")
+        let data = try encoder.encode(session)
+        try data.write(to: fileURL, options: .atomic)
+    }
+
+    public func loadAll() throws -> [MeetingSession] {
+        guard FileManager.default.fileExists(atPath: baseURL.path) else { return [] }
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: baseURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: .skipsHiddenFiles
+        )
+        let sessions: [MeetingSession] = contents.compactMap { url in
+            let sessionFile = url.appendingPathComponent("session.json")
+            guard let data = try? Data(contentsOf: sessionFile) else { return nil }
+            return try? decoder.decode(MeetingSession.self, from: data)
+        }
+        return sessions.sorted { $0.date > $1.date }
+    }
+
+    public func load(id: UUID) throws -> MeetingSession? {
+        try loadAll().first { $0.id == id }
+    }
+
+    public func delete(_ session: MeetingSession) throws {
+        let dir = sessionURL(for: session)
+        guard FileManager.default.fileExists(atPath: dir.path) else { return }
+        try FileManager.default.removeItem(at: dir)
+    }
+
+    // Marks any in-progress sessions as failed — call on app launch to recover from interruptions.
+    public func recoverInterruptedSessions() throws {
+        let sessions = try loadAll()
+        for var session in sessions {
+            guard session.status == .recording || session.status == .paused else { continue }
+            session.status = .failed
+            try save(session)
+        }
+    }
+}
