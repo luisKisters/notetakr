@@ -13,7 +13,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: .noteTakrShowSettingsWindow,
             object: nil
         )
-        showSettingsWindow()
+        if !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") {
+            UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+            showSettingsWindow()
+        }
     }
 
     @objc private func handleShowSettingsWindow() {

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 
 public enum RecordingManagerError: Error, Sendable, Equatable {
     case noActiveSession
@@ -86,7 +89,13 @@ public final class RecordingManager: @unchecked Sendable {
             if let url {
                 let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
                 let size = (attrs?[.size] as? NSNumber).map { Int64($0.int64Value) }
-                return AudioSourceStatus(source: source, fileSizeBytes: size)
+                #if canImport(AVFoundation)
+                let secs = CMTimeGetSeconds(AVURLAsset(url: url).duration)
+                let duration: Double? = (secs.isNaN || secs.isInfinite || secs <= 0) ? nil : secs
+                #else
+                let duration: Double? = nil
+                #endif
+                return AudioSourceStatus(source: source, fileSizeBytes: size, durationSeconds: duration)
             } else {
                 return AudioSourceStatus(source: source, missingReason: missingReasons[source.rawValue])
             }

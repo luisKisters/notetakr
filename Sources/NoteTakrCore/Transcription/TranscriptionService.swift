@@ -16,6 +16,9 @@ public final class TranscriptionService: @unchecked Sendable {
         guard let audioPath = session.audioFilePaths.first else {
             throw TranscriptionError.audioFileNotFound
         }
+        guard FileManager.default.fileExists(atPath: audioPath) else {
+            throw TranscriptionError.audioFileNotFound
+        }
         let audioURL = URL(fileURLWithPath: audioPath)
         let segments = try await engine.transcribe(audioURL: audioURL, vocabulary: vocabulary)
         var updated = session

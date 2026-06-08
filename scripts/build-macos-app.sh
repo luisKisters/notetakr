@@ -98,10 +98,14 @@ xcodebuild build \
     PRODUCT_BUNDLE_IDENTIFIER="com.notetakr.app" \
     "${SIGN_ARGS[@]}" \
     | tee "$BUILD_DIR/xcodebuild.log" \
-    | xcpretty 2>/dev/null || grep -E '^(error:|warning:|Build (succeeded|FAILED))' "$BUILD_DIR/xcodebuild.log" || true
-
+    | xcpretty 2>/dev/null || true
 # xcpretty may not be installed; fall back to raw output already written via tee.
-# The xcodebuild exit code is what matters.
+# Capture xcodebuild's exit code explicitly — pipefail alone is defeated by the xcpretty fallback.
+BUILD_EXIT=${PIPESTATUS[0]}
+if [[ $BUILD_EXIT -ne 0 ]]; then
+    grep -E '^(error:|warning:|Build (succeeded|FAILED))' "$BUILD_DIR/xcodebuild.log" || true
+    die "xcodebuild failed (exit $BUILD_EXIT). See $BUILD_DIR/xcodebuild.log"
+fi
 
 # --- Locate the built product ---
 BUILT_APP=$(find "$BUILD_DIR/symroot/$CONFIG" -maxdepth 1 -name "*.app" -type d 2>/dev/null | head -1)

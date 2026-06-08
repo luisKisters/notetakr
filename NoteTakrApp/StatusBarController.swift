@@ -236,6 +236,7 @@ final class StatusBarController: NSObject {
     }
 
     private func showSessionDetail(_ session: MeetingSession) {
+        detailWindow?.close()
         var mutable = session
         let isActiveSession = recordingManager.activeSession?.id == session.id
 
