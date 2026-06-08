@@ -22,6 +22,7 @@ final class SystemAudioCapturer: NSObject, SCStreamDelegate, SCStreamOutput, @un
         let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
         let config = SCStreamConfiguration()
         config.capturesAudio = true
+        config.excludesCurrentProcessAudio = false
         config.sampleRate = 44_100
         config.channelCount = 2
 
@@ -70,7 +71,7 @@ final class SystemAudioCapturer: NSObject, SCStreamDelegate, SCStreamOutput, @un
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
-        // Stream stopped unexpectedly; the recording may be incomplete.
+        NSLog("NoteTakr system audio stream stopped with error: \(error.localizedDescription)")
     }
 }
 

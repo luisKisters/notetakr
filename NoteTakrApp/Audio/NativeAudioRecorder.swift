@@ -3,6 +3,7 @@
 // Do NOT claim real audio capture works until manually tested on a physical Mac.
 #if canImport(AVFoundation)
 import AVFoundation
+import CoreGraphics
 import NoteTakrCore
 
 final class NativeAudioRecorder: AudioRecorder, @unchecked Sendable {
@@ -16,6 +17,11 @@ final class NativeAudioRecorder: AudioRecorder, @unchecked Sendable {
         guard !isRecording else {
             throw AudioRecorderError.alreadyRecording
         }
+        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            throw AudioRecorderError.recordingFailed(
+                "Microphone permission has not been granted")
+        }
+
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         let micURL = directory.appendingPathComponent("microphone.m4a")
@@ -38,12 +44,15 @@ final class NativeAudioRecorder: AudioRecorder, @unchecked Sendable {
 
         // System-audio via ScreenCaptureKit; requires screen recording permission.
         // Gracefully skipped when permission is absent or hardware is unavailable.
-        let capturer = SystemAudioCapturer()
-        do {
-            try await capturer.startCapture(to: sysURL)
-            sysAudioCapturer = capturer
-        } catch {
-            sysAudioCapturer = nil
+        if CGPreflightScreenCaptureAccess() {
+            let capturer = SystemAudioCapturer()
+            do {
+                try await capturer.startCapture(to: sysURL)
+                sysAudioCapturer = capturer
+            } catch {
+                NSLog("NoteTakr system audio capture failed to start: \(error.localizedDescription)")
+                sysAudioCapturer = nil
+            }
         }
 
         isRecording = true

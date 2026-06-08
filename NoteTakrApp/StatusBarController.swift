@@ -32,11 +32,15 @@ final class StatusBarController: NSObject {
 
         recordingManager = RecordingManager(store: store, recorder: NativeAudioRecorder())
 
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "mic.circle", accessibilityDescription: "NoteTakr")
+            let image = NSImage(systemSymbolName: "mic.circle", accessibilityDescription: "NoteTakr")
+            image?.isTemplate = true
+            button.image = image
+            button.title = "NoteTakr"
+            button.imagePosition = .imageLeft
         }
 
         let meetingItem = NSMenuItem(title: "No upcoming meetings", action: nil, keyEquivalent: "")
@@ -85,14 +89,18 @@ final class StatusBarController: NSObject {
         menu.addItem(NSMenuItem(title: "Quit NoteTakr", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
 
-        calendarAdapter = EventKitCalendarAdapter()
-        Task { await refreshNextMeeting() }
-        Task { await notificationScheduler.requestPermission() }
+        nextMeetingMenuItem?.title = "Grant Calendar Access in Settings"
 
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleStartRecordingFromNotification),
             name: .meetingNotificationStartRecording,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCalendarAccessGranted),
+            name: .noteTakrCalendarAccessGranted,
             object: nil
         )
     }
@@ -111,9 +119,15 @@ final class StatusBarController: NSObject {
         }
     }
 
+    @objc private func handleCalendarAccessGranted() {
+        if calendarAdapter == nil {
+            calendarAdapter = EventKitCalendarAdapter()
+        }
+        Task { await refreshNextMeeting() }
+    }
+
     @objc private func openSettings() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        NSApp.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .noteTakrShowSettingsWindow, object: nil)
     }
 
     @objc private func openRecordingsFolder() {
@@ -174,7 +188,9 @@ final class StatusBarController: NSObject {
         recordingMenuItem?.title = isRecording ? "Stop Recording" : "Start Recording"
         if let button = statusItem.button {
             let name = isRecording ? "mic.circle.fill" : "mic.circle"
-            button.image = NSImage(systemSymbolName: name, accessibilityDescription: "NoteTakr")
+            let image = NSImage(systemSymbolName: name, accessibilityDescription: "NoteTakr")
+            image?.isTemplate = true
+            button.image = image
             button.contentTintColor = isRecording ? .systemRed : nil
         }
     }
@@ -303,8 +319,15 @@ final class StatusBarController: NSObject {
         defer { isCalendarLoading = false }
 
         guard let adapter = calendarAdapter else { return }
+        guard adapter.hasAccess else {
+            nextCalendarMeeting = nil
+            nextMeetingMenuItem?.title = "Grant Calendar Access in Settings"
+            nextMeetingMenuItem?.isEnabled = false
+            calendarError = "Calendar access not granted"
+            return
+        }
+
         do {
-            try await adapter.requestAccess()
             let now = Date()
             let tomorrow = now.addingTimeInterval(86_400)
             let events = try await adapter.fetchUpcomingEvents(from: now, to: tomorrow)
@@ -313,6 +336,10 @@ final class StatusBarController: NSObject {
                 nextMeetingMenuItem?.title = top.event.title
                 nextMeetingMenuItem?.isEnabled = false
                 notificationScheduler.scheduleReminder(for: top.event)
+            } else {
+                nextCalendarMeeting = nil
+                nextMeetingMenuItem?.title = "No upcoming meetings"
+                nextMeetingMenuItem?.isEnabled = false
             }
         } catch {
             calendarError = "Calendar unavailable"

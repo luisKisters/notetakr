@@ -6,6 +6,8 @@ public enum CalendarError: Error, Equatable {
 }
 
 public protocol CalendarAdapter {
+    var hasAccess: Bool { get }
+
     func requestAccess() async throws
     func fetchUpcomingEvents(from: Date, to: Date) async throws -> [CalendarEvent]
 }

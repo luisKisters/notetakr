@@ -53,7 +53,9 @@ CI runs both suites automatically on every push via
 
 ## First-launch permissions
 
-On first launch, grant the following permissions when macOS prompts:
+On first launch, NoteTakr shows permission status but does not ask for protected
+resource access. Open menu bar > Settings… > Permissions and click the grant
+button for each permission you want to enable:
 
 | Permission | Required for |
 |------------|--------------|
@@ -63,6 +65,30 @@ On first launch, grant the following permissions when macOS prompts:
 
 You can also review and grant permissions at any time from
 menu bar > Settings… > Permissions.
+
+### Screen Recording troubleshooting
+
+macOS Screen Recording permission is tied to the exact app bundle that is
+running. If you granted `/Applications/NoteTakr.app` but are launching the app
+from Xcode, grant the Xcode-built app instead. Find the debug app with:
+
+```sh
+find ~/Library/Developer/Xcode/DerivedData -path '*/Build/Products/Debug/NoteTakr.app' -type d -print
+```
+
+Reveal the app you are actually testing, then drag that app into System Settings
+> Privacy & Security > Screen Recording:
+
+```sh
+open -R "/path/to/NoteTakr.app"
+```
+
+If macOS has a stale permission entry, reset it and grant again from NoteTakr
+Settings:
+
+```sh
+tccutil reset ScreenCapture com.notetakr.app
+```
 
 ## Current limitations
 

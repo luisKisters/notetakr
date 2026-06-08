@@ -3,6 +3,7 @@ import Foundation
 public final class MockCalendarAdapter: CalendarAdapter {
     public var events: [CalendarEvent]
     public var accessGranted: Bool
+    public var hasAccess: Bool { accessGranted }
 
     public init(events: [CalendarEvent] = [], accessGranted: Bool = true) {
         self.events = events

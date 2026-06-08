@@ -7,6 +7,15 @@ public final class EventKitCalendarAdapter: CalendarAdapter {
 
     public init() {}
 
+    public var hasAccess: Bool {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        if #available(macOS 14.0, *) {
+            return status == .fullAccess
+        } else {
+            return status == .authorized
+        }
+    }
+
     public func requestAccess() async throws {
         let granted: Bool
         if #available(macOS 14.0, *) {

@@ -49,11 +49,14 @@ Run these steps after every significant change to audio capture or transcription
 ### Calendar Permission
 
 - [ ] Click the menu-bar icon. Under "Next Meeting" the app should show a
-      loading indicator briefly, then either an upcoming meeting title or
-      "No upcoming meetings detected".
-- [ ] On first launch macOS prompts for Calendar access. Grant it.
+      loading indicator briefly, then "Grant Calendar Access in Settings" when
+      access has not been granted.
+- [ ] Open the menu bar > Settings… (or press Cmd+,).
+- [ ] Click "Grant Access" in the Calendar row. macOS prompts for Calendar
+      access. Grant it.
 - [ ] If access was previously denied: open System Settings > Privacy &
-      Security > Calendars, find NoteTakr, and enable access. Relaunch the app.
+      Security > Calendars, find NoteTakr, and enable access. Click
+      "Refresh Status" in Settings.
 - [ ] After granting access, the next calendar meeting (if any in the next
       24 hours) should appear in the menu and the Today window.
 
@@ -74,6 +77,17 @@ Run these steps after every significant change to audio capture or transcription
 - [ ] The System Audio row should now show "Granted" (green).
 - [ ] If it shows "Denied": open System Settings > Privacy & Security >
       Screen Recording, enable NoteTakr, then click "Refresh Status".
+- [ ] If the Screen Recording list contains `/Applications/NoteTakr.app` but
+      you are running from Xcode, grant the Xcode-built app instead. Find it
+      with:
+      ```
+      find ~/Library/Developer/Xcode/DerivedData -path '*/Build/Products/Debug/NoteTakr.app' -type d -print
+      ```
+- [ ] If macOS keeps a stale Screen Recording entry, reset it, restart NoteTakr,
+      and grant again from Settings:
+      ```
+      tccutil reset ScreenCapture com.notetakr.app
+      ```
 
 ## Recording Checks
 

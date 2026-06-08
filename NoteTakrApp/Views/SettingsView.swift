@@ -67,24 +67,12 @@ struct SettingsView: View {
                         Task { await permissions.requestCalendarAccess() }
                     }
                 )
-                permissionRow(
-                    label: "System Audio",
-                    detail: systemAudioPermissionDetail,
-                    status: permissions.systemAudioStatus,
-                    buttonTitle: permissions.systemAudioRestartRequired ? "Restart App" : "Grant Access",
-                    action: {
-                        if permissions.systemAudioRestartRequired {
-                            permissions.restartApp()
-                        } else {
-                            permissions.requestSystemAudioAccess()
-                        }
-                    }
-                )
+                systemAudioPermissionRow()
             }
 
             Section {
                 Button("Refresh Status") {
-                    permissions.refresh()
+                    permissions.refresh(includeCalendar: true)
                 }
                 .accessibilityIdentifier("refreshPermissionsButton")
             }
@@ -171,6 +159,38 @@ struct SettingsView: View {
         guard !newPhrase.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         vocab.add(phrase: newPhrase)
         newPhrase = ""
+    }
+
+    @ViewBuilder
+    private func systemAudioPermissionRow() -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("System Audio")
+                    .fontWeight(.medium)
+                Text(systemAudioPermissionDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if permissions.systemAudioStatus != .granted {
+                Button("Open Settings") {
+                    permissions.requestSystemAudioAccess()
+                }
+                .controlSize(.small)
+                .accessibilityIdentifier("grantAccess_System Audio")
+
+                if permissions.systemAudioRestartRequired {
+                    Button("Restart App") {
+                        permissions.restartApp()
+                    }
+                    .controlSize(.small)
+                    .accessibilityIdentifier("restartForSystemAudio")
+                }
+            }
+            statusBadge(permissions.systemAudioStatus)
+        }
+        .padding(.vertical, 2)
+        .accessibilityIdentifier("permissionRow_System Audio")
     }
 
     @ViewBuilder

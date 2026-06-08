@@ -24,18 +24,21 @@ final class AudioPermissionManager: ObservableObject {
         refresh()
     }
 
-    func refresh() {
+    func refresh(includeCalendar: Bool = true) {
         microphoneStatus = currentMicrophoneStatus()
         systemAudioStatus = currentSystemAudioStatus()
         if systemAudioStatus == .granted {
             systemAudioRestartRequired = false
         }
-        calendarStatus = currentCalendarStatus()
+        if includeCalendar {
+            calendarStatus = currentCalendarStatus()
+        }
     }
 
     func requestMicrophoneAccess() async {
         let granted = await AVCaptureDevice.requestAccess(for: .audio)
         microphoneStatus = granted ? currentMicrophoneStatus() : .denied
+        scheduleAppReactivation()
     }
 
     /// Opens the screen recording permission pane in System Settings.
@@ -43,7 +46,7 @@ final class AudioPermissionManager: ObservableObject {
     func requestSystemAudioAccess() {
         let granted = CGRequestScreenCaptureAccess()
         systemAudioStatus = currentSystemAudioStatus()
-        systemAudioRestartRequired = granted && systemAudioStatus != .granted
+        systemAudioRestartRequired = systemAudioStatus != .granted
         if !granted {
             openScreenRecordingSettings()
         }
@@ -76,9 +79,14 @@ final class AudioPermissionManager: ObservableObject {
                     }
                 }
             }
-            calendarStatus = granted ? currentCalendarStatus() : .denied
+            calendarStatus = granted ? .granted : .denied
+            if granted {
+                NotificationCenter.default.post(name: .noteTakrCalendarAccessGranted, object: nil)
+            }
+            scheduleAppReactivation()
         } catch {
             calendarStatus = currentCalendarStatus()
+            scheduleAppReactivation()
         }
 #else
         calendarStatus = .denied
@@ -111,8 +119,8 @@ final class AudioPermissionManager: ObservableObject {
             }
         } else {
             switch status {
-            case .authorized: return .granted
-            case .denied, .restricted: return .denied
+            case .authorized, .fullAccess: return .granted
+            case .writeOnly, .denied, .restricted: return .denied
             case .notDetermined: return .notDetermined
             @unknown default: return .denied
             }
@@ -133,7 +141,7 @@ final class AudioPermissionManager: ObservableObject {
             Task { [weak self] in
                 try? await Task.sleep(nanoseconds: delay)
                 await MainActor.run {
-                    self?.refresh()
+                    self?.refresh(includeCalendar: false)
                 }
             }
         }
@@ -145,5 +153,19 @@ final class AudioPermissionManager: ObservableObject {
         }
         NSWorkspace.shared.open(url)
     }
+
+    private func scheduleAppReactivation() {
+        Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            await MainActor.run {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
+    }
+}
+
+extension Notification.Name {
+    static let noteTakrCalendarAccessGranted =
+        Notification.Name("NoteTakrCalendarAccessGranted")
 }
 #endif
