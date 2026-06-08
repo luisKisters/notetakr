@@ -1,6 +1,7 @@
 import XCTest
 import AVFoundation
 import NoteTakrCore
+@testable import NoteTakr
 
 final class NativeAudioRecorderTests: XCTestCase {
 

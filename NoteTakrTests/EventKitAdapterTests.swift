@@ -1,6 +1,7 @@
 import XCTest
 import EventKit
 import NoteTakrCore
+@testable import NoteTakr
 
 final class EventKitAdapterTests: XCTestCase {
 
