@@ -155,4 +155,36 @@ final class TranscriptionServiceTests: XCTestCase {
         XCTAssertEqual(updated.transcriptSegments[0].text, "Hello")
         XCTAssertEqual(updated.transcriptSegments[1].timestamp, 10)
     }
+
+    func testNoteGeneratedAfterTranscription() async throws {
+        let engine = MockTranscriptionEngine()
+        let service = TranscriptionService(engine: engine, store: store)
+        var session = MeetingSession(title: "Auto Note Meeting", date: Date())
+        session.audioFilePaths = [audioFile.path]
+        try store.save(session)
+
+        _ = try await service.transcribe(session: session, vocabulary: [])
+
+        let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: noteURL.path), "note.md should be generated after transcription")
+        let content = try String(contentsOf: noteURL, encoding: .utf8)
+        XCTAssertTrue(content.contains("# Auto Note Meeting"))
+        XCTAssertTrue(content.contains("## Transcript"))
+    }
+
+    func testNoteContainsTranscriptContent() async throws {
+        let segments = [TranscriptSegment(timestamp: 0, speaker: "Alice", text: "Auto note text")]
+        let engine = MockTranscriptionEngine(fixtureSegments: segments)
+        let service = TranscriptionService(engine: engine, store: store)
+        var session = MeetingSession(title: "Content Check", date: Date())
+        session.audioFilePaths = [audioFile.path]
+        try store.save(session)
+
+        _ = try await service.transcribe(session: session, vocabulary: [])
+
+        let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
+        let content = try String(contentsOf: noteURL, encoding: .utf8)
+        XCTAssertTrue(content.contains("Auto note text"))
+        XCTAssertTrue(content.contains("Alice"))
+    }
 }

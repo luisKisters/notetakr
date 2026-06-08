@@ -186,11 +186,11 @@ The app can record, but it is not yet production-ready:
 
 ### Task 5: Improve Notes Generation
 
-- [ ] Regenerate `note.md` after transcription completes.
-- [ ] Include session title, date, audio sources, transcript, and personal notes.
-- [ ] Add an obvious Open Note action in session detail.
-- [ ] Add tests for rendered note content.
-- [ ] Run validation and commit.
+- [x] Regenerate `note.md` after transcription completes.
+- [x] Include session title, date, audio sources, transcript, and personal notes.
+- [x] Add an obvious Open Note action in session detail.
+- [x] Add tests for rendered note content.
+- [x] Run validation and commit.
 
 ### Task 6: Final E2E Smoke Test
 

@@ -7,6 +7,7 @@ struct SessionDetailView: View {
     var onStopRecording: (() -> Void)? = nil
     var onTranscribe: (() -> Void)? = nil
     var onGenerateNote: (() -> Void)? = nil
+    var onOpenNote: (() -> Void)? = nil
     @ObservedObject var transcriptionCoordinator: TranscriptionCoordinator
 
     init(
@@ -15,6 +16,7 @@ struct SessionDetailView: View {
         onStopRecording: (() -> Void)? = nil,
         onTranscribe: (() -> Void)? = nil,
         onGenerateNote: (() -> Void)? = nil,
+        onOpenNote: (() -> Void)? = nil,
         transcriptionCoordinator: TranscriptionCoordinator = TranscriptionCoordinator()
     ) {
         self._session = session
@@ -22,6 +24,7 @@ struct SessionDetailView: View {
         self.onStopRecording = onStopRecording
         self.onTranscribe = onTranscribe
         self.onGenerateNote = onGenerateNote
+        self.onOpenNote = onOpenNote
         self.transcriptionCoordinator = transcriptionCoordinator
     }
 
@@ -94,10 +97,17 @@ struct SessionDetailView: View {
                             }
                         }
                         .frame(maxHeight: 200)
-                        if let generate = onGenerateNote {
-                            Button("Generate Note…", action: generate)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                                .accessibilityIdentifier("generateNoteButton")
+                        HStack {
+                            if let openNote = onOpenNote {
+                                Button("Open Note", action: openNote)
+                                    .buttonStyle(.borderedProminent)
+                                    .accessibilityIdentifier("openNoteButton")
+                            }
+                            Spacer()
+                            if let generate = onGenerateNote {
+                                Button("Generate Note…", action: generate)
+                                    .accessibilityIdentifier("generateNoteButton")
+                            }
                         }
                     }
                 }

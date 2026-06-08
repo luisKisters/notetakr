@@ -159,6 +159,61 @@ final class MarkdownNoteRendererTests: XCTestCase {
         let md = MarkdownNoteRenderer.render(session: session)
         XCTAssertTrue(md.contains("stopped"))
     }
+
+    func testAudioSourceStatusesSectionPresent() {
+        var session = MeetingSession(title: "Call", date: Date())
+        session.audioSourceStatuses = [
+            AudioSourceStatus(source: .microphone, fileSizeBytes: 2_097_152, durationSeconds: 754),
+            AudioSourceStatus(source: .systemAudio, fileSizeBytes: 1_048_576, durationSeconds: 754)
+        ]
+        let md = MarkdownNoteRenderer.render(session: session)
+        XCTAssertTrue(md.contains("## Audio Sources"))
+        XCTAssertTrue(md.contains("Microphone"))
+        XCTAssertTrue(md.contains("System Audio"))
+        XCTAssertTrue(md.contains("Captured"))
+        XCTAssertTrue(md.contains("12:34"))
+        XCTAssertFalse(md.contains("## Audio Files"))
+    }
+
+    func testMissingAudioSourceWithReason() {
+        var session = MeetingSession(title: "Call", date: Date())
+        session.audioSourceStatuses = [
+            AudioSourceStatus(source: .microphone, fileSizeBytes: 512_000, durationSeconds: 60),
+            AudioSourceStatus(source: .systemAudio, missingReason: "permission not granted")
+        ]
+        let md = MarkdownNoteRenderer.render(session: session)
+        XCTAssertTrue(md.contains("## Audio Sources"))
+        XCTAssertTrue(md.contains("Not captured — permission not granted"))
+    }
+
+    func testAudioSourceStatusesWithNoDetailShowsCaptured() {
+        var session = MeetingSession(title: "Call", date: Date())
+        session.audioSourceStatuses = [
+            AudioSourceStatus(source: .microphone, fileSizeBytes: 1024)
+        ]
+        let md = MarkdownNoteRenderer.render(session: session)
+        XCTAssertTrue(md.contains("Captured ("))
+    }
+
+    func testAudioSourceStatusesTakePrecedenceOverAudioFilePaths() {
+        var session = MeetingSession(title: "Call", date: Date())
+        session.audioFilePaths = ["/recordings/microphone.m4a"]
+        session.audioSourceStatuses = [
+            AudioSourceStatus(source: .microphone, fileSizeBytes: 1024, durationSeconds: 30)
+        ]
+        let md = MarkdownNoteRenderer.render(session: session)
+        XCTAssertTrue(md.contains("## Audio Sources"))
+        XCTAssertFalse(md.contains("## Audio Files"))
+    }
+
+    func testMissingSourceWithNoReasonUsesDefault() {
+        var session = MeetingSession(title: "Call", date: Date())
+        session.audioSourceStatuses = [
+            AudioSourceStatus(source: .systemAudio)
+        ]
+        let md = MarkdownNoteRenderer.render(session: session)
+        XCTAssertTrue(md.contains("Not captured — Not captured"))
+    }
 }
 
 final class MockTranscriptionEngineTests: XCTestCase {

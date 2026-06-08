@@ -265,6 +265,10 @@ final class StatusBarController: NSObject {
             guard let self else { return }
             self.generateNote(for: mutable)
         }
+        let onOpenNote: (() -> Void)? = { [weak self] in
+            guard let self else { return }
+            self.openNote(for: mutable)
+        }
 
         let view = SessionDetailView(
             session: Binding(get: { mutable }, set: { [self] in mutable = $0; try? self.store.save($0) }),
@@ -278,6 +282,7 @@ final class StatusBarController: NSObject {
             } : nil,
             onTranscribe: onTranscribe,
             onGenerateNote: onGenerateNote,
+            onOpenNote: onOpenNote,
             transcriptionCoordinator: coordinator
         )
         let hostingController = NSHostingController(rootView: view)
@@ -303,6 +308,15 @@ final class StatusBarController: NSObject {
             NSWorkspace.shared.open(noteURL)
         } catch {
             // Note save failed — ignore silently.
+        }
+    }
+
+    private func openNote(for session: MeetingSession) {
+        let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
+        if FileManager.default.fileExists(atPath: noteURL.path) {
+            NSWorkspace.shared.open(noteURL)
+        } else {
+            generateNote(for: session)
         }
     }
 
