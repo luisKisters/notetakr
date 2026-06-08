@@ -6,8 +6,7 @@ struct NoteTakrApp: App {
 
     var body: some Scene {
         Settings {
-            Text("NoteTakr Settings")
-                .frame(width: 300, height: 200)
+            SettingsView()
         }
     }
 }

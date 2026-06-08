@@ -96,15 +96,15 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 4: Add real macOS audio capture adapter
 
-* [ ] Add a native macOS audio recorder adapter.
-* [ ] Capture microphone audio as a separate local file.
-* [ ] Add system-audio capture using the appropriate macOS audio API.
-* [ ] Keep the real adapter isolated behind the existing AudioRecorder protocol.
-* [ ] Add permission-state handling for microphone and system-audio access.
-* [ ] Add a settings screen showing permission status.
-* [ ] Add compile-time macOS tests and mock-driven behavior tests.
-* [ ] Do not claim that real audio capture works until manually tested on a physical Mac.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Add a native macOS audio recorder adapter.
+* [x] Capture microphone audio as a separate local file.
+* [x] Add system-audio capture using the appropriate macOS audio API.
+* [x] Keep the real adapter isolated behind the existing AudioRecorder protocol.
+* [x] Add permission-state handling for microphone and system-audio access.
+* [x] Add a settings screen showing permission status.
+* [x] Add compile-time macOS tests and mock-driven behavior tests.
+* [x] Do not claim that real audio capture works until manually tested on a physical Mac.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 5: Add local transcription architecture and vocabulary boosting
 

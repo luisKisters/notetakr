@@ -44,6 +44,9 @@ final class StatusBarController: NSObject {
         let sessionsItem = NSMenuItem(title: "Sessions...", action: #selector(showSessions), keyEquivalent: "")
         sessionsItem.target = self
 
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+
         let menu = NSMenu()
         menu.addItem(meetingItem)
         menu.addItem(.separator())
@@ -51,11 +54,18 @@ final class StatusBarController: NSObject {
         menu.addItem(recItem)
         menu.addItem(sessionsItem)
         menu.addItem(.separator())
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit NoteTakr", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
 
         calendarAdapter = EventKitCalendarAdapter()
         Task { await refreshNextMeeting() }
+    }
+
+    @objc private func openSettings() {
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func quickRecording() {
