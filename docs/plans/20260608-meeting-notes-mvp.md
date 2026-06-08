@@ -73,15 +73,15 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 2: Add calendar-aware meeting preparation
 
-* [ ] Add an EventKit calendar adapter behind a protocol.
-* [ ] Add a mock calendar adapter for Linux-compatible tests.
-* [ ] Detect likely Google Meet, Zoom, and Microsoft Teams events from calendar URLs.
-* [ ] Add keyword fallback matching for generic meetings such as sync, call, meeting, standup, and interview.
-* [ ] Display the next likely meeting in the menu-bar interface.
-* [ ] Add a manual Quick Recording action for unscheduled calls.
-* [ ] Add unit tests for URL matching, keyword scoring, sorting, and empty-calendar behavior.
-* [ ] Add a macOS compile test for the EventKit adapter.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Add an EventKit calendar adapter behind a protocol.
+* [x] Add a mock calendar adapter for Linux-compatible tests.
+* [x] Detect likely Google Meet, Zoom, and Microsoft Teams events from calendar URLs.
+* [x] Add keyword fallback matching for generic meetings such as sync, call, meeting, standup, and interview.
+* [x] Display the next likely meeting in the menu-bar interface.
+* [x] Add a manual Quick Recording action for unscheduled calls.
+* [x] Add unit tests for URL matching, keyword scoring, sorting, and empty-calendar behavior.
+* [x] Add a macOS compile test for the EventKit adapter.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 3: Add the recording lifecycle with mock audio
 
