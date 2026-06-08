@@ -143,9 +143,9 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 8: Final review and cleanup
 
-* [ ] Run all Linux-compatible tests.
-* [ ] Push the branch and wait for the complete macOS workflow.
-* [ ] Fix every build failure, test failure, and actionable warning.
-* [ ] Confirm that no cloud service, login flow, browser extension, Electron dependency, or Tauri dependency was added.
-* [ ] Confirm that unverified real-world audio capture claims are clearly marked as requiring the physical Mac smoke test.
-* [ ] Write a concise completion report in `docs/agent-progress.md`.
+* [x] Run all Linux-compatible tests.
+* [x] Push the branch and wait for the complete macOS workflow.
+* [x] Fix every build failure, test failure, and actionable warning.
+* [x] Confirm that no cloud service, login flow, browser extension, Electron dependency, or Tauri dependency was added.
+* [x] Confirm that unverified real-world audio capture claims are clearly marked as requiring the physical Mac smoke test.
+* [x] Write a concise completion report in `docs/agent-progress.md`.
