@@ -159,19 +159,23 @@ final class StatusBarController: NSObject {
         let isActiveSession = recordingManager.activeSession?.id == session.id
 
         let onTranscribe: (() -> Void)? = mutable.audioFilePaths.isEmpty ? nil : { [weak self] in
-            self?.transcribeSession(&mutable)
+            guard let self else { return }
+            let copy = mutable
+            self.transcribeSession(copy)
         }
         let onGenerateNote: (() -> Void)? = { [weak self] in
-            self?.generateNote(for: mutable)
+            guard let self else { return }
+            self.generateNote(for: mutable)
         }
 
         let view = SessionDetailView(
             session: Binding(get: { mutable }, set: { mutable = $0 }),
             isActiveRecording: isActiveSession,
             onStopRecording: isActiveSession ? { [weak self] in
+                guard let self else { return }
                 Task { @MainActor in
-                    _ = try? await self?.recordingManager.stopRecording()
-                    self?.updateRecordingUI()
+                    _ = try? await self.recordingManager.stopRecording()
+                    self.updateRecordingUI()
                 }
             } : nil,
             onTranscribe: onTranscribe,
@@ -191,16 +195,15 @@ final class StatusBarController: NSObject {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func transcribeSession(_ session: inout MeetingSession) {
-        let sessionCopy = session
+    private func transcribeSession(_ session: MeetingSession) {
         let vocab = (try? vocabularyStore.enabledEntries()) ?? []
         Task { @MainActor in
             let engine = MockTranscriptionEngine()
-            guard let audioPath = sessionCopy.audioFilePaths.first else { return }
+            guard let audioPath = session.audioFilePaths.first else { return }
             let audioURL = URL(fileURLWithPath: audioPath)
             do {
                 let segments = try await engine.transcribe(audioURL: audioURL, vocabulary: vocab)
-                var updated = sessionCopy
+                var updated = session
                 updated.transcriptSegments = segments
                 try? self.store.save(updated)
             } catch {
