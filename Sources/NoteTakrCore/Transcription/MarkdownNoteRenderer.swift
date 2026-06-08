@@ -10,7 +10,6 @@ public struct MarkdownNoteRenderer {
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .long
         dateFormatter.timeStyle = .short
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         lines.append("**Date:** \(dateFormatter.string(from: session.date))")
         lines.append("**Status:** \(session.status.rawValue)")
         lines.append("")

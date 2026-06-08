@@ -196,12 +196,13 @@ struct SettingsView: View {
                         }
                         .controlSize(.small)
                         .accessibilityIdentifier("restartForSystemAudio")
+                    } else {
+                        Button("Open Settings") {
+                            permissions.requestSystemAudioAccess()
+                        }
+                        .controlSize(.small)
+                        .accessibilityIdentifier("grantAccess_System Audio")
                     }
-                    Button("Open Settings") {
-                        permissions.requestSystemAudioAccess()
-                    }
-                    .controlSize(.small)
-                    .accessibilityIdentifier("grantAccess_System Audio")
                 }
                 systemAudioStatusBadge
             }

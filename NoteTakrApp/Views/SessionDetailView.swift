@@ -156,6 +156,11 @@ struct SessionDetailView: View {
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("transcriptionFailed")
+        case .completed:
+            Text("Transcription complete.")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("transcriptPlaceholder")
         default:
             VStack(alignment: .leading, spacing: 8) {
                 Text("Transcript will appear here after recording.")

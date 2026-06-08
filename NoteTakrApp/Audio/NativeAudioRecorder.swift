@@ -79,6 +79,8 @@ final class NativeAudioRecorder: AudioRecorder, AudioCaptureReporter, @unchecked
         micRecorder = nil
         if let url = capturedMicURL, FileManager.default.fileExists(atPath: url.path) {
             results.append(url)
+        } else {
+            _lastMissingReasons[AudioSourceType.microphone.rawValue] = "No samples received"
         }
         capturedMicURL = nil
 
