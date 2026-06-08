@@ -146,14 +146,14 @@ The app can record, but it is not yet production-ready:
 
 ### Task 1: Stabilize macOS Build and Signing
 
-- [ ] Add a `scripts/build-macos-app.sh` script.
-- [ ] Build the app into a deterministic local output path.
-- [ ] Install or copy the app into `/Applications/NoteTakr.app` only when
+- [x] Add a `scripts/build-macos-app.sh` script.
+- [x] Build the app into a deterministic local output path.
+- [x] Install or copy the app into `/Applications/NoteTakr.app` only when
       explicitly requested by a flag.
-- [ ] Preserve bundle identifier and entitlements.
-- [ ] Document Xcode installation/selection requirements.
-- [ ] Update `docs/manual-smoke-test.md`.
-- [ ] Run validation and commit.
+- [x] Preserve bundle identifier and entitlements.
+- [x] Document Xcode installation/selection requirements.
+- [x] Update `docs/manual-smoke-test.md`.
+- [x] Run validation and commit.
 
 ### Task 2: Polish Permission UX
 

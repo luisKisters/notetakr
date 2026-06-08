@@ -10,13 +10,63 @@ Run these steps after every significant change to audio capture or transcription
 - A calendar account configured in System Settings > Internet Accounts
 - A browser open with a tab that plays audio (e.g. YouTube)
 
-## Local Xcode Launch Steps
+## Xcode Installation
 
-1. Clone or pull the `meeting-notes-mvp` branch:
+Xcode 15 or later is required to build the app target.
+
+- Install from the App Store: search "Xcode".
+- Or download from https://developer.apple.com/download/all/ (sign in with an
+  Apple ID).
+- After installing, run:
+  ```
+  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+  xcode-select -p          # should print the Developer path
+  xcodebuild -version      # should print Xcode 15.x or later
+  ```
+- To switch between multiple Xcode versions installed under different names:
+  ```
+  sudo xcode-select --switch /Applications/Xcode_16.app/Contents/Developer
+  ```
+
+## Build Script (Recommended)
+
+Use `scripts/build-macos-app.sh` for a repeatable local build.  The script
+always writes to `build/NoteTakr.app`; use `--install` to also copy it into
+`/Applications/`.
+
+```
+# Build only (output: build/NoteTakr.app)
+bash scripts/build-macos-app.sh
+
+# Build and install into /Applications/NoteTakr.app
+bash scripts/build-macos-app.sh --install
+
+# Release build
+bash scripts/build-macos-app.sh --config Release
+
+# Build with a real signing identity (to preserve TCC across reinstalls)
+NOTETAKR_SIGN_IDENTITY="Apple Development" bash scripts/build-macos-app.sh
+```
+
+The script uses `CODE_SIGN_IDENTITY=""` (ad-hoc / unsigned) by default.
+macOS TCC permissions are tied to the bundle identifier `com.notetakr.app`,
+not the signing identity, so permissions survive rebuilds as long as the
+bundle ID stays the same.
+
+After building, launch the app:
+```
+open build/NoteTakr.app
+# or, after --install:
+open /Applications/NoteTakr.app
+```
+
+## Local Xcode Launch Steps (Alternative)
+
+1. Clone or pull the `next-product-phase` branch:
    ```
    git clone https://github.com/<org>/notetakr.git
    cd notetakr
-   git checkout meeting-notes-mvp
+   git checkout next-product-phase
    ```
 
 2. Open the project in Xcode:
