@@ -134,12 +134,12 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 7: Document the physical Mac smoke test
 
-* [ ] Create `docs/manual-smoke-test.md`.
-* [ ] Document the exact local Xcode launch steps.
-* [ ] Include checks for calendar permission, microphone permission, system-audio permission, audible microphone recording, audible browser audio recording, separate audio files, note generation, and persistence after relaunch.
-* [ ] Clearly list which features were verified automatically and which still require a physical Mac.
-* [ ] Update the README with setup instructions and the current limitations.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Create `docs/manual-smoke-test.md`.
+* [x] Document the exact local Xcode launch steps.
+* [x] Include checks for calendar permission, microphone permission, system-audio permission, audible microphone recording, audible browser audio recording, separate audio files, note generation, and persistence after relaunch.
+* [x] Clearly list which features were verified automatically and which still require a physical Mac.
+* [x] Update the README with setup instructions and the current limitations.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 8: Final review and cleanup
 
