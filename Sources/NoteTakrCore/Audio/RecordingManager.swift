@@ -38,7 +38,7 @@ public final class RecordingManager: @unchecked Sendable {
         return session
     }
 
-    /// Stops the recorder, saves the audio file paths, and transitions the session to .stopped.
+    /// Stops the recorder, saves the audio file paths and per-source capture statuses, and transitions to .stopped.
     /// On recorder failure, the session is marked .failed.
     public func stopRecording() async throws -> MeetingSession {
         guard var session = _activeSession else {
@@ -46,7 +46,12 @@ public final class RecordingManager: @unchecked Sendable {
         }
         do {
             let urls = try await recorder.stopRecording()
+            let missingReasons = (recorder as? AudioCaptureReporter)?.lastMissingReasons ?? [:]
             session.audioFilePaths = urls.map { $0.path }
+            session.audioSourceStatuses = Self.deriveSourceStatuses(
+                returnedURLs: urls,
+                missingReasons: missingReasons
+            )
             session.status = .stopped
             try store.save(session)
             _activeSession = nil
@@ -66,5 +71,25 @@ public final class RecordingManager: @unchecked Sendable {
         session.status = .failed
         try? store.save(session)
         _activeSession = nil
+    }
+
+    // Derives per-source statuses from the URLs returned by stopRecording().
+    // A source is considered present when a matching URL appears in returnedURLs.
+    static func deriveSourceStatuses(
+        returnedURLs: [URL],
+        missingReasons: [String: String]
+    ) -> [AudioSourceStatus] {
+        AudioSourceType.allCases.map { source in
+            let url = returnedURLs.first {
+                $0.deletingPathExtension().lastPathComponent == source.fileNamePrefix
+            }
+            if let url {
+                let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+                let size = (attrs?[.size] as? NSNumber).map { Int64($0.int64Value) }
+                return AudioSourceStatus(source: source, fileSizeBytes: size)
+            } else {
+                return AudioSourceStatus(source: source, missingReason: missingReasons[source.rawValue])
+            }
+        }
     }
 }

@@ -1,13 +1,20 @@
 import Foundation
 
-public final class MockAudioRecorder: AudioRecorder, @unchecked Sendable {
+public final class MockAudioRecorder: AudioRecorder, AudioCaptureReporter, @unchecked Sendable {
     public private(set) var isRecording: Bool = false
     private var currentDirectory: URL?
 
     public var shouldFailOnStart: Bool = false
     public var shouldFailOnStop: Bool = false
+    public var mockMissingReasons: [String: String] = [:]
     public private(set) var startCallCount: Int = 0
     public private(set) var stopCallCount: Int = 0
+
+    // AudioCaptureReporter
+    public var lastMissingReasons: [String: String] { mockMissingReasons }
+
+    // Controls whether system-audio.wav is omitted from stopRecording results.
+    public var omitSystemAudio: Bool = false
 
     public init() {}
 
@@ -38,9 +45,13 @@ public final class MockAudioRecorder: AudioRecorder, @unchecked Sendable {
         let sysURL = dir.appendingPathComponent("system-audio.wav")
         let placeholder = Data("RIFF fixture".utf8)
         try placeholder.write(to: micURL)
-        try placeholder.write(to: sysURL)
+        var results: [URL] = [micURL]
+        if !omitSystemAudio {
+            try placeholder.write(to: sysURL)
+            results.append(sysURL)
+        }
         isRecording = false
         currentDirectory = nil
-        return [micURL, sysURL]
+        return results
     }
 }

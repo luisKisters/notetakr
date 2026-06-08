@@ -167,12 +167,12 @@ The app can record, but it is not yet production-ready:
 
 ### Task 3: Add Recording Source Status
 
-- [ ] Add a small audio-file metadata reader for duration and file size.
-- [ ] Store capture status in session metadata or derive it from files.
-- [ ] Show microphone/system-audio status in session detail.
-- [ ] Add missing-source messaging.
-- [ ] Add tests for present/missing file states.
-- [ ] Run validation and commit.
+- [x] Add a small audio-file metadata reader for duration and file size.
+- [x] Store capture status in session metadata or derive it from files.
+- [x] Show microphone/system-audio status in session detail.
+- [x] Add missing-source messaging.
+- [x] Add tests for present/missing file states.
+- [x] Run validation and commit.
 
 ### Task 4: Implement Local Transcription
 

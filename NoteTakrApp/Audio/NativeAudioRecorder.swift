@@ -6,12 +6,16 @@ import AVFoundation
 import CoreGraphics
 import NoteTakrCore
 
-final class NativeAudioRecorder: AudioRecorder, @unchecked Sendable {
+final class NativeAudioRecorder: AudioRecorder, AudioCaptureReporter, @unchecked Sendable {
     private(set) var isRecording: Bool = false
     private var micRecorder: AVAudioRecorder?
     private var sysAudioCapturer: SystemAudioCapturer?
     private var capturedMicURL: URL?
     private var capturedSysURL: URL?
+    private var _lastMissingReasons: [String: String] = [:]
+
+    // AudioCaptureReporter
+    var lastMissingReasons: [String: String] { _lastMissingReasons }
 
     func startRecording(into directory: URL) async throws {
         guard !isRecording else {
@@ -22,6 +26,7 @@ final class NativeAudioRecorder: AudioRecorder, @unchecked Sendable {
                 "Microphone permission has not been granted")
         }
 
+        _lastMissingReasons = [:]
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         let micURL = directory.appendingPathComponent("microphone.m4a")
@@ -50,9 +55,13 @@ final class NativeAudioRecorder: AudioRecorder, @unchecked Sendable {
                 try await capturer.startCapture(to: sysURL)
                 sysAudioCapturer = capturer
             } catch {
+                let reason = "Capture start failure: \(error.localizedDescription)"
+                _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = reason
                 NSLog("NoteTakr system audio capture failed to start: \(error.localizedDescription)")
                 sysAudioCapturer = nil
             }
+        } else {
+            _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "Screen Recording permission not granted"
         }
 
         isRecording = true
@@ -78,9 +87,12 @@ final class NativeAudioRecorder: AudioRecorder, @unchecked Sendable {
                 try await capturer.stopCapture()
                 if let url = capturedSysURL, FileManager.default.fileExists(atPath: url.path) {
                     results.append(url)
+                } else {
+                    _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "No samples received"
                 }
             } catch {
-                // System-audio stop failed; continue with microphone recording only.
+                _lastMissingReasons[AudioSourceType.systemAudio.rawValue] =
+                    "Capture stop failure: \(error.localizedDescription)"
             }
             sysAudioCapturer = nil
         }

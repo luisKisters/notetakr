@@ -47,6 +47,23 @@ struct SessionDetailView: View {
 
             Divider()
 
+            if !session.audioSourceStatuses.isEmpty {
+                AudioSourceStatusSection(statuses: session.audioSourceStatuses)
+            } else if !session.audioFilePaths.isEmpty {
+                // Fallback for sessions loaded from disk before source statuses were introduced.
+                GroupBox("Audio Files") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(session.audioFilePaths, id: \.self) { path in
+                            Text(URL(fileURLWithPath: path).lastPathComponent)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("audioFilesList")
+                }
+            }
+
             GroupBox("Transcript") {
                 if session.transcriptSegments.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -84,26 +101,90 @@ struct SessionDetailView: View {
                     .accessibilityIdentifier("personalNotesEditor")
             }
 
-            if !session.audioFilePaths.isEmpty {
-                GroupBox("Audio Files") {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(session.audioFilePaths, id: \.self) { path in
-                            Text(URL(fileURLWithPath: path).lastPathComponent)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("audioFilesList")
-                }
-            }
-
             Spacer()
         }
         .padding()
         .frame(minWidth: 400)
     }
 }
+
+// MARK: - Audio Source Status Section
+
+struct AudioSourceStatusSection: View {
+    let statuses: [AudioSourceStatus]
+
+    var body: some View {
+        GroupBox("Audio Sources") {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(statuses) { status in
+                    AudioSourceRow(status: status)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("audioSourceStatusSection")
+        }
+    }
+}
+
+struct AudioSourceRow: View {
+    let status: AudioSourceStatus
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: status.isPresent ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundStyle(status.isPresent ? .green : .red)
+                .accessibilityIdentifier(
+                    status.isPresent
+                        ? "audioSourcePresent_\(status.source.rawValue)"
+                        : "audioSourceMissing_\(status.source.rawValue)"
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(status.source.displayName)
+                    .font(.subheadline.weight(.medium))
+                if status.isPresent {
+                    Text(captureDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(missingDetail)
+                        .font(.caption)
+                        .foregroundStyle(.red.opacity(0.8))
+                        .accessibilityIdentifier("audioSourceMissingReason_\(status.source.rawValue)")
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var captureDetail: String {
+        var parts: [String] = []
+        if let dur = status.durationSeconds {
+            let mins = Int(dur) / 60
+            let secs = Int(dur) % 60
+            parts.append(String(format: "%d:%02d", mins, secs))
+        }
+        if let bytes = status.fileSizeBytes {
+            parts.append(formatBytes(bytes))
+        }
+        return parts.isEmpty ? "Captured" : parts.joined(separator: " · ")
+    }
+
+    private var missingDetail: String {
+        status.missingReason ?? "Not captured"
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        let kb = Double(bytes) / 1024
+        if kb < 1024 {
+            return String(format: "%.0f KB", kb)
+        }
+        let mb = kb / 1024
+        return String(format: "%.1f MB", mb)
+    }
+}
+
+// MARK: - Transcript
 
 struct TranscriptSegmentRow: View {
     let segment: TranscriptSegment
