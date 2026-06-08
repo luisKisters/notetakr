@@ -3,6 +3,7 @@
 #if canImport(AVFoundation)
 import AVFoundation
 import AppKit
+import Foundation
 import NoteTakrCore
 #if canImport(EventKit)
 import EventKit
@@ -13,6 +14,7 @@ final class AudioPermissionManager: ObservableObject {
     @Published private(set) var microphoneStatus: PermissionStatus = .notDetermined
     @Published private(set) var systemAudioStatus: PermissionStatus = .notDetermined
     @Published private(set) var calendarStatus: PermissionStatus = .notDetermined
+    @Published private(set) var systemAudioRestartRequired = false
 
 #if canImport(EventKit)
     private let eventStore = EKEventStore()
@@ -25,6 +27,9 @@ final class AudioPermissionManager: ObservableObject {
     func refresh() {
         microphoneStatus = currentMicrophoneStatus()
         systemAudioStatus = currentSystemAudioStatus()
+        if systemAudioStatus == .granted {
+            systemAudioRestartRequired = false
+        }
         calendarStatus = currentCalendarStatus()
     }
 
@@ -36,9 +41,26 @@ final class AudioPermissionManager: ObservableObject {
     /// Opens the screen recording permission pane in System Settings.
     /// Screen recording permission is required for system-audio capture via ScreenCaptureKit.
     func requestSystemAudioAccess() {
-        CGRequestScreenCaptureAccess()
+        let granted = CGRequestScreenCaptureAccess()
         systemAudioStatus = currentSystemAudioStatus()
+        systemAudioRestartRequired = granted && systemAudioStatus != .granted
+        if !granted {
+            openScreenRecordingSettings()
+        }
         scheduleScreenCaptureRefreshes()
+    }
+
+    func restartApp() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = [
+            "-c",
+            "sleep 0.5; open \"$1\"",
+            "relaunch",
+            Bundle.main.bundlePath
+        ]
+        try? process.run()
+        NSApp.terminate(nil)
     }
 
     func requestCalendarAccess() async {
@@ -115,6 +137,13 @@ final class AudioPermissionManager: ObservableObject {
                 }
             }
         }
+    }
+
+    private func openScreenRecordingSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 }
 #endif

@@ -69,10 +69,15 @@ struct SettingsView: View {
                 )
                 permissionRow(
                     label: "System Audio",
-                    detail: "Requires Screen Recording permission (ScreenCaptureKit)",
+                    detail: systemAudioPermissionDetail,
                     status: permissions.systemAudioStatus,
+                    buttonTitle: permissions.systemAudioRestartRequired ? "Restart App" : "Grant Access",
                     action: {
-                        permissions.requestSystemAudioAccess()
+                        if permissions.systemAudioRestartRequired {
+                            permissions.restartApp()
+                        } else {
+                            permissions.requestSystemAudioAccess()
+                        }
                     }
                 )
             }
@@ -85,7 +90,7 @@ struct SettingsView: View {
             }
 
             Section {
-                Text("System audio capture requires Screen Recording permission in System Settings › Privacy & Security.")
+                Text(systemAudioHelpText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("systemAudioNote")
@@ -124,6 +129,20 @@ struct SettingsView: View {
         }
     }
 
+    private var systemAudioPermissionDetail: String {
+        if permissions.systemAudioRestartRequired {
+            return "Restart NoteTakr to finish applying Screen Recording permission"
+        }
+        return "Requires Screen Recording permission (ScreenCaptureKit)"
+    }
+
+    private var systemAudioHelpText: String {
+        if permissions.systemAudioRestartRequired {
+            return "macOS applies Screen Recording permission after the app restarts."
+        }
+        return "System audio capture requires Screen Recording permission in System Settings › Privacy & Security."
+    }
+
     @ViewBuilder
     private func vocabRow(_ entry: VocabularyEntry) -> some View {
         HStack(spacing: 10) {
@@ -159,6 +178,7 @@ struct SettingsView: View {
         label: String,
         detail: String,
         status: PermissionStatus,
+        buttonTitle: String = "Grant Access",
         action: @escaping () -> Void
     ) -> some View {
         HStack {
@@ -171,7 +191,7 @@ struct SettingsView: View {
             }
             Spacer()
             if status != .granted {
-                Button("Grant Access", action: action)
+                Button(buttonTitle, action: action)
                     .controlSize(.small)
                     .accessibilityIdentifier("grantAccess_\(label)")
             }

@@ -31,5 +31,6 @@ final class NativeAudioRecorderTests: XCTestCase {
         // microphoneStatus is either .notDetermined, .granted, or .denied depending on environment.
         XCTAssertTrue(PermissionStatus.allCases.contains(manager.microphoneStatus))
         XCTAssertTrue(PermissionStatus.allCases.contains(manager.systemAudioStatus))
+        XCTAssertFalse(manager.systemAudioRestartRequired)
     }
 }
