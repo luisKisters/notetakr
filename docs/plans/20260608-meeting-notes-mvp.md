@@ -50,16 +50,16 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 0: Bootstrap the repository and CI feedback loop
 
-* [ ] Create the Swift package and macOS SwiftUI application structure.
-* [ ] Create a minimal native macOS menu-bar app that launches and displays a placeholder Start Recording button.
-* [ ] Add `scripts/local-validate.sh` to run all tests available in Linux Docker.
-* [ ] Add `scripts/ci-gate.sh`.
-* [ ] Make `scripts/ci-gate.sh` commit dirty files, push the current branch, wait for the matching GitHub Actions run, print failed logs, and exit non-zero when CI fails.
-* [ ] Add `.github/workflows/macos-ci.yml`.
-* [ ] Configure the macOS workflow to run on every branch push.
-* [ ] Configure the workflow to run Swift package tests and build the macOS app with `xcodebuild`.
-* [ ] Add a basic macOS XCTest that confirms the app target launches.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Create the Swift package and macOS SwiftUI application structure.
+* [x] Create a minimal native macOS menu-bar app that launches and displays a placeholder Start Recording button.
+* [x] Add `scripts/local-validate.sh` to run all tests available in Linux Docker.
+* [x] Add `scripts/ci-gate.sh`.
+* [x] Make `scripts/ci-gate.sh` commit dirty files, push the current branch, wait for the matching GitHub Actions run, print failed logs, and exit non-zero when CI fails.
+* [x] Add `.github/workflows/macos-ci.yml`.
+* [x] Configure the macOS workflow to run on every branch push.
+* [x] Configure the workflow to run Swift package tests and build the macOS app with `xcodebuild`.
+* [x] Add a basic macOS XCTest that confirms the app target launches.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 1: Add meeting sessions and local note storage
 
