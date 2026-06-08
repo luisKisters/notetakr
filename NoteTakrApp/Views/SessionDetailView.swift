@@ -17,7 +17,7 @@ struct SessionDetailView: View {
         onTranscribe: (() -> Void)? = nil,
         onGenerateNote: (() -> Void)? = nil,
         onOpenNote: (() -> Void)? = nil,
-        transcriptionCoordinator: TranscriptionCoordinator = TranscriptionCoordinator()
+        transcriptionCoordinator: TranscriptionCoordinator
     ) {
         self._session = session
         self.isActiveRecording = isActiveRecording

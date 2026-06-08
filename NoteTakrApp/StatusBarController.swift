@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import NoteTakrCore
 
+@MainActor
 final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private let store: SessionStore
