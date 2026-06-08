@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import NoteTakrCore
 
@@ -59,6 +60,14 @@ struct SettingsView: View {
                     }
                 )
                 permissionRow(
+                    label: "Calendar",
+                    detail: "Required to detect upcoming meetings",
+                    status: permissions.calendarStatus,
+                    action: {
+                        Task { await permissions.requestCalendarAccess() }
+                    }
+                )
+                permissionRow(
                     label: "System Audio",
                     detail: "Requires Screen Recording permission (ScreenCaptureKit)",
                     status: permissions.systemAudioStatus,
@@ -109,6 +118,9 @@ struct SettingsView: View {
         .onAppear {
             permissions.refresh()
             vocab.reload()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            permissions.refresh()
         }
     }
 

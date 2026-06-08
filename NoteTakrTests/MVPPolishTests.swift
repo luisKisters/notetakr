@@ -120,6 +120,22 @@ final class MVPPolishTests: XCTestCase {
         scheduler.scheduleReminder(for: pastEvent, minutesBefore: 5)
     }
 
+    // MARK: - Privacy Usage Strings
+
+    func testPrivacyUsageDescriptionsExist() throws {
+        let infoURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("NoteTakrApp/Info.plist")
+        let data = try Data(contentsOf: infoURL)
+        let plist = try XCTUnwrap(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+
+        for key in ["NSMicrophoneUsageDescription", "NSCalendarsUsageDescription", "NSScreenCaptureUsageDescription"] {
+            let value = try XCTUnwrap(plist[key] as? String, "\(key) must exist to avoid TCC crashes")
+            XCTAssertFalse(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeTempDir() -> URL {

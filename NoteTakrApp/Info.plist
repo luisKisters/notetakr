@@ -28,5 +28,7 @@
 	<string>NoteTakr records microphone audio to capture meeting notes.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>NoteTakr reads your calendar to detect upcoming meetings and offer timely recording prompts.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>NoteTakr uses screen recording permission to capture system audio during meetings.</string>
 </dict>
 </plist>
