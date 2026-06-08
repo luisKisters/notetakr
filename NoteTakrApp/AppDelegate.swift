@@ -3,7 +3,6 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
-    private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -22,27 +21,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showSettingsWindow() {
-        if let settingsWindow {
-            settingsWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-
-        let hostingController = NSHostingController(rootView: SettingsView())
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 520),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.center()
-        window.title = "NoteTakr Settings"
-        window.contentViewController = hostingController
-        window.isReleasedWhenClosed = false
-        window.level = .floating
-        window.makeKeyAndOrderFront(nil)
+        // Uses the SwiftUI Settings scene window (single managed instance, normal window level).
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         NSApp.activate(ignoringOtherApps: true)
-        settingsWindow = window
     }
 }
 

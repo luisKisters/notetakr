@@ -118,17 +118,33 @@ struct SettingsView: View {
     }
 
     private var systemAudioPermissionDetail: String {
+        if permissions.systemAudioStatus == .granted {
+            return "Screen Recording granted — system audio capture ready"
+        }
         if permissions.systemAudioRestartRequired {
-            return "Restart NoteTakr to finish applying Screen Recording permission"
+            return "Restart required to activate Screen Recording"
         }
         return "Requires Screen Recording permission (ScreenCaptureKit)"
     }
 
     private var systemAudioHelpText: String {
+        "System audio capture requires Screen Recording permission in System Settings › Privacy & Security."
+    }
+
+    @ViewBuilder
+    private var systemAudioStatusBadge: some View {
         if permissions.systemAudioRestartRequired {
-            return "macOS applies Screen Recording permission after the app restarts."
+            Text("Restart Required")
+                .font(.caption2)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.orange.opacity(0.15))
+                .foregroundStyle(Color.orange)
+                .clipShape(Capsule())
+                .accessibilityIdentifier("permissionStatus_restartRequired")
+        } else {
+            statusBadge(permissions.systemAudioStatus)
         }
-        return "System audio capture requires Screen Recording permission in System Settings › Privacy & Security."
     }
 
     @ViewBuilder
@@ -163,33 +179,44 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func systemAudioPermissionRow() -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("System Audio")
-                    .fontWeight(.medium)
-                Text(systemAudioPermissionDetail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if permissions.systemAudioStatus != .granted {
-                Button("Open Settings") {
-                    permissions.requestSystemAudioAccess()
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("System Audio")
+                        .fontWeight(.medium)
+                    Text(systemAudioPermissionDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .controlSize(.small)
-                .accessibilityIdentifier("grantAccess_System Audio")
-
-                if permissions.systemAudioRestartRequired {
-                    Button("Restart App") {
-                        permissions.restartApp()
+                Spacer()
+                if permissions.systemAudioStatus != .granted {
+                    if permissions.systemAudioRestartRequired {
+                        Button("Restart App") {
+                            permissions.restartApp()
+                        }
+                        .controlSize(.small)
+                        .accessibilityIdentifier("restartForSystemAudio")
+                    }
+                    Button("Open Settings") {
+                        permissions.requestSystemAudioAccess()
                     }
                     .controlSize(.small)
-                    .accessibilityIdentifier("restartForSystemAudio")
+                    .accessibilityIdentifier("grantAccess_System Audio")
                 }
+                systemAudioStatusBadge
             }
-            statusBadge(permissions.systemAudioStatus)
+            .padding(.vertical, 2)
+
+            if permissions.systemAudioRestartRequired {
+                Label(
+                    "macOS applies Screen Recording permission only after the app restarts.",
+                    systemImage: "info.circle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("screenRecordingRestartExplanation")
+            }
         }
-        .padding(.vertical, 2)
         .accessibilityIdentifier("permissionRow_System Audio")
     }
 

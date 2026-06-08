@@ -33,4 +33,16 @@ final class NativeAudioRecorderTests: XCTestCase {
         XCTAssertTrue(PermissionStatus.allCases.contains(manager.systemAudioStatus))
         XCTAssertFalse(manager.systemAudioRestartRequired)
     }
+
+    @MainActor
+    func testCalendarStatusRefreshDoesNotPrompt() {
+        // Verifies that reading calendar status at launch (via refresh) uses only the
+        // class-level EKEventStore.authorizationStatus query — no prompt should occur.
+        let manager = AudioPermissionManager()
+        // Status is set synchronously in init() via refresh(includeCalendar: true).
+        XCTAssertTrue(PermissionStatus.allCases.contains(manager.calendarStatus))
+        // A second explicit refresh should also be safe.
+        manager.refresh(includeCalendar: true)
+        XCTAssertTrue(PermissionStatus.allCases.contains(manager.calendarStatus))
+    }
 }

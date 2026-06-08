@@ -17,7 +17,8 @@ final class AudioPermissionManager: ObservableObject {
     @Published private(set) var systemAudioRestartRequired = false
 
 #if canImport(EventKit)
-    private let eventStore = EKEventStore()
+    // Lazy so EKEventStore is not allocated until calendar access is actually requested.
+    private lazy var eventStore = EKEventStore()
 #endif
 
     init() {

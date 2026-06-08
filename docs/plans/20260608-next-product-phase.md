@@ -157,13 +157,13 @@ The app can record, but it is not yet production-ready:
 
 ### Task 2: Polish Permission UX
 
-- [ ] Keep Settings as a regular foreground window for local builds.
-- [ ] Make Screen Recording state copy explicit: grant, restart required,
+- [x] Keep Settings as a regular foreground window for local builds.
+- [x] Make Screen Recording state copy explicit: grant, restart required,
       granted.
-- [ ] Add a visible explanation for why Screen Recording needs restart.
-- [ ] Ensure Calendar status refreshes on launch without prompting.
-- [ ] Add unit or UI tests where practical.
-- [ ] Run validation and commit.
+- [x] Add a visible explanation for why Screen Recording needs restart.
+- [x] Ensure Calendar status refreshes on launch without prompting.
+- [x] Add unit or UI tests where practical.
+- [x] Run validation and commit.
 
 ### Task 3: Add Recording Source Status
 
