@@ -5,6 +5,8 @@ struct SessionDetailView: View {
     @Binding var session: MeetingSession
     var isActiveRecording: Bool = false
     var onStopRecording: (() -> Void)? = nil
+    var onTranscribe: (() -> Void)? = nil
+    var onGenerateNote: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -47,19 +49,32 @@ struct SessionDetailView: View {
 
             GroupBox("Transcript") {
                 if session.transcriptSegments.isEmpty {
-                    Text("Transcript will appear here after recording.")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityIdentifier("transcriptPlaceholder")
-                } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(session.transcriptSegments) { segment in
-                                TranscriptSegmentRow(segment: segment)
-                            }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Transcript will appear here after recording.")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityIdentifier("transcriptPlaceholder")
+                        if !session.audioFilePaths.isEmpty, let transcribe = onTranscribe {
+                            Button("Transcribe Audio", action: transcribe)
+                                .accessibilityIdentifier("transcribeButton")
                         }
                     }
-                    .frame(maxHeight: 200)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 8) {
+                                ForEach(session.transcriptSegments) { segment in
+                                    TranscriptSegmentRow(segment: segment)
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 200)
+                        if let generate = onGenerateNote {
+                            Button("Generate Note…", action: generate)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                .accessibilityIdentifier("generateNoteButton")
+                        }
+                    }
                 }
             }
 

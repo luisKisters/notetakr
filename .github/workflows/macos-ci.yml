@@ -35,6 +35,7 @@ jobs:
 
       - name: Build and test (NoteTakr scheme)
         run: |
+          set -o pipefail
           xcodebuild test \
             -project Notetakr.xcodeproj \
             -scheme NoteTakr \

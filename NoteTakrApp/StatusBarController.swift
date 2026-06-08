@@ -6,6 +6,7 @@ final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private let store: SessionStore
     private let recordingManager: RecordingManager
+    private let vocabularyStore: VocabularyStore
     private var sessionsWindow: NSPanel?
     private var calendarAdapter: (any CalendarAdapter)?
     private var nextCalendarMeeting: CalendarEvent?
@@ -20,6 +21,12 @@ final class StatusBarController: NSObject {
         store = SessionStore(baseURL: appSupport)
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
         try? store.recoverInterruptedSessions()
+
+        let vocabURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first!
+            .appendingPathComponent("NoteTakr/vocabulary.json")
+        vocabularyStore = VocabularyStore(fileURL: vocabURL)
 
         recordingManager = RecordingManager(store: store, recorder: MockAudioRecorder())
 
@@ -150,6 +157,14 @@ final class StatusBarController: NSObject {
     private func showSessionDetail(_ session: MeetingSession) {
         var mutable = session
         let isActiveSession = recordingManager.activeSession?.id == session.id
+
+        let onTranscribe: (() -> Void)? = mutable.audioFilePaths.isEmpty ? nil : { [weak self] in
+            self?.transcribeSession(&mutable)
+        }
+        let onGenerateNote: (() -> Void)? = { [weak self] in
+            self?.generateNote(for: mutable)
+        }
+
         let view = SessionDetailView(
             session: Binding(get: { mutable }, set: { mutable = $0 }),
             isActiveRecording: isActiveSession,
@@ -158,11 +173,13 @@ final class StatusBarController: NSObject {
                     _ = try? await self?.recordingManager.stopRecording()
                     self?.updateRecordingUI()
                 }
-            } : nil
+            } : nil,
+            onTranscribe: onTranscribe,
+            onGenerateNote: onGenerateNote
         )
         let hostingController = NSHostingController(rootView: view)
         let window = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 540),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
@@ -172,6 +189,35 @@ final class StatusBarController: NSObject {
         window.title = session.title
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func transcribeSession(_ session: inout MeetingSession) {
+        let sessionCopy = session
+        let vocab = (try? vocabularyStore.enabledEntries()) ?? []
+        Task { @MainActor in
+            let engine = MockTranscriptionEngine()
+            guard let audioPath = sessionCopy.audioFilePaths.first else { return }
+            let audioURL = URL(fileURLWithPath: audioPath)
+            do {
+                let segments = try await engine.transcribe(audioURL: audioURL, vocabulary: vocab)
+                var updated = sessionCopy
+                updated.transcriptSegments = segments
+                try? self.store.save(updated)
+            } catch {
+                // Transcription failed — leave existing state.
+            }
+        }
+    }
+
+    private func generateNote(for session: MeetingSession) {
+        let markdown = MarkdownNoteRenderer.render(session: session)
+        let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
+        do {
+            try markdown.write(to: noteURL, atomically: true, encoding: .utf8)
+            NSWorkspace.shared.open(noteURL)
+        } catch {
+            // Note save failed — ignore silently.
+        }
     }
 
     @MainActor
