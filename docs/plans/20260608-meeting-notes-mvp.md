@@ -108,18 +108,18 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 5: Add local transcription architecture and vocabulary boosting
 
-* [ ] Add a TranscriptionEngine protocol.
-* [ ] Add a mock transcription engine using fixture transcript JSON.
-* [ ] Add a FluidAudio adapter skeleton for local Parakeet transcription.
-* [ ] Keep model downloading and expensive inference disabled in automated CI.
-* [ ] Add a native vocabulary editor in Settings.
-* [ ] Support phrases, aliases, enabled state, and boosting weights.
-* [ ] Pass enabled vocabulary entries into the transcription adapter.
-* [ ] Render transcript segments into the session detail view.
-* [ ] Generate a Markdown note containing metadata, personal notes, and transcript timestamps.
-* [ ] Add Linux-compatible tests for vocabulary persistence, filtering, Markdown rendering, and mock transcription.
-* [ ] Add macOS compilation tests for the FluidAudio adapter boundary.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Add a TranscriptionEngine protocol.
+* [x] Add a mock transcription engine using fixture transcript JSON.
+* [x] Add a FluidAudio adapter skeleton for local Parakeet transcription.
+* [x] Keep model downloading and expensive inference disabled in automated CI.
+* [x] Add a native vocabulary editor in Settings.
+* [x] Support phrases, aliases, enabled state, and boosting weights.
+* [x] Pass enabled vocabulary entries into the transcription adapter.
+* [x] Render transcript segments into the session detail view.
+* [x] Generate a Markdown note containing metadata, personal notes, and transcript timestamps.
+* [x] Add Linux-compatible tests for vocabulary persistence, filtering, Markdown rendering, and mock transcription.
+* [x] Add macOS compilation tests for the FluidAudio adapter boundary.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 6: Add meeting-time notifications and MVP polish
 
