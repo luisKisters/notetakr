@@ -45,107 +45,107 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ## Validation Commands
 
-* `bash scripts/local-validate.sh`
-* `bash scripts/ci-gate.sh`
+- `bash scripts/local-validate.sh`
+- `bash scripts/ci-gate.sh`
 
-### Task 0: Bootstrap the repository and CI feedback loop
+### Task 1: Bootstrap the repository and CI feedback loop
 
-* [x] Create the Swift package and macOS SwiftUI application structure.
-* [x] Create a minimal native macOS menu-bar app that launches and displays a placeholder Start Recording button.
-* [x] Add `scripts/local-validate.sh` to run all tests available in Linux Docker.
-* [x] Add `scripts/ci-gate.sh`.
-* [x] Make `scripts/ci-gate.sh` commit dirty files, push the current branch, wait for the matching GitHub Actions run, print failed logs, and exit non-zero when CI fails.
-* [x] Add `.github/workflows/macos-ci.yml`.
-* [x] Configure the macOS workflow to run on every branch push.
-* [x] Configure the workflow to run Swift package tests and build the macOS app with `xcodebuild`.
-* [x] Add a basic macOS XCTest that confirms the app target launches.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Create the Swift package and macOS SwiftUI application structure.
+- [x] Create a minimal native macOS menu-bar app that launches and displays a placeholder Start Recording button.
+- [x] Add `scripts/local-validate.sh` to run all tests available in Linux Docker.
+- [x] Add `scripts/ci-gate.sh`.
+- [x] Make `scripts/ci-gate.sh` commit dirty files, push the current branch, wait for the matching GitHub Actions run, print failed logs, and exit non-zero when CI fails.
+- [x] Add `.github/workflows/macos-ci.yml`.
+- [x] Configure the macOS workflow to run on every branch push.
+- [x] Configure the workflow to run Swift package tests and build the macOS app with `xcodebuild`.
+- [x] Add a basic macOS XCTest that confirms the app target launches.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 1: Add meeting sessions and local note storage
+### Task 2: Add meeting sessions and local note storage
 
-* [x] Add a Today view showing the next meeting placeholder and recent recording sessions.
-* [x] Add a session detail view with title, date, recording status, transcript placeholder, and editable personal notes.
-* [x] Add core models for meeting sessions, status transitions, transcript segments, and saved note metadata.
-* [x] Store sessions as local JSON files in deterministic folders.
-* [x] Add Linux-compatible unit tests for session creation, storage, folder sanitization, reload behavior, and interrupted sessions.
-* [x] Add macOS tests confirming the native views compile and fixture sessions load.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Add a Today view showing the next meeting placeholder and recent recording sessions.
+- [x] Add a session detail view with title, date, recording status, transcript placeholder, and editable personal notes.
+- [x] Add core models for meeting sessions, status transitions, transcript segments, and saved note metadata.
+- [x] Store sessions as local JSON files in deterministic folders.
+- [x] Add Linux-compatible unit tests for session creation, storage, folder sanitization, reload behavior, and interrupted sessions.
+- [x] Add macOS tests confirming the native views compile and fixture sessions load.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 2: Add calendar-aware meeting preparation
+### Task 3: Add calendar-aware meeting preparation
 
-* [x] Add an EventKit calendar adapter behind a protocol.
-* [x] Add a mock calendar adapter for Linux-compatible tests.
-* [x] Detect likely Google Meet, Zoom, and Microsoft Teams events from calendar URLs.
-* [x] Add keyword fallback matching for generic meetings such as sync, call, meeting, standup, and interview.
-* [x] Display the next likely meeting in the menu-bar interface.
-* [x] Add a manual Quick Recording action for unscheduled calls.
-* [x] Add unit tests for URL matching, keyword scoring, sorting, and empty-calendar behavior.
-* [x] Add a macOS compile test for the EventKit adapter.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Add an EventKit calendar adapter behind a protocol.
+- [x] Add a mock calendar adapter for Linux-compatible tests.
+- [x] Detect likely Google Meet, Zoom, and Microsoft Teams events from calendar URLs.
+- [x] Add keyword fallback matching for generic meetings such as sync, call, meeting, standup, and interview.
+- [x] Display the next likely meeting in the menu-bar interface.
+- [x] Add a manual Quick Recording action for unscheduled calls.
+- [x] Add unit tests for URL matching, keyword scoring, sorting, and empty-calendar behavior.
+- [x] Add a macOS compile test for the EventKit adapter.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 3: Add the recording lifecycle with mock audio
+### Task 4: Add the recording lifecycle with mock audio
 
-* [x] Add an AudioRecorder protocol.
-* [x] Add a mock recorder that creates fixture microphone and system-audio files.
-* [x] Connect Start Recording and Stop Recording actions to the session state machine.
-* [x] Make active recording state obvious in the menu-bar UI and session detail view.
-* [x] Preserve incomplete sessions after relaunch.
-* [x] Add tests for start, stop, failure, interruption, and recovery behavior.
-* [x] Add an end-to-end test using the mock recorder.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Add an AudioRecorder protocol.
+- [x] Add a mock recorder that creates fixture microphone and system-audio files.
+- [x] Connect Start Recording and Stop Recording actions to the session state machine.
+- [x] Make active recording state obvious in the menu-bar UI and session detail view.
+- [x] Preserve incomplete sessions after relaunch.
+- [x] Add tests for start, stop, failure, interruption, and recovery behavior.
+- [x] Add an end-to-end test using the mock recorder.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 4: Add real macOS audio capture adapter
+### Task 5: Add real macOS audio capture adapter
 
-* [x] Add a native macOS audio recorder adapter.
-* [x] Capture microphone audio as a separate local file.
-* [x] Add system-audio capture using the appropriate macOS audio API.
-* [x] Keep the real adapter isolated behind the existing AudioRecorder protocol.
-* [x] Add permission-state handling for microphone and system-audio access.
-* [x] Add a settings screen showing permission status.
-* [x] Add compile-time macOS tests and mock-driven behavior tests.
-* [x] Do not claim that real audio capture works until manually tested on a physical Mac.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Add a native macOS audio recorder adapter.
+- [x] Capture microphone audio as a separate local file.
+- [x] Add system-audio capture using the appropriate macOS audio API.
+- [x] Keep the real adapter isolated behind the existing AudioRecorder protocol.
+- [x] Add permission-state handling for microphone and system-audio access.
+- [x] Add a settings screen showing permission status.
+- [x] Add compile-time macOS tests and mock-driven behavior tests.
+- [x] Do not claim that real audio capture works until manually tested on a physical Mac.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 5: Add local transcription architecture and vocabulary boosting
+### Task 6: Add local transcription architecture and vocabulary boosting
 
-* [x] Add a TranscriptionEngine protocol.
-* [x] Add a mock transcription engine using fixture transcript JSON.
-* [x] Add a FluidAudio adapter skeleton for local Parakeet transcription.
-* [x] Keep model downloading and expensive inference disabled in automated CI.
-* [x] Add a native vocabulary editor in Settings.
-* [x] Support phrases, aliases, enabled state, and boosting weights.
-* [x] Pass enabled vocabulary entries into the transcription adapter.
-* [x] Render transcript segments into the session detail view.
-* [x] Generate a Markdown note containing metadata, personal notes, and transcript timestamps.
-* [x] Add Linux-compatible tests for vocabulary persistence, filtering, Markdown rendering, and mock transcription.
-* [x] Add macOS compilation tests for the FluidAudio adapter boundary.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Add a TranscriptionEngine protocol.
+- [x] Add a mock transcription engine using fixture transcript JSON.
+- [x] Add a FluidAudio adapter skeleton for local Parakeet transcription.
+- [x] Keep model downloading and expensive inference disabled in automated CI.
+- [x] Add a native vocabulary editor in Settings.
+- [x] Support phrases, aliases, enabled state, and boosting weights.
+- [x] Pass enabled vocabulary entries into the transcription adapter.
+- [x] Render transcript segments into the session detail view.
+- [x] Generate a Markdown note containing metadata, personal notes, and transcript timestamps.
+- [x] Add Linux-compatible tests for vocabulary persistence, filtering, Markdown rendering, and mock transcription.
+- [x] Add macOS compilation tests for the FluidAudio adapter boundary.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 6: Add meeting-time notifications and MVP polish
+### Task 7: Add meeting-time notifications and MVP polish
 
-* [x] Add macOS notifications shortly before likely calendar meetings.
-* [x] Include a Start Recording action.
-* [x] Add native empty states, errors, loading states, and recording-state indicators.
-* [x] Add an Open Recordings Folder action.
-* [x] Add an Open Latest Note action.
-* [x] Add accessibility identifiers to important controls.
-* [x] Add UI automation tests for opening Settings, adding vocabulary, starting a mock recording, stopping it, and opening a generated note.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Add macOS notifications shortly before likely calendar meetings.
+- [x] Include a Start Recording action.
+- [x] Add native empty states, errors, loading states, and recording-state indicators.
+- [x] Add an Open Recordings Folder action.
+- [x] Add an Open Latest Note action.
+- [x] Add accessibility identifiers to important controls.
+- [x] Add UI automation tests for opening Settings, adding vocabulary, starting a mock recording, stopping it, and opening a generated note.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 7: Document the physical Mac smoke test
+### Task 8: Document the physical Mac smoke test
 
-* [x] Create `docs/manual-smoke-test.md`.
-* [x] Document the exact local Xcode launch steps.
-* [x] Include checks for calendar permission, microphone permission, system-audio permission, audible microphone recording, audible browser audio recording, separate audio files, note generation, and persistence after relaunch.
-* [x] Clearly list which features were verified automatically and which still require a physical Mac.
-* [x] Update the README with setup instructions and the current limitations.
-* [x] Run the local validation and CI gate until both pass.
+- [x] Create `docs/manual-smoke-test.md`.
+- [x] Document the exact local Xcode launch steps.
+- [x] Include checks for calendar permission, microphone permission, system-audio permission, audible microphone recording, audible browser audio recording, separate audio files, note generation, and persistence after relaunch.
+- [x] Clearly list which features were verified automatically and which still require a physical Mac.
+- [x] Update the README with setup instructions and the current limitations.
+- [x] Run the local validation and CI gate until both pass.
 
-### Task 8: Final review and cleanup
+### Task 9: Final review and cleanup
 
-* [x] Run all Linux-compatible tests.
-* [x] Push the branch and wait for the complete macOS workflow.
-* [x] Fix every build failure, test failure, and actionable warning.
-* [x] Confirm that no cloud service, login flow, browser extension, Electron dependency, or Tauri dependency was added.
-* [x] Confirm that unverified real-world audio capture claims are clearly marked as requiring the physical Mac smoke test.
-* [x] Write a concise completion report in `docs/agent-progress.md`.
+- [x] Run all Linux-compatible tests.
+- [x] Push the branch and wait for the complete macOS workflow.
+- [x] Fix every build failure, test failure, and actionable warning.
+- [x] Confirm that no cloud service, login flow, browser extension, Electron dependency, or Tauri dependency was added.
+- [x] Confirm that unverified real-world audio capture claims are clearly marked as requiring the physical Mac smoke test.
+- [x] Write a concise completion report in `docs/agent-progress.md`.
