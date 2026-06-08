@@ -202,7 +202,6 @@ final class StatusBarController: NSObject {
                 self.updateRecordingUI()
             }
         }
-        _ = activeID
         let hostingController = NSHostingController(rootView: view)
         let window = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 480),

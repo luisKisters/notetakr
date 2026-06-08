@@ -3,7 +3,7 @@ name: Build DMG
 on:
   workflow_dispatch:
   push:
-    branches: ["dmg-build"]
+    branches: ["main"]
 
 jobs:
   dmg:
