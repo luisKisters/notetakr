@@ -5,6 +5,7 @@ struct TodayView: View {
     let sessions: [MeetingSession]
     var nextMeeting: CalendarEvent? = nil
     var onSelectSession: (MeetingSession) -> Void = { _ in }
+    var onStopRecording: (MeetingSession) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -40,9 +41,11 @@ struct TodayView: View {
                     .font(.headline)
                     .padding(.top, 4)
                 List(sessions) { session in
-                    SessionRowView(session: session)
-                        .contentShape(Rectangle())
-                        .onTapGesture { onSelectSession(session) }
+                    SessionRowView(session: session, onStopRecording: {
+                        onStopRecording(session)
+                    })
+                    .contentShape(Rectangle())
+                    .onTapGesture { onSelectSession(session) }
                 }
                 .listStyle(.plain)
             }
@@ -54,6 +57,7 @@ struct TodayView: View {
 
 struct SessionRowView: View {
     let session: MeetingSession
+    var onStopRecording: (() -> Void)? = nil
 
     var body: some View {
         HStack {
@@ -65,6 +69,13 @@ struct SessionRowView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if session.status == .recording, let stop = onStopRecording {
+                Button("Stop", action: stop)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(.red)
+                    .accessibilityIdentifier("stopRecordingButton_\(session.id)")
+            }
             StatusBadgeView(status: session.status)
         }
         .padding(.vertical, 4)
@@ -76,13 +87,21 @@ struct StatusBadgeView: View {
     let status: SessionStatus
 
     var body: some View {
-        Text(status.rawValue.capitalized)
-            .font(.caption2)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(badgeColor.opacity(0.15))
-            .foregroundStyle(badgeColor)
-            .clipShape(Capsule())
+        HStack(spacing: 4) {
+            if status == .recording {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 6, height: 6)
+                    .accessibilityIdentifier("recordingIndicator")
+            }
+            Text(status.rawValue.capitalized)
+                .font(.caption2)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(badgeColor.opacity(0.15))
+        .foregroundStyle(badgeColor)
+        .clipShape(Capsule())
     }
 
     private var badgeColor: Color {

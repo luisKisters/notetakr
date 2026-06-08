@@ -5,10 +5,12 @@ import NoteTakrCore
 final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private let store: SessionStore
+    private let recordingManager: RecordingManager
     private var sessionsWindow: NSPanel?
     private var calendarAdapter: (any CalendarAdapter)?
     private var nextCalendarMeeting: CalendarEvent?
     private var nextMeetingMenuItem: NSMenuItem?
+    private var recordingMenuItem: NSMenuItem?
 
     override init() {
         let appSupport = FileManager.default
@@ -18,6 +20,8 @@ final class StatusBarController: NSObject {
         store = SessionStore(baseURL: appSupport)
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
         try? store.recoverInterruptedSessions()
+
+        recordingManager = RecordingManager(store: store, recorder: MockAudioRecorder())
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         super.init()
@@ -33,8 +37,9 @@ final class StatusBarController: NSObject {
         let quickItem = NSMenuItem(title: "Quick Recording", action: #selector(quickRecording), keyEquivalent: "")
         quickItem.target = self
 
-        let startItem = NSMenuItem(title: "Start Recording", action: #selector(startRecording), keyEquivalent: "")
-        startItem.target = self
+        let recItem = NSMenuItem(title: "Start Recording", action: #selector(toggleRecording), keyEquivalent: "")
+        recItem.target = self
+        recordingMenuItem = recItem
 
         let sessionsItem = NSMenuItem(title: "Sessions...", action: #selector(showSessions), keyEquivalent: "")
         sessionsItem.target = self
@@ -43,7 +48,7 @@ final class StatusBarController: NSObject {
         menu.addItem(meetingItem)
         menu.addItem(.separator())
         menu.addItem(quickItem)
-        menu.addItem(startItem)
+        menu.addItem(recItem)
         menu.addItem(sessionsItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit NoteTakr", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -54,13 +59,48 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func quickRecording() {
-        let session = MeetingSession(title: "Quick Recording", date: Date())
-        try? store.save(session)
-        showSessions()
+        Task { @MainActor in
+            guard !recordingManager.isRecording else { return }
+            do {
+                _ = try await recordingManager.startRecording(title: "Quick Recording")
+                updateRecordingUI()
+                showSessions()
+            } catch {
+                // Recording start failed — ignore silently.
+            }
+        }
     }
 
-    @objc private func startRecording() {
-        // Placeholder — audio recording implemented in Task 3.
+    @objc private func toggleRecording() {
+        if recordingManager.isRecording {
+            Task { @MainActor in
+                _ = try? await recordingManager.stopRecording()
+                updateRecordingUI()
+                showSessions()
+            }
+        } else {
+            Task { @MainActor in
+                do {
+                    let title = nextCalendarMeeting?.title ?? "Meeting Recording"
+                    _ = try await recordingManager.startRecording(title: title)
+                    updateRecordingUI()
+                    showSessions()
+                } catch {
+                    // Recording start failed — ignore silently.
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func updateRecordingUI() {
+        let isRecording = recordingManager.isRecording
+        recordingMenuItem?.title = isRecording ? "Stop Recording" : "Start Recording"
+        if let button = statusItem.button {
+            let name = isRecording ? "mic.circle.fill" : "mic.circle"
+            button.image = NSImage(systemSymbolName: name, accessibilityDescription: "NoteTakr")
+            button.contentTintColor = isRecording ? .systemRed : nil
+        }
     }
 
     @objc private func showSessions() {
@@ -70,7 +110,18 @@ final class StatusBarController: NSObject {
             return
         }
         let sessions = (try? store.loadAll()) ?? []
-        let view = TodayView(sessions: sessions, nextMeeting: nextCalendarMeeting)
+        let activeID = recordingManager.activeSession?.id
+        let view = TodayView(sessions: sessions, nextMeeting: nextCalendarMeeting) { [weak self] session in
+            guard let self else { return }
+            self.showSessionDetail(session)
+        } onStopRecording: { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                _ = try? await self.recordingManager.stopRecording()
+                self.updateRecordingUI()
+            }
+        }
+        _ = activeID
         let hostingController = NSHostingController(rootView: view)
         let window = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 480),
@@ -84,6 +135,33 @@ final class StatusBarController: NSObject {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         sessionsWindow = window
+    }
+
+    private func showSessionDetail(_ session: MeetingSession) {
+        var mutable = session
+        let isActiveSession = recordingManager.activeSession?.id == session.id
+        let view = SessionDetailView(
+            session: Binding(get: { mutable }, set: { mutable = $0 }),
+            isActiveRecording: isActiveSession,
+            onStopRecording: isActiveSession ? { [weak self] in
+                Task { @MainActor in
+                    _ = try? await self?.recordingManager.stopRecording()
+                    self?.updateRecordingUI()
+                }
+            } : nil
+        )
+        let hostingController = NSHostingController(rootView: view)
+        let window = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 540),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.center()
+        window.contentViewController = hostingController
+        window.title = session.title
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @MainActor
