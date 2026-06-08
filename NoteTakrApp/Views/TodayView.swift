@@ -4,38 +4,20 @@ import NoteTakrCore
 struct TodayView: View {
     let sessions: [MeetingSession]
     var nextMeeting: CalendarEvent? = nil
+    var isLoading: Bool = false
+    var errorMessage: String? = nil
     var onSelectSession: (MeetingSession) -> Void = { _ in }
     var onStopRecording: (MeetingSession) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             GroupBox("Next Meeting") {
-                if let meeting = nextMeeting {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(meeting.title)
-                            .fontWeight(.medium)
-                            .accessibilityIdentifier("nextMeetingTitle")
-                        Text(meeting.startDate, style: .time)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("nextMeetingTime")
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Text("No upcoming meetings detected")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityIdentifier("nextMeetingPlaceholder")
-                }
+                nextMeetingContent
             }
             .accessibilityIdentifier("nextMeetingGroup")
 
             if sessions.isEmpty {
-                Text("No recordings yet")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-                    .accessibilityIdentifier("noSessionsLabel")
+                emptySessionsView
             } else {
                 Text("Recent Recordings")
                     .font(.headline)
@@ -52,6 +34,59 @@ struct TodayView: View {
         }
         .padding()
         .frame(minWidth: 300)
+    }
+
+    @ViewBuilder
+    private var nextMeetingContent: some View {
+        if isLoading {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Loading calendar…")
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("calendarLoadingIndicator")
+        } else if let error = errorMessage {
+            Label(error, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("calendarErrorLabel")
+        } else if let meeting = nextMeeting {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(meeting.title)
+                    .fontWeight(.medium)
+                    .accessibilityIdentifier("nextMeetingTitle")
+                Text(meeting.startDate, style: .time)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("nextMeetingTime")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Text("No upcoming meetings detected")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("nextMeetingPlaceholder")
+        }
+    }
+
+    private var emptySessionsView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "mic.slash")
+                .font(.largeTitle)
+                .foregroundStyle(.tertiary)
+                .accessibilityIdentifier("noSessionsIcon")
+            Text("No recordings yet")
+                .foregroundStyle(.secondary)
+            Text("Use Start Recording or Quick Recording to begin.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding()
+        .accessibilityIdentifier("noSessionsLabel")
     }
 }
 

@@ -7,11 +7,14 @@ final class StatusBarController: NSObject {
     private let store: SessionStore
     private let recordingManager: RecordingManager
     private let vocabularyStore: VocabularyStore
+    private let notificationScheduler = MeetingNotificationScheduler()
     private var sessionsWindow: NSPanel?
     private var calendarAdapter: (any CalendarAdapter)?
     private var nextCalendarMeeting: CalendarEvent?
     private var nextMeetingMenuItem: NSMenuItem?
     private var recordingMenuItem: NSMenuItem?
+    private var isCalendarLoading = false
+    private var calendarError: String? = nil
 
     override init() {
         let appSupport = FileManager.default
@@ -48,10 +51,24 @@ final class StatusBarController: NSObject {
         recItem.target = self
         recordingMenuItem = recItem
 
-        let sessionsItem = NSMenuItem(title: "Sessions...", action: #selector(showSessions), keyEquivalent: "")
+        let sessionsItem = NSMenuItem(title: "Sessions\u{2026}", action: #selector(showSessions), keyEquivalent: "")
         sessionsItem.target = self
 
-        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
+        let openFolderItem = NSMenuItem(
+            title: "Open Recordings Folder",
+            action: #selector(openRecordingsFolder),
+            keyEquivalent: ""
+        )
+        openFolderItem.target = self
+
+        let openNoteItem = NSMenuItem(
+            title: "Open Latest Note",
+            action: #selector(openLatestNote),
+            keyEquivalent: ""
+        )
+        openNoteItem.target = self
+
+        let settingsItem = NSMenuItem(title: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
 
         let menu = NSMenu()
@@ -61,6 +78,9 @@ final class StatusBarController: NSObject {
         menu.addItem(recItem)
         menu.addItem(sessionsItem)
         menu.addItem(.separator())
+        menu.addItem(openFolderItem)
+        menu.addItem(openNoteItem)
+        menu.addItem(.separator())
         menu.addItem(settingsItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit NoteTakr", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -68,11 +88,51 @@ final class StatusBarController: NSObject {
 
         calendarAdapter = EventKitCalendarAdapter()
         Task { await refreshNextMeeting() }
+        Task { await notificationScheduler.requestPermission() }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleStartRecordingFromNotification),
+            name: .meetingNotificationStartRecording,
+            object: nil
+        )
+    }
+
+    @objc private func handleStartRecordingFromNotification() {
+        Task { @MainActor in
+            guard !recordingManager.isRecording else { return }
+            let title = nextCalendarMeeting?.title ?? "Meeting Recording"
+            do {
+                _ = try await recordingManager.startRecording(title: title)
+                updateRecordingUI()
+                showSessions()
+            } catch {
+                // Recording start failed — continue without recording.
+            }
+        }
     }
 
     @objc private func openSettings() {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func openRecordingsFolder() {
+        let folder = store.baseURL
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(folder)
+    }
+
+    @objc private func openLatestNote() {
+        let sessions = (try? store.loadAll()) ?? []
+        for session in sessions {
+            let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
+            if FileManager.default.fileExists(atPath: noteURL.path) {
+                NSWorkspace.shared.open(noteURL)
+                return
+            }
+        }
+        openRecordingsFolder()
     }
 
     @objc private func quickRecording() {
@@ -128,7 +188,12 @@ final class StatusBarController: NSObject {
         }
         let sessions = (try? store.loadAll()) ?? []
         let activeID = recordingManager.activeSession?.id
-        let view = TodayView(sessions: sessions, nextMeeting: nextCalendarMeeting) { [weak self] session in
+        let view = TodayView(
+            sessions: sessions,
+            nextMeeting: nextCalendarMeeting,
+            isLoading: isCalendarLoading,
+            errorMessage: calendarError
+        ) { [weak self] session in
             guard let self else { return }
             self.showSessionDetail(session)
         } onStopRecording: { [weak self] _ in
@@ -225,6 +290,10 @@ final class StatusBarController: NSObject {
 
     @MainActor
     private func refreshNextMeeting() async {
+        isCalendarLoading = true
+        calendarError = nil
+        defer { isCalendarLoading = false }
+
         guard let adapter = calendarAdapter else { return }
         do {
             try await adapter.requestAccess()
@@ -235,9 +304,10 @@ final class StatusBarController: NSObject {
                 nextCalendarMeeting = top.event
                 nextMeetingMenuItem?.title = top.event.title
                 nextMeetingMenuItem?.isEnabled = false
+                notificationScheduler.scheduleReminder(for: top.event)
             }
         } catch {
-            // Calendar access denied or unavailable — continue without calendar data.
+            calendarError = "Calendar unavailable"
         }
     }
 }
