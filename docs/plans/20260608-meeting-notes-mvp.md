@@ -123,14 +123,14 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 6: Add meeting-time notifications and MVP polish
 
-* [ ] Add macOS notifications shortly before likely calendar meetings.
-* [ ] Include a Start Recording action.
-* [ ] Add native empty states, errors, loading states, and recording-state indicators.
-* [ ] Add an Open Recordings Folder action.
-* [ ] Add an Open Latest Note action.
-* [ ] Add accessibility identifiers to important controls.
-* [ ] Add UI automation tests for opening Settings, adding vocabulary, starting a mock recording, stopping it, and opening a generated note.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Add macOS notifications shortly before likely calendar meetings.
+* [x] Include a Start Recording action.
+* [x] Add native empty states, errors, loading states, and recording-state indicators.
+* [x] Add an Open Recordings Folder action.
+* [x] Add an Open Latest Note action.
+* [x] Add accessibility identifiers to important controls.
+* [x] Add UI automation tests for opening Settings, adding vocabulary, starting a mock recording, stopping it, and opening a generated note.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 7: Document the physical Mac smoke test
 
