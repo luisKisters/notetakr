@@ -408,6 +408,7 @@
 		AAFADE000000000000000031 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -421,12 +422,14 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notetakr.app.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NoteTakr.app/Contents/MacOS/NoteTakr";
 			};
 			name = Debug;
 		};
 		AAFADE000000000000000032 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -440,6 +443,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notetakr.app.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NoteTakr.app/Contents/MacOS/NoteTakr";
 			};
 			name = Release;
 		};
