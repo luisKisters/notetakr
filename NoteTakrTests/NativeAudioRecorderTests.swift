@@ -23,6 +23,7 @@ final class NativeAudioRecorderTests: XCTestCase {
         XCTAssertNotNil(capturer)
     }
 
+    @MainActor
     func testAudioPermissionManagerInstantiates() {
         // Compile-time check: AudioPermissionManager can be created on the main actor.
         let manager = AudioPermissionManager()
