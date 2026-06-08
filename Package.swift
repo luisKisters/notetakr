@@ -3,6 +3,9 @@ import PackageDescription
 
 let package = Package(
     name: "NoteTakr",
+    platforms: [
+        .macOS(.v13),
+    ],
     products: [
         .library(name: "NoteTakrCore", targets: ["NoteTakrCore"]),
     ],
