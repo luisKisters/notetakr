@@ -85,14 +85,14 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 3: Add the recording lifecycle with mock audio
 
-* [ ] Add an AudioRecorder protocol.
-* [ ] Add a mock recorder that creates fixture microphone and system-audio files.
-* [ ] Connect Start Recording and Stop Recording actions to the session state machine.
-* [ ] Make active recording state obvious in the menu-bar UI and session detail view.
-* [ ] Preserve incomplete sessions after relaunch.
-* [ ] Add tests for start, stop, failure, interruption, and recovery behavior.
-* [ ] Add an end-to-end test using the mock recorder.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Add an AudioRecorder protocol.
+* [x] Add a mock recorder that creates fixture microphone and system-audio files.
+* [x] Connect Start Recording and Stop Recording actions to the session state machine.
+* [x] Make active recording state obvious in the menu-bar UI and session detail view.
+* [x] Preserve incomplete sessions after relaunch.
+* [x] Add tests for start, stop, failure, interruption, and recovery behavior.
+* [x] Add an end-to-end test using the mock recorder.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 4: Add real macOS audio capture adapter
 
