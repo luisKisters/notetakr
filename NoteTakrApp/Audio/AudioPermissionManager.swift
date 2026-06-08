@@ -28,7 +28,7 @@ final class AudioPermissionManager: ObservableObject {
     /// Screen recording permission is required for system-audio capture via ScreenCaptureKit.
     func requestSystemAudioAccess() {
         CGRequestScreenCaptureAccess()
-        refresh()
+        systemAudioStatus = CGPreflightScreenCaptureAccess() ? .granted : .denied
     }
 
     private func currentMicrophoneStatus() -> PermissionStatus {
@@ -40,7 +40,9 @@ final class AudioPermissionManager: ObservableObject {
     }
 
     private func currentSystemAudioStatus() -> PermissionStatus {
-        CGPreflightScreenCaptureAccess() ? .granted : .denied
+        // CGPreflightScreenCaptureAccess returns false for both undetermined and denied;
+        // default to .notDetermined since we cannot distinguish them here.
+        CGPreflightScreenCaptureAccess() ? .granted : .notDetermined
     }
 }
 #endif

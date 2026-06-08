@@ -43,9 +43,23 @@ public final class SessionStore: @unchecked Sendable {
     }
 
     public func save(_ session: MeetingSession) throws {
-        let dir = sessionURL(for: session)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let fileURL = dir.appendingPathComponent("session.json")
+        let targetDir = sessionURL(for: session)
+        // If the session title was renamed the folder name changes. Find any existing
+        // folder for this session ID and move it to the new path so audio files are
+        // not orphaned.
+        let shortID = String(session.id.uuidString.prefix(8))
+        if FileManager.default.fileExists(atPath: baseURL.path) {
+            let existing = (try? FileManager.default.contentsOfDirectory(
+                at: baseURL, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+            )) ?? []
+            if let oldDir = existing.first(where: {
+                $0.lastPathComponent.hasSuffix("_\(shortID)") && $0 != targetDir
+            }) {
+                try FileManager.default.moveItem(at: oldDir, to: targetDir)
+            }
+        }
+        try FileManager.default.createDirectory(at: targetDir, withIntermediateDirectories: true)
+        let fileURL = targetDir.appendingPathComponent("session.json")
         let data = try encoder.encode(session)
         try data.write(to: fileURL, options: .atomic)
     }

@@ -17,21 +17,20 @@ final class StatusBarController: NSObject {
     private var calendarError: String? = nil
 
     override init() {
-        let appSupport = FileManager.default
+        let appSupportBase = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first!
+            .first ?? FileManager.default.temporaryDirectory
+        let appSupport = appSupportBase
             .appendingPathComponent("NoteTakr/Sessions", isDirectory: true)
         store = SessionStore(baseURL: appSupport)
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
         try? store.recoverInterruptedSessions()
 
-        let vocabURL = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first!
+        let vocabURL = appSupportBase
             .appendingPathComponent("NoteTakr/vocabulary.json")
         vocabularyStore = VocabularyStore(fileURL: vocabURL)
 
-        recordingManager = RecordingManager(store: store, recorder: MockAudioRecorder())
+        recordingManager = RecordingManager(store: store, recorder: NativeAudioRecorder())
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         super.init()
@@ -186,8 +185,8 @@ final class StatusBarController: NSObject {
             NSApp.activate(ignoringOtherApps: true)
             return
         }
+        sessionsWindow?.close()
         let sessions = (try? store.loadAll()) ?? []
-        let activeID = recordingManager.activeSession?.id
         let view = TodayView(
             sessions: sessions,
             nextMeeting: nextCalendarMeeting,
@@ -234,7 +233,7 @@ final class StatusBarController: NSObject {
         }
 
         let view = SessionDetailView(
-            session: Binding(get: { mutable }, set: { mutable = $0 }),
+            session: Binding(get: { mutable }, set: { [self] in mutable = $0; try? self.store.save($0) }),
             isActiveRecording: isActiveSession,
             onStopRecording: isActiveSession ? { [weak self] in
                 guard let self else { return }
@@ -263,11 +262,21 @@ final class StatusBarController: NSObject {
     private func transcribeSession(_ session: MeetingSession) {
         let vocab = (try? vocabularyStore.enabledEntries()) ?? []
         Task { @MainActor in
-            let engine = MockTranscriptionEngine()
             guard let audioPath = session.audioFilePaths.first else { return }
             let audioURL = URL(fileURLWithPath: audioPath)
+            let appSupportBase = FileManager.default
+                .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+                .first ?? FileManager.default.temporaryDirectory
+            let modelDir = appSupportBase.appendingPathComponent("NoteTakr/Models")
             do {
-                let segments = try await engine.transcribe(audioURL: audioURL, vocabulary: vocab)
+                let segments = try await FluidAudioAdapter(modelDirectory: modelDir)
+                    .transcribe(audioURL: audioURL, vocabulary: vocab)
+                var updated = session
+                updated.transcriptSegments = segments
+                try? self.store.save(updated)
+            } catch TranscriptionError.modelUnavailable {
+                let segments = (try? await MockTranscriptionEngine()
+                    .transcribe(audioURL: audioURL, vocabulary: vocab)) ?? []
                 var updated = session
                 updated.transcriptSegments = segments
                 try? self.store.save(updated)
