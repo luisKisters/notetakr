@@ -1,0 +1,79 @@
+import SwiftUI
+import NoteTakrCore
+
+struct SessionDetailView: View {
+    @Binding var session: MeetingSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("Meeting title", text: $session.title)
+                        .font(.title2.weight(.semibold))
+                        .accessibilityIdentifier("sessionTitleField")
+                    Text(session.date, style: .date)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                StatusBadgeView(status: session.status)
+                    .accessibilityIdentifier("sessionStatusBadge")
+            }
+
+            Divider()
+
+            GroupBox("Transcript") {
+                if session.transcriptSegments.isEmpty {
+                    Text("Transcript will appear here after recording.")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("transcriptPlaceholder")
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(session.transcriptSegments) { segment in
+                                TranscriptSegmentRow(segment: segment)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 200)
+                }
+            }
+
+            GroupBox("Personal Notes") {
+                TextEditor(text: $session.personalNotes)
+                    .frame(minHeight: 80)
+                    .accessibilityIdentifier("personalNotesEditor")
+            }
+
+            Spacer()
+        }
+        .padding()
+        .frame(minWidth: 400)
+    }
+}
+
+struct TranscriptSegmentRow: View {
+    let segment: TranscriptSegment
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(formattedTimestamp)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 50, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                if let speaker = segment.speaker {
+                    Text(speaker)
+                        .font(.caption.weight(.medium))
+                }
+                Text(segment.text)
+                    .font(.body)
+            }
+        }
+    }
+
+    private var formattedTimestamp: String {
+        let total = Int(segment.timestamp)
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}

@@ -10,7 +10,12 @@
 		AAFADE000000000000000500 /* NoteTakrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000200 /* NoteTakrApp.swift */; };
 		AAFADE000000000000000501 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000201 /* AppDelegate.swift */; };
 		AAFADE000000000000000502 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000202 /* StatusBarController.swift */; };
+		AAFADE000000000000000503 /* NoteTakrCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000801 /* NoteTakrCore */; };
+		AAFADE000000000000000504 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000204 /* TodayView.swift */; };
+		AAFADE000000000000000505 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000205 /* SessionDetailView.swift */; };
 		AAFADE000000000000000510 /* NoteTakrLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */; };
+		AAFADE000000000000000511 /* NoteTakrCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000802 /* NoteTakrCore */; };
+		AAFADE000000000000000512 /* SessionViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000211 /* SessionViewTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,7 +33,10 @@
 		AAFADE000000000000000201 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = NoteTakrApp/AppDelegate.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000202 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StatusBarController.swift; path = NoteTakrApp/StatusBarController.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000203 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = NoteTakrApp/Info.plist; sourceTree = "<group>"; };
+		AAFADE000000000000000204 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TodayView.swift; path = NoteTakrApp/Views/TodayView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000205 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionDetailView.swift; path = NoteTakrApp/Views/SessionDetailView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTakrLaunchTests.swift; path = NoteTakrTests/NoteTakrLaunchTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000211 /* SessionViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionViewTests.swift; path = NoteTakrTests/SessionViewTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000300 /* NoteTakr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteTakr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAFADE000000000000000310 /* NoteTakrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteTakrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -38,6 +46,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AAFADE000000000000000503 /* NoteTakrCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -45,6 +54,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AAFADE000000000000000511 /* NoteTakrCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -67,6 +77,8 @@
 				AAFADE000000000000000201 /* AppDelegate.swift */,
 				AAFADE000000000000000202 /* StatusBarController.swift */,
 				AAFADE000000000000000203 /* Info.plist */,
+				AAFADE000000000000000204 /* TodayView.swift */,
+				AAFADE000000000000000205 /* SessionDetailView.swift */,
 			);
 			name = NoteTakrApp;
 			sourceTree = "<group>";
@@ -75,6 +87,7 @@
 			isa = PBXGroup;
 			children = (
 				AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */,
+				AAFADE000000000000000211 /* SessionViewTests.swift */,
 			);
 			name = NoteTakrTests;
 			sourceTree = "<group>";
@@ -104,6 +117,9 @@
 			dependencies = (
 			);
 			name = NoteTakr;
+			packageProductDependencies = (
+				AAFADE000000000000000801 /* NoteTakrCore */,
+			);
 			productName = NoteTakr;
 			productReference = AAFADE000000000000000300 /* NoteTakr.app */;
 			productType = "com.apple.product-type.application";
@@ -121,6 +137,9 @@
 				AAFADE000000000000000700 /* PBXTargetDependency */,
 			);
 			name = NoteTakrTests;
+			packageProductDependencies = (
+				AAFADE000000000000000802 /* NoteTakrCore */,
+			);
 			productName = NoteTakrTests;
 			productReference = AAFADE000000000000000310 /* NoteTakrTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -153,6 +172,9 @@
 				Base,
 			);
 			mainGroup = AAFADE000000000000000100;
+			packageReferences = (
+				AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */,
+			);
 			productRefGroup = AAFADE000000000000000130 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -181,6 +203,8 @@
 				AAFADE000000000000000500 /* NoteTakrApp.swift in Sources */,
 				AAFADE000000000000000501 /* AppDelegate.swift in Sources */,
 				AAFADE000000000000000502 /* StatusBarController.swift in Sources */,
+				AAFADE000000000000000504 /* TodayView.swift in Sources */,
+				AAFADE000000000000000505 /* SessionDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -189,6 +213,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAFADE000000000000000510 /* NoteTakrLaunchTests.swift in Sources */,
+				AAFADE000000000000000512 /* SessionViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -413,6 +438,26 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AAFADE000000000000000801 /* NoteTakrCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */;
+			productName = NoteTakrCore;
+		};
+		AAFADE000000000000000802 /* NoteTakrCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */;
+			productName = NoteTakrCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AAFADE000000000000000001 /* Project object */;
 }

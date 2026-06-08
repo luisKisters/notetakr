@@ -63,13 +63,13 @@ Swift / Xcode / clang preinstalled). Follow these rules at all times:
 
 ### Task 1: Add meeting sessions and local note storage
 
-* [ ] Add a Today view showing the next meeting placeholder and recent recording sessions.
-* [ ] Add a session detail view with title, date, recording status, transcript placeholder, and editable personal notes.
-* [ ] Add core models for meeting sessions, status transitions, transcript segments, and saved note metadata.
-* [ ] Store sessions as local JSON files in deterministic folders.
-* [ ] Add Linux-compatible unit tests for session creation, storage, folder sanitization, reload behavior, and interrupted sessions.
-* [ ] Add macOS tests confirming the native views compile and fixture sessions load.
-* [ ] Run the local validation and CI gate until both pass.
+* [x] Add a Today view showing the next meeting placeholder and recent recording sessions.
+* [x] Add a session detail view with title, date, recording status, transcript placeholder, and editable personal notes.
+* [x] Add core models for meeting sessions, status transitions, transcript segments, and saved note metadata.
+* [x] Store sessions as local JSON files in deterministic folders.
+* [x] Add Linux-compatible unit tests for session creation, storage, folder sanitization, reload behavior, and interrupted sessions.
+* [x] Add macOS tests confirming the native views compile and fixture sessions load.
+* [x] Run the local validation and CI gate until both pass.
 
 ### Task 2: Add calendar-aware meeting preparation
 
