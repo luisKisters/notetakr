@@ -8,12 +8,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         statusBarController = StatusBarController()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleShowSettingsWindow),
-            name: .noteTakrShowSettingsWindow,
-            object: nil
-        )
         UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.showSettingsWindow()
@@ -27,13 +21,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    @objc private func handleShowSettingsWindow() {
-        showSettingsWindow()
-    }
-
     private func showSettingsWindow() {
-        // Uses the SwiftUI Settings scene window (single managed instance, normal window level).
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        NotificationCenter.default.post(name: .noteTakrShowSettingsWindow, object: nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 }
