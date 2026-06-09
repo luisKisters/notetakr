@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — ⌘K Switcher · Round 3 (Agenda Timeline)</title>
+<style>
+  /* ============================================================
+     GLOBAL
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  :root {
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --acc: #8B5CF6;
+    --acc2: #A78BFA;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #0d0c10;
+    color: #e9e8ec;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- slim sticky nav ---------- */
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 2px;
+    padding: 8px 18px;
+    background: rgba(15,14,19,0.84);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 12px;
+    overflow-x: auto;
+  }
+  .topnav .brand { font-weight: 700; font-size: 12.5px; margin-right: 12px; letter-spacing: -0.2px; color: #fff; white-space: nowrap; }
+  .topnav .brand span { color: var(--acc2); }
+  .topnav a {
+    color: #9b98a6; text-decoration: none;
+    padding: 4px 9px; border-radius: 6px; white-space: nowrap;
+  }
+  .topnav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .topnav .sep { width: 1px; height: 14px; background: rgba(255,255,255,0.12); margin: 0 6px; flex: none; }
+
+  header.intro { max-width: 880px; margin: 0 auto; padding: 40px 24px 0; }
+  header.intro h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.4px; }
+  header.intro p { margin-top: 8px; font-size: 13px; line-height: 1.6; color: #a5a2b0; max-width: 700px; }
+  header.intro b { color: #cfcbdd; font-weight: 600; }
+
+  /* ---------- section scaffolding ---------- */
+  section.mock { padding: 48px 24px 8px; max-width: 880px; margin: 0 auto; }
+  .mock-head { margin-bottom: 16px; padding: 0 4px; }
+  .mock-head .vnum {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--acc2); margin-bottom: 6px;
+  }
+  .mock-head h2 { font-size: 21px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 7px; }
+  .mock-head p.rationale { font-size: 13px; line-height: 1.55; color: #a7a4b1; max-width: 700px; }
+  .mock-head p.tradeoff { margin-top: 7px; font-size: 12.5px; color: #76737f; }
+  .mock-head p.tradeoff b { color: #99959f; font-weight: 600; }
+
+  /* ---------- desktop stages: high-contrast blobs + grain ---------- */
+  .stage {
+    border-radius: 20px;
+    padding: 46px 40px 58px;
+    display: flex; justify-content: center;
+    position: relative; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .stage::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: var(--grain);
+    opacity: 0.06; pointer-events: none;
+  }
+  .stage-1 { background:
+    radial-gradient(42% 52% at 18% 18%, rgba(255,120,80,0.85), transparent 70%),
+    radial-gradient(48% 58% at 86% 30%, rgba(80,140,255,0.75), transparent 70%),
+    radial-gradient(50% 55% at 60% 95%, rgba(190,70,170,0.7), transparent 70%),
+    linear-gradient(160deg, #18142a 0%, #0e0c1c 100%); }
+  .stage-2 { background:
+    radial-gradient(45% 55% at 80% 15%, rgba(60,220,200,0.65), transparent 70%),
+    radial-gradient(48% 56% at 12% 70%, rgba(70,110,255,0.65), transparent 70%),
+    radial-gradient(40% 50% at 60% 110%, rgba(180,80,220,0.5), transparent 70%),
+    linear-gradient(150deg, #101424 0%, #0a0d18 100%); }
+  .stage-3 { background:
+    radial-gradient(46% 56% at 22% 24%, rgba(255,190,90,0.8), transparent 70%),
+    radial-gradient(46% 56% at 84% 70%, rgba(150,90,255,0.7), transparent 70%),
+    radial-gradient(40% 50% at 55% -10%, rgba(255,90,130,0.55), transparent 70%),
+    linear-gradient(165deg, #1a1322 0%, #100c18 100%); }
+
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 14px; position: relative; z-index: 2; }
+
+  /* ---------- 3-way theme toggle ---------- */
+  .toggle {
+    display: inline-flex; gap: 2px; padding: 3px;
+    background: rgba(0,0,0,0.38); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .toggle button {
+    appearance: none; border: 0; cursor: pointer;
+    font: 600 11px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #c9c6d2; background: transparent;
+    padding: 5px 13px; border-radius: 999px; letter-spacing: 0.2px;
+  }
+  .toggle button.active { background: rgba(255,255,255,0.18); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+  /* ============================================================
+     WINDOW — compact portrait 420 × 620, radius 16
+     Themes: .glass / .dark / .light  (CSS variables per theme)
+     ============================================================ */
+  .window {
+    width: 420px; height: 620px;
+    border-radius: 16px;
+    position: relative;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .window::after { /* faint film grain */
+    content: ""; position: absolute; inset: 0; z-index: 60;
+    background-image: var(--grain);
+    opacity: 0.045; pointer-events: none;
+  }
+
+  /* ---- GLASS ---- */
+  .window.glass {
+    --tx1: #F3F1F6; --tx2: #ACA8B8; --tx3: #7C7889;
+    --hair: rgba(255,255,255,0.09);
+    --line: rgba(255,255,255,0.15);
+    --node: #6B6678; --node-ring: #26222e;
+    --hover: rgba(255,255,255,0.05);
+    --field: rgba(255,255,255,0.07); --fieldbrd: rgba(255,255,255,0.13);
+    --kbdbg: rgba(255,255,255,0.10); --kbdbrd: rgba(255,255,255,0.16); --kbdtx: #C8C4D2;
+    --selbg: linear-gradient(180deg, rgba(167,139,250,0.26), rgba(139,92,246,0.16));
+    --selbrd: rgba(167,139,250,0.42);
+    --create: #C4B0FC;
+    --cur: #B7A8E8;
+    --bar: rgba(255,255,255,0.04);
+    --ntx1: #EDEBF2; --ntx2: #B4B0BE; --ntx3: #8A8694;
+    background: rgba(29,26,36,0.52);
+    backdrop-filter: blur(40px) saturate(1.5);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,0.22),
+      inset 0 0.5px 0 rgba(255,255,255,0.18),
+      0 2px 6px rgba(0,0,0,0.30),
+      0 24px 60px rgba(0,0,0,0.55),
+      0 60px 120px rgba(0,0,0,0.40);
+  }
+  .window.glass .frost { background: rgba(34,30,42,0.40); }
+
+  /* ---- DARK (solid, purple-tinted near-black; brighter hairlines) ---- */
+  .window.dark {
+    --tx1: #FAF9FC; --tx2: #B5B1C0; --tx3: #817D8E;
+    --hair: rgba(255,255,255,0.11);
+    --line: rgba(255,255,255,0.19);
+    --node: #7A7588; --node-ring: #1c1a21;
+    --hover: rgba(255,255,255,0.06);
+    --field: rgba(255,255,255,0.07); --fieldbrd: rgba(255,255,255,0.14);
+    --kbdbg: rgba(255,255,255,0.10); --kbdbrd: rgba(255,255,255,0.18); --kbdtx: #D0CCDA;
+    --selbg: linear-gradient(180deg, rgba(167,139,250,0.28), rgba(139,92,246,0.18));
+    --selbrd: rgba(167,139,250,0.46);
+    --create: #C9B6FE;
+    --cur: #BCACEE;
+    --bar: rgba(255,255,255,0.035);
+    --ntx1: #F0EEF4; --ntx2: #B8B4C2; --ntx3: #8C8896;
+    background: #151417;
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,0.16),
+      inset 0 0.5px 0 rgba(255,255,255,0.10),
+      0 2px 6px rgba(0,0,0,0.30),
+      0 24px 60px rgba(0,0,0,0.55),
+      0 60px 120px rgba(0,0,0,0.40);
+  }
+  .window.dark .frost { background: rgba(27,25,32,0.66); }
+
+  /* ---- LIGHT (warm paper) ---- */
+  .window.light {
+    --tx1: #28242E; --tx2: #6F6A78; --tx3: #9C97A6;
+    --hair: rgba(40,30,50,0.10);
+    --line: rgba(40,30,50,0.16);
+    --node: #A6A0B0; --node-ring: #f3efe8;
+    --hover: rgba(40,30,50,0.05);
+    --field: rgba(255,255,255,0.75); --fieldbrd: rgba(40,30,50,0.13);
+    --kbdbg: rgba(40,30,50,0.06); --kbdbrd: rgba(40,30,50,0.14); --kbdtx: #5E5968;
+    --selbg: linear-gradient(180deg, rgba(139,92,246,0.14), rgba(139,92,246,0.08));
+    --selbrd: rgba(139,92,246,0.34);
+    --create: #7C3AED;
+    --cur: #8668D6;
+    --bar: rgba(40,30,50,0.03);
+    --ntx1: #2C2833; --ntx2: #5C5765; --ntx3: #8B8694;
+    background: #F7F4EE;
+    box-shadow:
+      0 0 0 0.5px rgba(0,0,0,0.18),
+      inset 0 0.5px 0 rgba(255,255,255,0.9),
+      0 2px 6px rgba(0,0,0,0.22),
+      0 24px 60px rgba(10,5,25,0.45),
+      0 60px 120px rgba(10,5,25,0.30);
+  }
+  .window.light .frost { background: rgba(251,248,242,0.55); }
+  .window.light .frost { box-shadow: inset 0 1px 0 rgba(255,255,255,0.75); }
+
+  /* ---------- titlebar ---------- */
+  .titlebar {
+    flex: none; height: 40px; z-index: 20;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    background: var(--bar);
+    border-bottom: 1px solid var(--hair);
+    position: relative;
+  }
+  .lights { display: flex; gap: 7px; flex: none; }
+  .lights i { width: 11px; height: 11px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2); }
+  .lights i:nth-child(1) { background: #ff5f57; }
+  .lights i:nth-child(2) { background: #febc2e; }
+  .lights i:nth-child(3) { background: #28c840; }
+  .wtitle {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-size: 12.5px; font-weight: 600; color: var(--tx2); pointer-events: none;
+    letter-spacing: -0.1px;
+  }
+  .rec {
+    margin-left: auto; flex: none; z-index: 1;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: var(--tx3);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .rec::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #ff4b4b; box-shadow: 0 0 6px rgba(255,75,75,0.8); }
+
+  /* ---------- body / blurred note underneath ---------- */
+  .win-body { flex: 1; position: relative; overflow: hidden; }
+  .note {
+    position: absolute; inset: 0; padding: 20px 22px; overflow: hidden; z-index: 1;
+    /* real blur on the note itself + backdrop blur on the frost above =
+       deep, crisp frosting with no sharp text boiling through */
+    filter: blur(8px) saturate(1.1);
+  }
+  .note h1 { font-size: 19px; letter-spacing: -0.4px; font-weight: 700; color: var(--ntx1); }
+  .note .nmeta { margin: 7px 0 14px; font-size: 11.5px; color: var(--ntx3); }
+  .note .nmeta .live { color: #ff6b6b; font-weight: 600; }
+  .note h2 { font-size: 13px; font-weight: 700; margin: 14px 0 6px; color: var(--ntx1); letter-spacing: -0.1px; }
+  .note p, .note li { font-size: 12.5px; line-height: 1.6; color: var(--ntx2); }
+  .note ul { margin: 4px 0 4px 18px; }
+  .note mark {
+    background: rgba(255,206,110,0.9); color: #2c2415;
+    border-radius: 3px; padding: 0 3px;
+  }
+  .note .callout {
+    margin-top: 12px; padding: 9px 12px;
+    border-left: 2px solid rgba(167,139,250,0.8);
+    background: rgba(167,139,250,0.18);
+    border-radius: 0 8px 8px 0;
+    font-size: 12px; color: var(--ntx2); line-height: 1.5;
+  }
+  .window.light .note mark { background: rgba(255,206,110,0.75); }
+  .window.light .note .callout { background: rgba(139,92,246,0.10); }
+
+  /* ============================================================
+     FROST LAYER — crisp, not boggy:
+     blur(40px) saturate(1.5), lighter fill, 1px top highlight
+     ============================================================ */
+  .frost {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    backdrop-filter: blur(40px) saturate(1.5);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+
+  /* ---------- search ---------- */
+  .search {
+    flex: none;
+    display: flex; align-items: center; gap: 8px;
+    margin: 12px 14px 6px; padding: 0 11px;
+    height: 36px; border-radius: 10px;
+    background: var(--field);
+    border: 1px solid var(--fieldbrd);
+  }
+  .search svg { flex: none; color: var(--tx3); }
+  .search input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    font: 400 13px -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--tx1); caret-color: var(--acc);
+  }
+  .search input::placeholder { color: var(--tx3); }
+  kbd {
+    font: 600 10px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--kbdtx);
+    background: var(--kbdbg);
+    border: 1px solid var(--kbdbrd);
+    border-bottom-width: 2px;
+    border-radius: 5px; padding: 3px 5px; white-space: nowrap;
+  }
+
+  /* ============================================================
+     THE TIMELINE (round-1 layout: day rail · vertical line · rows)
+     ============================================================ */
+  .tl { flex: 1; overflow-y: auto; padding: 8px 14px 10px 6px; }
+  .day { display: flex; }
+  .drail { flex: none; width: 72px; text-align: right; padding: 13px 0 0; }
+  .drail .d1 { display: block; font-size: 11px; font-weight: 700; color: var(--tx1); letter-spacing: 0; }
+  .drail .d1.today { color: var(--acc2); }
+  .window.light .drail .d1.today { color: #7C3AED; }
+  .drail .d1.future { color: var(--tx2); }
+  .drail .d2 { display: block; font-size: 10px; color: var(--tx3); margin-top: 2px; }
+
+  /* the continuous vertical line */
+  .dline { flex: none; width: 24px; position: relative; }
+  .dline::before {
+    content: ""; position: absolute; left: 11px; top: 0; bottom: 0;
+    width: 2px; border-radius: 1px;
+    background: var(--line);
+  }
+
+  .ditems { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 6px 0 14px; }
+
+  /* rows — quiet: glyph · title · (red dot) · muted time */
+  .row {
+    position: relative;
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 9px;
+    border: 1px solid transparent;
+    cursor: default;
+  }
+  .row:hover { background: var(--hover); }
+  .row .glyph { flex: none; width: 15px; height: 15px; display: grid; place-items: center; color: var(--tx3); }
+  .row .glyph svg { display: block; }
+  .row .t {
+    flex: 1; min-width: 0;
+    font-size: 12.5px; font-weight: 400; color: var(--tx1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: -0.1px;
+  }
+  .row .time { flex: none; font-size: 11px; color: var(--tx3); font-variant-numeric: tabular-nums; }
+  .row .cur {
+    flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+    color: var(--cur);
+  }
+  .tdot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #ff4b4b; box-shadow: 0 0 5px rgba(255,75,75,0.7); }
+
+  /* node dots — sit on the line, one per item */
+  .node {
+    position: absolute; left: -17.5px; top: 50%;
+    width: 9px; height: 9px; border-radius: 50%;
+    transform: translateY(-50%);
+    background: var(--node);
+    border: 2px solid var(--node-ring);
+  }
+  .node.now { background: var(--acc); border-color: var(--node-ring); box-shadow: 0 0 8px rgba(139,92,246,0.65); }
+  .node.up  { background: transparent; border: 2px solid var(--acc2); }
+
+  /* selected row — soft purple glass highlight */
+  .row.sel {
+    background: var(--selbg);
+    border-color: var(--selbrd);
+    box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .row.sel .t { font-weight: 500; }
+  .window.light .row.sel { box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(80,50,140,0.10); }
+
+  /* ghost "create note" entry */
+  .row.ghost {
+    border: 1px dashed color-mix(in srgb, var(--acc2) 42%, transparent);
+    background: color-mix(in srgb, var(--acc) 6%, transparent);
+  }
+  .row.ghost .t { color: var(--tx2); }
+  .row.ghost .glyph { color: color-mix(in srgb, var(--acc2) 70%, var(--tx3)); }
+  .row.ghost:hover { border-color: color-mix(in srgb, var(--acc2) 62%, transparent); }
+  .create {
+    flex: none; font-size: 11px; font-weight: 600; color: var(--create);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .create svg { display: block; }
+
+  /* expanded metadata line (Breathing, selected row only) */
+  .row .meta-wrap { flex: 1; min-width: 0; }
+  .row .meta-wrap .t { display: block; }
+  .row .sub {
+    display: block; margin-top: 3px;
+    font-size: 11px; color: var(--tx2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* ---------- footer hints ---------- */
+  .hints {
+    flex: none; height: 36px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 11px; color: var(--tx3);
+    border-top: 1px solid var(--hair);
+    background: var(--bar);
+  }
+  .hints .dot { color: var(--tx3); opacity: 0.6; margin: 0 4px; }
+
+  /* ============================================================
+     V3 — BREATHING modifiers
+     ============================================================ */
+  .tl.breathe { padding-top: 14px; }
+  .tl.breathe .drail { padding-top: 16px; }
+  .tl.breathe .drail .d1 {
+    font-size: 13px; font-weight: 600;
+    font-variant-caps: all-small-caps; letter-spacing: 1.6px;
+  }
+  .tl.breathe .ditems { gap: 8px; padding: 8px 0 22px; }
+  .tl.breathe .row { padding: 9px 12px; }
+  .tl.breathe .day:first-child .dline::before {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 44px);
+            mask-image: linear-gradient(to bottom, transparent, #000 44px);
+  }
+  .tl.breathe .day:last-child .dline::before {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+  }
+
+  footer.page-end {
+    text-align: center; padding: 44px 0 60px;
+    font-size: 12px; color: #5d5a66;
+  }
+  footer.page-end a { color: #8d8999; }
+</style>
+</head>
+<body>
+
+<!-- ============ SLIM STICKY NAV ============ -->
+<nav class="topnav">
+  <span class="brand">Note<span>Takr</span> · Round 3</span>
+  <a href="v3-editor.html">Editor</a>
+  <a href="v3-settings.html">Settings</a>
+  <a href="02-switcher.html">Round 1 timeline</a>
+  <span class="sep"></span>
+  <a href="#v1">1 Frost Timeline</a>
+  <a href="#v2">2 Solid Timeline</a>
+  <a href="#v3">3 Breathing Timeline</a>
+</nav>
+
+<header class="intro">
+  <h1>⌘K Switcher — the Agenda Timeline, back for real</h1>
+  <p>Round 1's winner, kept literally: the <b>vertical timeline line</b>, node dots per item, day rail, and the ghost
+  "Create note" entry — now wearing the round-3 identity (purple accent, glass / dark / light, no pills, no clutter).
+  The frost layer is fixed: <b>blur 40px + saturate 1.5</b> with a lighter fill and a 1px top highlight, so it reads
+  as crisp glass over the blurred note instead of fog. Toggle each window between the three themes.</p>
+</header>
+
+<!-- ================================================================
+     V1 — FROST TIMELINE
+     ================================================================ -->
+<section class="mock" id="v1">
+  <div class="mock-head">
+    <div class="vnum">Variation 1</div>
+    <h2>Frost Timeline</h2>
+    <p class="rationale">Round one's agenda timeline, unchanged — same line, same dots, same day rail, same ghost
+    entry — rendered as a single full-window frost layer over the open note. The blur is doubled and the fill
+    lightened versus round 2, so the layer reads like crisp glass with the note and desktop color glowing faintly
+    through, not mud.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> glass legibility still depends on what sits behind the window — over a very busy desktop the Dark theme will always read better.</p>
+  </div>
+  <div class="stage stage-1">
+    <div class="stack">
+      <div class="toggle" data-win="w1">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="dark">Dark</button><button data-mode="light">Light</button>
+      </div>
+      <div class="window glass" id="w1">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="tl tl-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V2 — SOLID TIMELINE
+     ================================================================ -->
+<section class="mock" id="v2">
+  <div class="mock-head">
+    <div class="vnum">Variation 2</div>
+    <h2>Solid Timeline</h2>
+    <p class="rationale">The identical layout, defaulting to the solid Dark theme: purple-tinted near-black
+    <code>#151417</code>, no transparency between you and the list, and the timeline line plus hairlines stepped up a
+    notch so structure stays visible without glass depth. This is the fastest-feeling read and the one for people who
+    turn translucency off system-wide.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> the opaque surface loses the "your note is still right there" layering cue that the frost gives.</p>
+  </div>
+  <div class="stage stage-2">
+    <div class="stack">
+      <div class="toggle" data-win="w2">
+        <button data-mode="glass">Glass</button><button class="active" data-mode="dark">Dark</button><button data-mode="light">Light</button>
+      </div>
+      <div class="window dark" id="w2">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="tl tl-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V3 — BREATHING TIMELINE
+     ================================================================ -->
+<section class="mock" id="v3">
+  <div class="mock-head">
+    <div class="vnum">Variation 3</div>
+    <h2>Breathing Timeline</h2>
+    <p class="rationale">Same structure with more air: small-caps day labels, taller rows, and a timeline line that
+    fades in and out at its ends instead of running hard edge-to-edge. The selected entry breathes open to reveal one
+    quiet metadata line — time · place · people — with no pills or badges anywhere.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> fewer items per screen, so a long meeting history means noticeably more scrolling.</p>
+  </div>
+  <div class="stage stage-3">
+    <div class="stack">
+      <div class="toggle" data-win="w3">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="dark">Dark</button><button data-mode="light">Light</button>
+      </div>
+      <div class="window glass" id="w3">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="tl tl-slot breathe" data-variant="breathe"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="page-end">
+  NoteTakr · Round 3 · v3-switcher.html — Frost / Solid / Breathing Timeline ·
+  <a href="02-switcher.html#v4">round-1 original</a>
+</footer>
+
+<script>
+/* ---------- shared mock note (the layer that gets frosted) ---------- */
+const NOTE_HTML = `
+  <h1>Weekly Sync — Acme GmbH</h1>
+  <div class="nmeta">Today 14:00–14:45 · Zoom · Anna, Tom, Luis · <span class="live">transcribing</span></div>
+  <h2>Agenda</h2>
+  <ul>
+    <li>Q3 rollout status &amp; open blockers</li>
+    <li>API migration timeline (Tom)</li>
+    <li>Contract renewal — pricing tier</li>
+  </ul>
+  <h2>Notes</h2>
+  <p>Anna confirmed the staging environment will be ready by <mark>Thursday</mark>. Tom flagged the auth migration
+  as the main risk; needs a decision on the deprecation window before the next release train.</p>
+  <div class="callout">Decision: ship the switcher redesign first, transcript search second. Revisit the widget
+  experiment in Q4.</div>
+  <p style="margin-top:10px">Follow-up: send the updated pricing tier to Anna by Friday and loop in legal on the
+  renewal clause.</p>`;
+
+/* ---------- tiny SVG glyphs (1.5px stroke, currentColor) ---------- */
+const I = {
+  cam: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10.5 21 8v8l-5-2.5"/></svg>`,
+  person: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 19.5c1.2-3.2 4-4.5 7-4.5s5.8 1.3 7 4.5"/></svg>`,
+  cal: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>`,
+  doc: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>`,
+  plus: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`
+};
+
+/* ---------- timeline builder (round-1 structure, per-item node dots) ---------- */
+function timeline({ breathe = false } = {}) {
+  const selectedInner = breathe
+    ? `<span class="meta-wrap">
+         <span class="t">Weekly Sync — Acme GmbH</span>
+         <span class="sub">14:00–14:45 · Zoom · Anna, Tom, Luis</span>
+       </span>
+       <span class="tdot" title="Transcript"></span>
+       <span class="cur">current</span>`
+    : `<span class="t">Weekly Sync — Acme GmbH</span>
+       <span class="tdot" title="Transcript"></span>
+       <span class="cur">current</span>
+       <span class="time">14:00</span>`;
+
+  return `
+  <!-- TOMORROW -->
+  <div class="day">
+    <div class="drail"><span class="d1 future">Tomorrow</span><span class="d2">Wed, Jun 10</span></div>
+    <div class="dline"></div>
+    <div class="ditems">
+      <div class="row ghost">
+        <i class="node up"></i>
+        <span class="glyph">${I.cal}</span>
+        <span class="t">Design Review</span>
+        <span class="time">10:00</span>
+        <span class="create">${I.plus}Create note</span>
+      </div>
+    </div>
+  </div>
+  <!-- TODAY -->
+  <div class="day">
+    <div class="drail"><span class="d1 today">Today</span><span class="d2">Tue, Jun 9</span></div>
+    <div class="dline"></div>
+    <div class="ditems">
+      <div class="row sel">
+        <i class="node now"></i>
+        <span class="glyph">${I.cam}</span>
+        ${selectedInner}
+      </div>
+      <div class="row">
+        <i class="node"></i>
+        <span class="glyph">${I.person}</span>
+        <span class="t">1:1 Sarah</span>
+        <span class="time">11:00</span>
+      </div>
+    </div>
+  </div>
+  <!-- YESTERDAY -->
+  <div class="day">
+    <div class="drail"><span class="d1">Yesterday</span><span class="d2">Mon, Jun 8</span></div>
+    <div class="dline"></div>
+    <div class="ditems">
+      <div class="row">
+        <i class="node"></i>
+        <span class="glyph">${I.cam}</span>
+        <span class="t">Investor Update Call</span>
+        <span class="tdot" title="Transcript"></span>
+        <span class="time">16:30</span>
+      </div>
+      <div class="row">
+        <i class="node"></i>
+        <span class="glyph">${I.person}</span>
+        <span class="t">Kundengespräch Müller GmbH</span>
+        <span class="time">09:30</span>
+      </div>
+    </div>
+  </div>
+  <!-- MONDAY (prev week) -->
+  <div class="day">
+    <div class="drail"><span class="d1">Monday</span><span class="d2">Jun 1</span></div>
+    <div class="dline"></div>
+    <div class="ditems">
+      <div class="row">
+        <i class="node"></i>
+        <span class="glyph">${I.doc}</span>
+        <span class="t">Product Review</span>
+        <span class="time">15:00</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- inject content ---------- */
+document.querySelectorAll('.note-slot').forEach(el => { el.innerHTML = NOTE_HTML; });
+document.querySelectorAll('.tl-slot').forEach(el => {
+  el.innerHTML = timeline({ breathe: el.dataset.variant === 'breathe' });
+});
+
+/* ---------- 3-way theme toggle ---------- */
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    t.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+    const w = document.getElementById(t.dataset.win);
+    w.classList.remove('glass', 'dark', 'light');
+    w.classList.add(b.dataset.mode);
+  });
+});
+</script>
+
+</body>
+</html>

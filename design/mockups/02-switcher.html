@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — ⌘K Meeting Switcher Mockups</title>
+<style>
+  /* ============================================================
+     GLOBAL
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #0c0c0f;
+    color: #e8e8ea;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- sticky anchor nav ---------- */
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 4px;
+    padding: 10px 20px;
+    background: rgba(16,16,20,0.82);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 12.5px;
+  }
+  .topnav .brand {
+    font-weight: 700; font-size: 13px; margin-right: 14px; letter-spacing: -0.2px;
+    color: #fff;
+  }
+  .topnav .brand span { color: #ff6363; }
+  .topnav a {
+    color: #9a9aa2; text-decoration: none;
+    padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+  }
+  .topnav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+
+  /* ---------- section scaffolding ---------- */
+  section.mock { padding: 56px 24px 8px; max-width: 1060px; margin: 0 auto; }
+  .mock-head { margin-bottom: 18px; padding: 0 6px; }
+  .mock-head .vnum {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+    color: #ff6363; margin-bottom: 6px;
+  }
+  .mock-head h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 8px; }
+  .mock-head p.rationale { font-size: 13.5px; line-height: 1.55; color: #a9a9b2; max-width: 760px; }
+  .mock-head p.tradeoff {
+    margin-top: 8px; font-size: 12.5px; color: #77777f;
+  }
+  .mock-head p.tradeoff b { color: #98989f; font-weight: 600; }
+
+  /* ---------- desktop stage (gradient backdrop) ---------- */
+  .stage {
+    border-radius: 20px;
+    padding: 58px 40px 66px;
+    display: flex; justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .stage::before { /* faint desktop menubar hint */
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 24px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+  }
+  .stage-1 { background: radial-gradient(120% 140% at 15% 0%, #4b3a8f 0%, #28235e 38%, #131233 100%); }
+  .stage-2 { background: radial-gradient(120% 140% at 85% 0%, #0e5e63 0%, #0c3a4d 45%, #0a1c2e 100%); }
+  .stage-3 { background: radial-gradient(130% 150% at 50% -10%, #ffd9a8 0%, #f3a47c 45%, #b85e8a 100%); }
+  .stage-3::before { background: rgba(255,255,255,0.32); }
+  .stage-4 { background: radial-gradient(120% 140% at 20% 100%, #71275e 0%, #3c1f55 45%, #160f2e 100%); }
+  .stage-5 { background: radial-gradient(120% 140% at 80% 90%, #1d5c3a 0%, #14333a 50%, #0c1420 100%); }
+
+  /* ============================================================
+     MACOS FLOATING WINDOW CHROME (shared)
+     ============================================================ */
+  .window {
+    width: 720px; height: 540px;
+    border-radius: 14px;
+    background: #1d1d20;
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,0.18),
+      0 2px 6px rgba(0,0,0,0.30),
+      0 24px 60px rgba(0,0,0,0.55),
+      0 60px 120px rgba(0,0,0,0.40);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    font-size: 13px;
+  }
+  .titlebar {
+    flex: none; height: 38px;
+    display: flex; align-items: center;
+    padding: 0 12px;
+    position: relative;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .lights { display: flex; gap: 8px; z-index: 2; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .lights i:nth-child(1) { background: #ff5f57; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2); }
+  .lights i:nth-child(2) { background: #febc2e; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2); }
+  .lights i:nth-child(3) { background: #28c840; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2); }
+  .wtitle {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-size: 12.5px; font-weight: 600; color: #b9b9c0;
+    pointer-events: none;
+  }
+  .wtitle .dim { color: #6c6c74; font-weight: 500; }
+  .chrome-actions { margin-left: auto; display: flex; gap: 6px; z-index: 2; }
+  .chrome-actions button {
+    width: 24px; height: 24px; border-radius: 6px;
+    border: none; background: transparent; color: #8d8d95;
+    font-size: 13px; line-height: 1; cursor: default;
+    display: flex; align-items: center; justify-content: center;
+    font-family: inherit;
+  }
+  .chrome-actions button:hover { background: rgba(255,255,255,0.08); color: #d8d8de; }
+  .chrome-actions svg { width: 14px; height: 14px; }
+
+  .wfooter {
+    flex: none; height: 34px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 14px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.025);
+    font-size: 11.5px; color: #88888f;
+  }
+  .wfooter .spacer { flex: 1; }
+  .hint { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  kbd {
+    font-family: inherit;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 17px; height: 17px; padding: 0 4.5px;
+    border-radius: 4.5px;
+    background: rgba(255,255,255,0.09);
+    box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.14);
+    font-size: 10.5px; color: #b6b6bd;
+  }
+  .hint-sep { color: #4d4d54; }
+
+  /* shared small bits */
+  .icbox {
+    flex: none; width: 26px; height: 26px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icbox svg { width: 14px; height: 14px; }
+  .ic-zoom   { background: rgba(63,129,250,0.18); color: #6da4ff; }
+  .ic-meet   { background: rgba(45,176,109,0.18); color: #4cd189; }
+  .ic-person { background: rgba(255,159,67,0.18); color: #ffb066; }
+  .ic-cal    { background: rgba(175,130,255,0.20); color: #c2a0ff; }
+  .ic-doc    { background: rgba(255,255,255,0.10); color: #b9b9c0; }
+
+  .tdot { width: 7px; height: 7px; border-radius: 50%; background: #34c759; display: inline-block; box-shadow: 0 0 6px rgba(52,199,89,0.7); }
+  .tdot.rec { background: #ff453a; box-shadow: 0 0 6px rgba(255,69,58,0.7); }
+  .pin-star { color: #ffd60a; font-size: 11px; }
+
+  .current-pill {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.8px;
+    color: #6da4ff; background: rgba(63,129,250,0.16);
+    border: 1px solid rgba(109,164,255,0.35);
+    border-radius: 4px; padding: 1.5px 5px;
+  }
+
+  .avstack { display: flex; }
+  .av {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8.5px; font-weight: 700; color: #fff;
+    border: 1.5px solid #1d1d20;
+    margin-left: -6px;
+  }
+  .av:first-child { margin-left: 0; }
+  .av-a { background: #5e5ce6; } .av-b { background: #d65a8a; } .av-c { background: #2a9d6f; }
+  .av-d { background: #c77b2e; } .av-e { background: #3a7bd5; }
+
+  /* ============================================================
+     V1 — PALETTE OVERLAY
+     ============================================================ */
+  .v1-body { flex: 1; position: relative; overflow: hidden; }
+  .v1-editor {
+    position: absolute; inset: 0; padding: 26px 34px;
+    filter: blur(3.5px) saturate(0.85);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .v1-editor h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; }
+  .v1-editor .fm { font-size: 11.5px; color: #8a8a92; margin-bottom: 16px; }
+  .v1-editor p, .v1-editor li { font-size: 13px; line-height: 1.7; color: #c6c6cc; }
+  .v1-editor h3 { font-size: 13px; margin: 14px 0 4px; color: #e3e3e8; }
+  .v1-editor ul { padding-left: 20px; }
+  .v1-scrim { position: absolute; inset: 0; background: rgba(10,10,14,0.45); }
+  .v1-palette {
+    position: absolute; top: 22px; left: 50%; transform: translateX(-50%);
+    width: 608px; max-height: 432px;
+    background: rgba(34,34,39,0.97);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .v1-search {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 13px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .v1-search svg { width: 15px; height: 15px; color: #77777f; flex: none; }
+  .v1-search .q { font-size: 14.5px; color: #6e6e76; flex: 1; }
+  .v1-search .caret { width: 1.5px; height: 17px; background: #ff6363; margin-left: -8px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .v1-search .esc { font-size: 10.5px; color: #6c6c74; }
+  .v1-list { flex: 1; overflow: hidden; padding: 6px 8px 8px; }
+  .v1-group {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase;
+    color: #6f6f78; padding: 9px 10px 5px;
+  }
+  .v1-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; border-radius: 8px;
+  }
+  .v1-row .t { font-size: 13px; font-weight: 500; color: #ececf0; white-space: nowrap; }
+  .v1-row .s { font-size: 12px; color: #84848c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v1-row .acc { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #84848c; }
+  .v1-row.sel { background: rgba(255,255,255,0.10); }
+  .v1-row.sel .t { color: #fff; }
+  .v1-row:hover:not(.sel) { background: rgba(255,255,255,0.045); }
+  .v1-create {
+    font-size: 11px; font-weight: 600; color: #c2a0ff;
+    border: 1px solid rgba(194,160,255,0.4);
+    background: rgba(175,130,255,0.12);
+    border-radius: 5px; padding: 2.5px 8px;
+  }
+  .v1-foot {
+    flex: none; display: flex; align-items: center; gap: 13px;
+    padding: 8px 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.025);
+    font-size: 11.5px; color: #8a8a91;
+  }
+  .v1-foot .logo { display: flex; align-items: center; gap: 6px; font-weight: 600; color: #a9a9b0; }
+  .v1-foot .logo i { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg,#ff6363,#d6456f); display: block; }
+
+  /* ============================================================
+     V2 — SIDEBAR SLIDE-IN
+     ============================================================ */
+  .v2-body { flex: 1; display: flex; overflow: hidden; }
+  .v2-side {
+    flex: none; width: 260px;
+    background: rgba(255,255,255,0.035);
+    border-right: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column;
+    box-shadow: 8px 0 24px rgba(0,0,0,0.25);
+  }
+  .v2-search {
+    margin: 10px 10px 6px;
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 7px; padding: 5.5px 9px;
+  }
+  .v2-search svg { width: 12px; height: 12px; color: #77777f; flex: none; }
+  .v2-search span { font-size: 12px; color: #6e6e76; flex: 1; }
+  .v2-search kbd { height: 15px; min-width: 15px; font-size: 9.5px; }
+  .v2-list { flex: 1; overflow: hidden; padding: 2px 8px 8px; }
+  .v2-group {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.7px; text-transform: uppercase;
+    color: #67676f; padding: 11px 8px 4px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .v2-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: 7px;
+    position: relative;
+  }
+  .v2-row .icbox { width: 22px; height: 22px; border-radius: 6px; }
+  .v2-row .icbox svg { width: 12px; height: 12px; }
+  .v2-row .meta { flex: 1; min-width: 0; }
+  .v2-row .t { font-size: 12.5px; font-weight: 500; color: #e4e4e9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v2-row .s { font-size: 10.5px; color: #7d7d85; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v2-row .acc { flex: none; display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #7d7d85; }
+  .v2-row.sel { background: rgba(63,129,250,0.22); box-shadow: inset 0 0 0 1px rgba(109,164,255,0.25); }
+  .v2-row.sel .t { color: #fff; }
+  .v2-row.sel .s { color: #aab; }
+  .v2-row.hovered { background: rgba(255,255,255,0.06); }
+  .v2-actions {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    display: flex; gap: 3px;
+    background: #2b2b30;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 2px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  }
+  .v2-actions b {
+    width: 20px; height: 20px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 400; font-size: 11px; color: #aaaab2;
+  }
+  .v2-actions b:hover { background: rgba(255,255,255,0.1); }
+  .v2-actions b.danger { color: #ff6961; }
+  .v2-actions svg { width: 11px; height: 11px; }
+  .v2-main { flex: 1; padding: 24px 30px; overflow: hidden; }
+  .v2-main h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; }
+  .v2-props { margin: 12px 0 16px; border-top: 1px solid rgba(255,255,255,0.07); }
+  .v2-prop {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5.5px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 11.5px;
+  }
+  .v2-prop .k { width: 92px; color: #74747c; display: flex; gap: 6px; align-items: center; }
+  .v2-prop .k svg { width: 11px; height: 11px; }
+  .v2-prop .v { color: #c9c9cf; display: flex; align-items: center; gap: 6px; }
+  .v2-main p, .v2-main li { font-size: 12.5px; line-height: 1.7; color: #c2c2c8; }
+  .v2-main h3 { font-size: 12.5px; margin: 10px 0 3px; color: #e5e5ea; }
+  .v2-main ul { padding-left: 18px; }
+  .v2-main .todo { color: #8b8b93; }
+  .v2-main .todo b { color: #34c759; font-weight: 400; margin-right: 4px; }
+
+  /* ============================================================
+     V3 — CARD GRID (LIGHT)
+     ============================================================ */
+  .window.light {
+    background: #f4f4f6;
+    box-shadow:
+      0 0 0 0.5px rgba(0,0,0,0.18),
+      0 2px 6px rgba(0,0,0,0.18),
+      0 24px 60px rgba(60,20,40,0.45),
+      0 60px 120px rgba(60,20,40,0.30);
+  }
+  .window.light .titlebar { background: rgba(0,0,0,0.025); border-bottom-color: rgba(0,0,0,0.08); }
+  .window.light .wtitle { color: #5c5c63; }
+  .window.light .wtitle .dim { color: #9a9aa0; }
+  .window.light .chrome-actions button { color: #8a8a90; }
+  .window.light .chrome-actions button:hover { background: rgba(0,0,0,0.06); color: #444; }
+  .window.light .wfooter { border-top-color: rgba(0,0,0,0.08); background: rgba(0,0,0,0.02); color: #84848a; }
+  .window.light kbd { background: rgba(0,0,0,0.06); box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.12); color: #5e5e66; }
+  .window.light .hint-sep { color: #c2c2c8; }
+
+  .v3-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .v3-top {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px 10px;
+  }
+  .v3-search {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 8px; padding: 7px 11px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .v3-search svg { width: 13px; height: 13px; color: #97979d; flex: none; }
+  .v3-search span { font-size: 13px; color: #9a9aa0; }
+  .v3-sort {
+    flex: none; display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #55555c; font-weight: 500;
+    background: #fff; border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 8px; padding: 7px 11px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .v3-sort i { font-style: normal; font-size: 9px; color: #97979d; }
+  .v3-grid {
+    flex: 1; overflow: hidden;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; padding: 2px 16px 14px;
+    align-content: start;
+  }
+  .v3-card {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.10);
+    border-radius: 10px;
+    padding: 11px 12px 10px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    position: relative;
+    min-height: 128px;
+  }
+  .v3-card.sel {
+    border-color: #4f7df9;
+    box-shadow: 0 0 0 2.5px rgba(79,125,249,0.25), 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .v3-card.ghost {
+    background: rgba(255,255,255,0.45);
+    border: 1.5px dashed rgba(0,0,0,0.22);
+    box-shadow: none;
+    align-items: flex-start;
+  }
+  .v3-card .when { font-size: 10.5px; font-weight: 600; color: #8c8c93; text-transform: uppercase; letter-spacing: 0.4px; }
+  .v3-card .t { font-size: 13px; font-weight: 650; color: #1c1c1e; margin-top: 3px; line-height: 1.3; letter-spacing: -0.1px; }
+  .v3-card .ex {
+    font-size: 11px; line-height: 1.45; color: #74747b;
+    margin-top: 5px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .v3-card .foot { margin-top: auto; padding-top: 8px; display: flex; align-items: center; gap: 6px; }
+  .v3-card .av { border-color: #fff; width: 18px; height: 18px; font-size: 8px; }
+  .v3-chip {
+    font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
+    letter-spacing: 0.2px;
+  }
+  .chip-zoom { background: rgba(63,129,250,0.13); color: #2f6ae0; }
+  .chip-meet { background: rgba(45,176,109,0.14); color: #1d8a55; }
+  .chip-inp  { background: rgba(255,149,0,0.14); color: #c06b00; }
+  .v3-tbadge {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9.5px; font-weight: 600; color: #1d8a55;
+  }
+  .v3-tbadge .tdot { width: 6px; height: 6px; box-shadow: none; }
+  .v3-card .current-pill { position: absolute; top: 10px; right: 10px; }
+  .v3-ghost-btn {
+    margin-top: auto;
+    font-size: 11px; font-weight: 600; color: #7a4fd0;
+    background: rgba(122,79,208,0.10);
+    border: 1px solid rgba(122,79,208,0.35);
+    border-radius: 6px; padding: 4px 10px;
+  }
+  .v3-card .ghost-when { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; color: #7a4fd0; }
+  .v3-card .ghost-when svg { width: 11px; height: 11px; }
+
+  /* ============================================================
+     V4 — AGENDA TIMELINE
+     ============================================================ */
+  .v4-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .v4-search {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 12px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .v4-search svg { width: 14px; height: 14px; color: #77777f; flex: none; }
+  .v4-search span { font-size: 13.5px; color: #6e6e76; flex: 1; }
+  .v4-seg {
+    display: flex; background: rgba(255,255,255,0.07); border-radius: 7px; padding: 2px;
+    font-size: 11px; font-weight: 500;
+  }
+  .v4-seg b { padding: 3px 10px; border-radius: 5px; color: #88888f; font-weight: 500; }
+  .v4-seg b.on { background: rgba(255,255,255,0.14); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  .v4-scroll { flex: 1; overflow: hidden; padding: 10px 20px 12px 20px; }
+  .v4-day { display: flex; gap: 14px; }
+  .v4-day + .v4-day { margin-top: 2px; }
+  .v4-rail { flex: none; width: 74px; position: relative; padding-top: 9px; text-align: right; }
+  .v4-rail .d1 { font-size: 11px; font-weight: 700; color: #e8e8ec; }
+  .v4-rail .d1.today { color: #ff7a7a; }
+  .v4-rail .d1.future { color: #c2a0ff; }
+  .v4-rail .d2 { font-size: 10px; color: #6c6c74; margin-top: 1px; }
+  .v4-line { flex: none; width: 14px; position: relative; }
+  .v4-line::before {
+    content: ""; position: absolute; left: 6px; top: 0; bottom: 0;
+    width: 2px; background: rgba(255,255,255,0.09); border-radius: 1px;
+  }
+  .v4-line i {
+    position: absolute; left: 2.5px; top: 13px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #55555c; border: 2px solid #1d1d20;
+  }
+  .v4-line i.today { background: #ff6363; box-shadow: 0 0 8px rgba(255,99,99,0.6); }
+  .v4-line i.future { background: transparent; border: 2px solid #c2a0ff; }
+  .v4-items { flex: 1; padding: 4px 0 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .v4-note {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.045);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 9px; padding: 8px 12px;
+  }
+  .v4-note.sel { background: rgba(63,129,250,0.18); border-color: rgba(109,164,255,0.45); }
+  .v4-note .meta { flex: 1; min-width: 0; }
+  .v4-note .t { font-size: 12.5px; font-weight: 600; color: #ececf0; display: flex; align-items: center; gap: 7px; }
+  .v4-note .s { font-size: 11px; color: #84848c; margin-top: 1px; }
+  .v4-note .acc { flex: none; display: flex; align-items: center; gap: 9px; font-size: 11px; color: #84848c; }
+  .v4-ghost {
+    display: flex; align-items: center; gap: 10px;
+    border: 1.5px dashed rgba(194,160,255,0.40);
+    background: rgba(175,130,255,0.06);
+    border-radius: 9px; padding: 8px 12px;
+  }
+  .v4-ghost .icbox { background: rgba(175,130,255,0.14); }
+  .v4-ghost .meta { flex: 1; }
+  .v4-ghost .t { font-size: 12.5px; font-weight: 600; color: #d9c8ff; }
+  .v4-ghost .s { font-size: 11px; color: #9b86c4; margin-top: 1px; }
+  .v4-ghost .btn {
+    flex: none; font-size: 11px; font-weight: 600; color: #e6dbff;
+    background: rgba(175,130,255,0.22);
+    border: 1px solid rgba(194,160,255,0.45);
+    border-radius: 6px; padding: 4px 11px;
+  }
+
+  /* ============================================================
+     V5 — MINI BAR + PREVIEW
+     ============================================================ */
+  .v5-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 30px 36px 14px; }
+  .v5-bar {
+    width: 480px; margin: 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 11px;
+    padding: 11px 15px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .v5-bar svg { width: 16px; height: 16px; color: #8a8a91; flex: none; }
+  .v5-bar .typed { font-size: 15px; color: #f2f2f5; }
+  .v5-bar .ghosttext { font-size: 15px; color: #65656d; }
+  .v5-bar .caret { width: 1.5px; height: 18px; background: #ff6363; animation: blink 1.1s steps(1) infinite; }
+  .v5-bar .count { margin-left: auto; font-size: 11px; color: #6c6c74; }
+  .v5-cols { flex: 1; display: flex; gap: 14px; margin-top: 18px; min-height: 0; }
+  .v5-list { flex: none; width: 272px; display: flex; flex-direction: column; gap: 2px; }
+  .v5-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 8px;
+  }
+  .v5-row .icbox { width: 24px; height: 24px; }
+  .v5-row .icbox svg { width: 13px; height: 13px; }
+  .v5-row .meta { flex: 1; min-width: 0; }
+  .v5-row .t { font-size: 12.5px; font-weight: 500; color: #e8e8ec; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v5-row .t em { font-style: normal; background: rgba(255,214,10,0.28); border-radius: 2px; padding: 0 1px; color: #fff; }
+  .v5-row .s { font-size: 10.5px; color: #7d7d85; margin-top: 1px; }
+  .v5-row .acc { flex: none; font-size: 10.5px; color: #7d7d85; display: flex; gap: 6px; align-items: center; }
+  .v5-row.sel { background: rgba(63,129,250,0.20); box-shadow: inset 0 0 0 1px rgba(109,164,255,0.3); }
+  .v5-preview {
+    flex: 1; min-width: 0;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 11px;
+    padding: 16px 18px;
+    overflow: hidden;
+  }
+  .v5-preview .pt { font-size: 14.5px; font-weight: 700; letter-spacing: -0.2px; display: flex; align-items: center; gap: 8px; }
+  .v5-props { margin: 11px 0 12px; }
+  .v5-prop {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4.5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 11px;
+  }
+  .v5-prop:first-child { border-top: 1px solid rgba(255,255,255,0.05); }
+  .v5-prop .k { width: 84px; flex: none; color: #74747c; display: flex; align-items: center; gap: 6px; }
+  .v5-prop .k svg { width: 10.5px; height: 10.5px; }
+  .v5-prop .v { color: #c9c9cf; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .v5-md { font-size: 11.5px; line-height: 1.65; color: #b6b6bd; }
+  .v5-md h4 { font-size: 11.5px; color: #e5e5ea; margin-bottom: 2px; }
+  .v5-md .mdrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v5-md .bullet { color: #6c6c74; margin-right: 5px; }
+  .v5-md .fade { position: relative; }
+  .v5-fadeout { height: 34px; margin-top: -34px; background: linear-gradient(to bottom, transparent, #232327); position: relative; border-radius: 0 0 11px 11px; }
+
+  footer.page-end {
+    text-align: center; padding: 48px 0 64px;
+    font-size: 12px; color: #5d5d65;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= STICKY NAV ================= -->
+<nav class="topnav">
+  <span class="brand">NoteTakr<span> ·</span> ⌘K Switcher</span>
+  <a href="#v1">1 · Palette Overlay</a>
+  <a href="#v2">2 · Sidebar Slide-in</a>
+  <a href="#v3">3 · Card Grid</a>
+  <a href="#v4">4 · Agenda Timeline</a>
+  <a href="#v5">5 · Mini Bar + Preview</a>
+</nav>
+
+<!-- ============================================================
+     VARIATION 1 — PALETTE OVERLAY
+     ============================================================ -->
+<section class="mock" id="v1">
+  <div class="mock-head">
+    <div class="vnum">Variation 01</div>
+    <h2>Palette Overlay</h2>
+    <p class="rationale">The classic Raycast pattern: ⌘K summons a command-palette layer floating above the (dimmed, blurred) editor inside the same window. Results are grouped by recency with an "Upcoming" group on top, so the next meeting is always one keystroke away. Zero spatial reorientation — you never leave the note you were in.</p>
+    <p class="tradeoff"><b>Tradeoffs:</b> No note preview while browsing; the overlay caps how much metadata each row can carry before it gets noisy.</p>
+  </div>
+  <div class="stage stage-1">
+    <div class="window">
+      <div class="titlebar">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="wtitle">Weekly Sync — Acme GmbH <span class="dim">· NoteTakr</span></div>
+        <div class="chrome-actions">
+          <button title="New note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button title="More">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="v1-body">
+        <!-- blurred editor underneath -->
+        <div class="v1-editor">
+          <h1>Weekly Sync — Acme GmbH</h1>
+          <div class="fm">Today 14:00–14:45 · Zoom · Anna Krüger, Tom Berger, Luis Kisters</div>
+          <h3>Agenda</h3>
+          <ul>
+            <li>Q3 rollout status &amp; open blockers</li>
+            <li>API migration timeline (Tom)</li>
+            <li>Contract renewal — pricing tier</li>
+          </ul>
+          <h3>Notes</h3>
+          <p>Anna confirmed the staging environment will be ready by Thursday. Tom flagged the auth migration as the main risk; needs a decision on the deprecation window before…</p>
+        </div>
+        <div class="v1-scrim"></div>
+
+        <!-- palette layer -->
+        <div class="v1-palette">
+          <div class="v1-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <span class="q">Search meetings…</span>
+            <span class="caret"></span>
+            <span class="esc">esc</span>
+          </div>
+          <div class="v1-list">
+            <div class="v1-group">Upcoming</div>
+            <div class="v1-row">
+              <span class="icbox ic-cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></span>
+              <span class="t">Design Review</span>
+              <span class="s">Tomorrow 10:00 · Calendar event</span>
+              <span class="acc"><span class="v1-create">Create note ⌘↩</span></span>
+            </div>
+            <div class="v1-group">Today</div>
+            <div class="v1-row sel">
+              <span class="icbox ic-zoom"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="t">Weekly Sync — Acme GmbH</span>
+              <span class="s">14:00 · 3 participants · Zoom</span>
+              <span class="acc"><span class="current-pill">CURRENT</span><span class="tdot"></span> Transcript</span>
+            </div>
+            <div class="v1-row">
+              <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6v1H4v-1z"/></svg></span>
+              <span class="t">1:1 Sarah</span>
+              <span class="s">11:00 · 2 participants</span>
+              <span class="acc"><span class="pin-star">✦</span></span>
+            </div>
+            <div class="v1-group">Yesterday</div>
+            <div class="v1-row">
+              <span class="icbox ic-meet"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="t">Investor Update Call</span>
+              <span class="s">16:30 · 4 participants · Meet</span>
+              <span class="acc"><span class="tdot"></span> Transcript</span>
+            </div>
+            <div class="v1-row">
+              <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 9.5A2.5 2.5 0 1 0 12 6.5a2.5 2.5 0 0 0 0 5z"/></svg></span>
+              <span class="t">Kundengespräch Müller GmbH</span>
+              <span class="s">09:30 · In person</span>
+              <span class="acc">11:02</span>
+            </div>
+            <div class="v1-group">Earlier</div>
+            <div class="v1-row">
+              <span class="icbox ic-doc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></span>
+              <span class="t">Product Review</span>
+              <span class="s">Mon 15:00 · 5 participants</span>
+              <span class="acc">Mon</span>
+            </div>
+            <div class="v1-row">
+              <span class="icbox ic-zoom"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="t">Onboarding Call — Beta User</span>
+              <span class="s">Last week · Zoom</span>
+              <span class="acc">Jun 2</span>
+            </div>
+          </div>
+          <div class="v1-foot">
+            <span class="logo"><i></i>NoteTakr</span>
+            <span class="spacer" style="flex:1"></span>
+            <span class="hint"><kbd>↩</kbd> Open</span>
+            <span class="hint-sep">·</span>
+            <span class="hint"><kbd>⌘</kbd><kbd>N</kbd> New Meeting Note</span>
+            <span class="hint-sep">·</span>
+            <span class="hint"><kbd>⌘</kbd><kbd>P</kbd> Pin</span>
+          </div>
+        </div>
+      </div>
+      <div class="wfooter">
+        <span class="hint"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd> Hide window</span>
+        <span class="spacer"></span>
+        <span class="hint">Switcher <kbd>⌘</kbd><kbd>K</kbd></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     VARIATION 2 — SIDEBAR SLIDE-IN
+     ============================================================ -->
+<section class="mock" id="v2">
+  <div class="mock-head">
+    <div class="vnum">Variation 02</div>
+    <h2>Sidebar Slide-in</h2>
+    <p class="rationale">⌘K slides a 260px notes list over the left edge of the window — the editor stays live and visible on the right, so switching feels like glancing at a drawer rather than entering a mode. Pinned meetings sit on top, the rest is chronological, and hovering a row reveals micro-actions (pin / delete).</p>
+    <p class="tradeoff"><b>Tradeoffs:</b> Eats editor width while open and search is cramped; mouse-friendlier than keyboard-first.</p>
+  </div>
+  <div class="stage stage-2">
+    <div class="window">
+      <div class="titlebar">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="wtitle">Weekly Sync — Acme GmbH <span class="dim">· NoteTakr</span></div>
+        <div class="chrome-actions">
+          <button title="Toggle list">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/></svg>
+          </button>
+          <button title="New note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="v2-body">
+        <div class="v2-side">
+          <div class="v2-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <span>Search meetings…</span>
+            <kbd>⌘K</kbd>
+          </div>
+          <div class="v2-list">
+            <div class="v2-group"><span class="pin-star">✦</span> Pinned</div>
+            <div class="v2-row">
+              <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6v1H4v-1z"/></svg></span>
+              <span class="meta"><span class="t">1:1 Sarah</span><span class="s">Today 11:00 · 2 people</span></span>
+              <span class="acc"><span class="pin-star">✦</span></span>
+            </div>
+            <div class="v2-group">Today</div>
+            <div class="v2-row sel">
+              <span class="icbox ic-zoom"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="meta"><span class="t">Weekly Sync — Acme GmbH</span><span class="s">14:00 · Zoom · 3 people</span></span>
+              <span class="acc"><span class="current-pill">CURRENT</span><span class="tdot"></span></span>
+            </div>
+            <div class="v2-group">Yesterday</div>
+            <div class="v2-row hovered">
+              <span class="icbox ic-meet"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="meta"><span class="t">Investor Update Call</span><span class="s">16:30 · Meet · 4 people</span></span>
+              <span class="v2-actions">
+                <b title="Pin">✦</b>
+                <b title="Duplicate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></b>
+                <b title="Delete" class="danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5h6v2m-9 0 1 13h10l1-13"/></svg></b>
+              </span>
+            </div>
+            <div class="v2-row">
+              <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 9.5A2.5 2.5 0 1 0 12 6.5a2.5 2.5 0 0 0 0 5z"/></svg></span>
+              <span class="meta"><span class="t">Kundengespräch Müller GmbH</span><span class="s">09:30 · In person</span></span>
+            </div>
+            <div class="v2-group">Earlier</div>
+            <div class="v2-row">
+              <span class="icbox ic-doc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></span>
+              <span class="meta"><span class="t">Product Review</span><span class="s">Mon 15:00 · 5 people</span></span>
+            </div>
+            <div class="v2-row">
+              <span class="icbox ic-zoom"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="meta"><span class="t">Onboarding Call — Beta User</span><span class="s">Jun 2 · Zoom</span></span>
+              <span class="acc"><span class="tdot"></span></span>
+            </div>
+          </div>
+        </div>
+        <div class="v2-main">
+          <h1>Weekly Sync — Acme GmbH</h1>
+          <div class="v2-props">
+            <div class="v2-prop">
+              <span class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg> When</span>
+              <span class="v">Today, 14:00–14:45</span>
+            </div>
+            <div class="v2-prop">
+              <span class="k"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6v1H4v-1z"/></svg> People</span>
+              <span class="v"><span class="avstack"><span class="av av-a">AK</span><span class="av av-b">TB</span><span class="av av-c">LK</span></span> Anna, Tom, Luis</span>
+            </div>
+            <div class="v2-prop">
+              <span class="k"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg> Location</span>
+              <span class="v">Zoom</span>
+            </div>
+            <div class="v2-prop">
+              <span class="k"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg> Recording</span>
+              <span class="v"><span class="tdot rec"></span> Recording · transcript live</span>
+            </div>
+          </div>
+          <h3>Agenda</h3>
+          <ul>
+            <li>Q3 rollout status &amp; open blockers</li>
+            <li>API migration timeline (Tom)</li>
+          </ul>
+          <h3>Notes</h3>
+          <p>Anna confirmed staging will be ready by Thursday. Tom flagged the auth migration as the main risk.</p>
+          <p class="todo"><b>☐</b> Send updated pricing tier to Anna by Friday</p>
+        </div>
+      </div>
+      <div class="wfooter">
+        <span class="hint"><kbd>↩</kbd> Open</span>
+        <span class="hint-sep">·</span>
+        <span class="hint"><kbd>⌘</kbd><kbd>P</kbd> Pin</span>
+        <span class="hint-sep">·</span>
+        <span class="hint"><kbd>⌫</kbd> Delete</span>
+        <span class="spacer"></span>
+        <span class="hint">Close list <kbd>esc</kbd></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     VARIATION 3 — CARD GRID (LIGHT)
+     ============================================================ -->
+<section class="mock" id="v3">
+  <div class="mock-head">
+    <div class="vnum">Variation 03 · Light</div>
+    <h2>Card Grid</h2>
+    <p class="rationale">⌘K swaps the window content for a searchable gallery of meeting cards — title, time, avatar stack, location chip, transcript badge and a two-line excerpt give enough scent to recognize a meeting at a glance. Built for visual scanners who remember "the Müller meeting" by its shape, not its filename. Shown light to compare day-time legibility.</p>
+    <p class="tradeoff"><b>Tradeoffs:</b> Lowest information density (6–7 cards per screen) and full content swap means losing sight of the current note.</p>
+  </div>
+  <div class="stage stage-3">
+    <div class="window light">
+      <div class="titlebar">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="wtitle">All Meetings <span class="dim">· NoteTakr</span></div>
+        <div class="chrome-actions">
+          <button title="New note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button title="More">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="v3-body">
+        <div class="v3-top">
+          <div class="v3-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <span>Search meetings…</span>
+          </div>
+          <div class="v3-sort">Sort: Recent <i>▼</i></div>
+        </div>
+        <div class="v3-grid">
+          <!-- ghost upcoming card -->
+          <div class="v3-card ghost">
+            <span class="ghost-when"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg> TOMORROW · 10:00</span>
+            <div class="t" style="color:#3c3c43">Design Review</div>
+            <div class="ex">Calendar event — no note yet.</div>
+            <button class="v3-ghost-btn">+ Create note</button>
+          </div>
+          <!-- current / selected -->
+          <div class="v3-card sel">
+            <span class="current-pill">CURRENT</span>
+            <div class="when">Today · 14:00</div>
+            <div class="t">Weekly Sync — Acme GmbH</div>
+            <div class="ex">Anna confirmed staging will be ready by Thursday. Tom flagged the auth migration as the main risk; needs a decision…</div>
+            <div class="foot">
+              <span class="avstack"><span class="av av-a">AK</span><span class="av av-b">TB</span><span class="av av-c">LK</span></span>
+              <span class="v3-chip chip-zoom">Zoom</span>
+              <span class="v3-tbadge"><span class="tdot"></span>Transcript</span>
+            </div>
+          </div>
+          <div class="v3-card">
+            <div class="when">Today · 11:00</div>
+            <div class="t">1:1 Sarah <span class="pin-star" style="font-size:10px">✦</span></div>
+            <div class="ex">Career track follow-up; promotion criteria draft reviewed. Sarah to own the onboarding revamp next sprint.</div>
+            <div class="foot">
+              <span class="avstack"><span class="av av-d">SM</span><span class="av av-c">LK</span></span>
+              <span class="v3-chip chip-inp">In person</span>
+            </div>
+          </div>
+          <div class="v3-card">
+            <div class="when">Yesterday · 16:30</div>
+            <div class="t">Investor Update Call</div>
+            <div class="ex">MRR up 18% MoM; runway 14 months. Follow-up deck with cohort retention requested by Friday.</div>
+            <div class="foot">
+              <span class="avstack"><span class="av av-e">JW</span><span class="av av-b">MH</span><span class="av av-a">PB</span><span class="av av-c">LK</span></span>
+              <span class="v3-chip chip-meet">Meet</span>
+              <span class="v3-tbadge"><span class="tdot"></span>Transcript</span>
+            </div>
+          </div>
+          <div class="v3-card">
+            <div class="when">Yesterday · 09:30</div>
+            <div class="t">Kundengespräch Müller GmbH</div>
+            <div class="ex">Pilotphase ab Juli bestätigt. Hr. Müller wünscht On-Prem-Option; Angebot bis Ende der Woche nachreichen.</div>
+            <div class="foot">
+              <span class="avstack"><span class="av av-b">HM</span><span class="av av-c">LK</span></span>
+              <span class="v3-chip chip-inp">In person</span>
+            </div>
+          </div>
+          <div class="v3-card">
+            <div class="when">Mon · 15:00</div>
+            <div class="t">Product Review</div>
+            <div class="ex">Q3 roadmap locked: switcher redesign ships first, transcripts search second. Cut the widget experiment.</div>
+            <div class="foot">
+              <span class="avstack"><span class="av av-a">AK</span><span class="av av-d">SM</span><span class="av av-e">JW</span><span class="av av-b">+2</span></span>
+              <span class="v3-chip chip-zoom">Zoom</span>
+            </div>
+          </div>
+          <div class="v3-card">
+            <div class="when">Jun 2 · 17:00</div>
+            <div class="t">Onboarding Call — Beta User</div>
+            <div class="ex">User got lost after install — hotkey undiscoverable. Add first-run coach mark for ⌥⌘N.</div>
+            <div class="foot">
+              <span class="avstack"><span class="av av-e">RD</span><span class="av av-c">LK</span></span>
+              <span class="v3-chip chip-zoom">Zoom</span>
+              <span class="v3-tbadge"><span class="tdot"></span>Transcript</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wfooter">
+        <span class="hint"><kbd>↩</kbd> Open</span>
+        <span class="hint-sep">·</span>
+        <span class="hint"><kbd>⌘</kbd><kbd>N</kbd> New Meeting Note</span>
+        <span class="spacer"></span>
+        <span class="hint">7 meetings · Back to note <kbd>esc</kbd></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     VARIATION 4 — AGENDA TIMELINE
+     ============================================================ -->
+<section class="mock" id="v4">
+  <div class="mock-head">
+    <div class="vnum">Variation 04</div>
+    <h2>Agenda Timeline</h2>
+    <p class="rationale">The switcher doubles as a meeting-prep view: a day-grouped vertical timeline merges upcoming calendar events (dashed ghost cards with a one-click "Create note") with existing notes (solid rows), all in chronological order. You see what's next and what happened in one scan — switching and preparing become the same gesture.</p>
+    <p class="tradeoff"><b>Tradeoffs:</b> Needs calendar permission to shine; the rail costs horizontal space and pure text search feels secondary to time-based browsing.</p>
+  </div>
+  <div class="stage stage-4">
+    <div class="window">
+      <div class="titlebar">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="wtitle">Meetings <span class="dim">· NoteTakr</span></div>
+        <div class="chrome-actions">
+          <button title="New note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button title="More">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="v4-body">
+        <div class="v4-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span>Search meetings…</span>
+          <div class="v4-seg"><b class="on">Agenda</b><b>Notes only</b></div>
+        </div>
+        <div class="v4-scroll">
+          <!-- TOMORROW -->
+          <div class="v4-day">
+            <div class="v4-rail"><div class="d1 future">Tomorrow</div><div class="d2">Wed, Jun 10</div></div>
+            <div class="v4-line"><i class="future"></i></div>
+            <div class="v4-items">
+              <div class="v4-ghost">
+                <span class="icbox ic-cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></span>
+                <span class="meta"><span class="t">Design Review</span><span class="s">10:00–11:00 · Calendar event · 4 invited</span></span>
+                <button class="btn">+ Create note</button>
+              </div>
+            </div>
+          </div>
+          <!-- TODAY -->
+          <div class="v4-day">
+            <div class="v4-rail"><div class="d1 today">Today</div><div class="d2">Tue, Jun 9</div></div>
+            <div class="v4-line"><i class="today"></i></div>
+            <div class="v4-items">
+              <div class="v4-note sel">
+                <span class="icbox ic-zoom"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+                <span class="meta"><span class="t">Weekly Sync — Acme GmbH <span class="current-pill">CURRENT</span></span><span class="s">14:00 · Zoom · Anna, Tom, Luis</span></span>
+                <span class="acc"><span class="tdot"></span> Transcript</span>
+              </div>
+              <div class="v4-note">
+                <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6v1H4v-1z"/></svg></span>
+                <span class="meta"><span class="t">1:1 Sarah</span><span class="s">11:00 · In person · 2 people</span></span>
+                <span class="acc"><span class="pin-star">✦</span></span>
+              </div>
+            </div>
+          </div>
+          <!-- YESTERDAY -->
+          <div class="v4-day">
+            <div class="v4-rail"><div class="d1">Yesterday</div><div class="d2">Mon, Jun 8</div></div>
+            <div class="v4-line"><i></i></div>
+            <div class="v4-items">
+              <div class="v4-note">
+                <span class="icbox ic-meet"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+                <span class="meta"><span class="t">Investor Update Call</span><span class="s">16:30 · Meet · 4 people</span></span>
+                <span class="acc"><span class="tdot"></span> Transcript</span>
+              </div>
+              <div class="v4-note">
+                <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 9.5A2.5 2.5 0 1 0 12 6.5a2.5 2.5 0 0 0 0 5z"/></svg></span>
+                <span class="meta"><span class="t">Kundengespräch Müller GmbH</span><span class="s">09:30 · In person · 2 people</span></span>
+              </div>
+            </div>
+          </div>
+          <!-- MONDAY (prev week) -->
+          <div class="v4-day">
+            <div class="v4-rail"><div class="d1">Monday</div><div class="d2">Jun 1 wk</div></div>
+            <div class="v4-line"><i></i></div>
+            <div class="v4-items">
+              <div class="v4-note">
+                <span class="icbox ic-doc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></span>
+                <span class="meta"><span class="t">Product Review</span><span class="s">15:00 · Zoom · 5 people</span></span>
+              </div>
+              <div class="v4-note">
+                <span class="icbox ic-zoom"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+                <span class="meta"><span class="t">Onboarding Call — Beta User</span><span class="s">Jun 2, 17:00 · Zoom · 2 people</span></span>
+                <span class="acc"><span class="tdot"></span> Transcript</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wfooter">
+        <span class="hint"><kbd>↩</kbd> Open</span>
+        <span class="hint-sep">·</span>
+        <span class="hint"><kbd>⌘</kbd><kbd>↩</kbd> Create note</span>
+        <span class="hint-sep">·</span>
+        <span class="hint"><kbd>⌘</kbd><kbd>P</kbd> Pin</span>
+        <span class="spacer"></span>
+        <span class="hint">Back to note <kbd>esc</kbd></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     VARIATION 5 — MINI BAR + PREVIEW
+     ============================================================ -->
+<section class="mock" id="v5">
+  <div class="mock-head">
+    <div class="vnum">Variation 05</div>
+    <h2>Mini Bar + Preview</h2>
+    <p class="rationale">Spotlight-minimal: a compact centered search bar in the upper third, five tight result rows under it, and a live preview pane showing the selected meeting's frontmatter plus the first lines of markdown. Maximum keyboard speed — type, arrow once or twice, confirm with the preview, hit return.</p>
+    <p class="tradeoff"><b>Tradeoffs:</b> Only five visible results forces good ranking; preview pane is wasted space on tiny screens.</p>
+  </div>
+  <div class="stage stage-5">
+    <div class="window">
+      <div class="titlebar">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="wtitle">Switch Meeting <span class="dim">· NoteTakr</span></div>
+        <div class="chrome-actions">
+          <button title="New note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="v5-body">
+        <div class="v5-bar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span class="typed">sy</span><span class="caret"></span><span class="ghosttext">&nbsp;— Search meetings…</span>
+          <span class="count">5 results</span>
+        </div>
+        <div class="v5-cols">
+          <div class="v5-list">
+            <div class="v5-row sel">
+              <span class="icbox ic-zoom"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="meta"><span class="t">Weekly <em>Sy</em>nc — Acme GmbH</span><span class="s">Today 14:00 · Zoom</span></span>
+              <span class="acc"><span class="current-pill">CURRENT</span></span>
+            </div>
+            <div class="v5-row">
+              <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6v1H4v-1z"/></svg></span>
+              <span class="meta"><span class="t">1:1 Sarah</span><span class="s">Today 11:00 · In person</span></span>
+              <span class="acc"><span class="pin-star">✦</span></span>
+            </div>
+            <div class="v5-row">
+              <span class="icbox ic-meet"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg></span>
+              <span class="meta"><span class="t">Investor Update Call</span><span class="s">Yesterday · Meet</span></span>
+              <span class="acc"><span class="tdot"></span></span>
+            </div>
+            <div class="v5-row">
+              <span class="icbox ic-person"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 9.5A2.5 2.5 0 1 0 12 6.5a2.5 2.5 0 0 0 0 5z"/></svg></span>
+              <span class="meta"><span class="t">Kundengespräch Müller GmbH</span><span class="s">Yesterday · In person</span></span>
+            </div>
+            <div class="v5-row">
+              <span class="icbox ic-cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></span>
+              <span class="meta"><span class="t">Design Review</span><span class="s">Tomorrow 10:00 · No note yet</span></span>
+              <span class="acc" style="color:#c2a0ff">⌘↩</span>
+            </div>
+          </div>
+          <div class="v5-preview" style="background:#232327">
+            <div class="pt">Weekly Sync — Acme GmbH <span class="current-pill">CURRENT</span></div>
+            <div class="v5-props">
+              <div class="v5-prop">
+                <span class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg> When</span>
+                <span class="v">Today, 14:00–14:45</span>
+              </div>
+              <div class="v5-prop">
+                <span class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16"/></svg> Calendar</span>
+                <span class="v">Weekly Sync (Acme) — Work</span>
+              </div>
+              <div class="v5-prop">
+                <span class="k"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6v1H4v-1z"/></svg> People</span>
+                <span class="v"><span class="avstack"><span class="av av-a">AK</span><span class="av av-b">TB</span><span class="av av-c">LK</span></span> 3 participants</span>
+              </div>
+              <div class="v5-prop">
+                <span class="k"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zm14 3.5 4-2.5v8l-4-2.5v-3z"/></svg> Location</span>
+                <span class="v">Zoom</span>
+              </div>
+              <div class="v5-prop">
+                <span class="k"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg> Transcript</span>
+                <span class="v"><span class="tdot"></span> Available · 42 min</span>
+              </div>
+            </div>
+            <div class="v5-md">
+              <h4>## Agenda</h4>
+              <div class="mdrow"><span class="bullet">–</span>Q3 rollout status &amp; open blockers</div>
+              <div class="mdrow"><span class="bullet">–</span>API migration timeline (Tom)</div>
+              <h4 style="margin-top:8px">## Notes</h4>
+              <div class="mdrow">Anna confirmed staging will be ready by Thursday.</div>
+              <div class="mdrow">Tom flagged the auth migration as the main risk…</div>
+            </div>
+            <div class="v5-fadeout"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wfooter">
+        <span class="hint"><kbd>↩</kbd> Open</span>
+        <span class="hint-sep">·</span>
+        <span class="hint"><kbd>⌘</kbd><kbd>↩</kbd> Create note</span>
+        <span class="hint-sep">·</span>
+        <span class="hint"><kbd>⇥</kbd> Focus preview</span>
+        <span class="spacer"></span>
+        <span class="hint">Actions <kbd>⌘</kbd><kbd>K</kbd></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="page-end">NoteTakr · ⌘K Meeting Switcher explorations · 02-switcher.html</footer>
+
+</body>
+</html>

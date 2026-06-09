@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — ⌘K Switcher · Round 2 (Agenda Timeline)</title>
+<style>
+  /* ============================================================
+     GLOBAL
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #0c0c0f;
+    color: #e8e8ea;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* grain texture (inline SVG feTurbulence) */
+  :root {
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- sticky nav ---------- */
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    padding: 10px 20px;
+    background: rgba(16,16,20,0.82);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 12.5px;
+  }
+  .topnav .brand { font-weight: 700; font-size: 13px; margin-right: 14px; letter-spacing: -0.2px; color: #fff; }
+  .topnav .brand span { color: #ff6363; }
+  .topnav a, .topnav .here {
+    color: #9a9aa2; text-decoration: none;
+    padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+  }
+  .topnav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .topnav .here { color: #fff; background: rgba(255,99,99,0.16); font-weight: 600; }
+  .topnav .sep { width: 1px; height: 16px; background: rgba(255,255,255,0.14); margin: 0 8px; }
+
+  /* ---------- intro ---------- */
+  header.intro { max-width: 1060px; margin: 0 auto; padding: 44px 24px 0; }
+  header.intro h1 { font-size: 26px; letter-spacing: -0.5px; }
+  header.intro p { margin-top: 10px; font-size: 14px; color: #a9a9b2; max-width: 740px; line-height: 1.55; }
+  header.intro p b { color: #e2e2e6; }
+
+  /* ---------- section scaffolding ---------- */
+  section.mock { padding: 56px 24px 8px; max-width: 1060px; margin: 0 auto; }
+  .mock-head { margin-bottom: 18px; padding: 0 6px; }
+  .mock-head .vnum {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+    color: #ff6363; margin-bottom: 6px;
+  }
+  .mock-head h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 8px; }
+  .mock-head p.rationale { font-size: 13.5px; line-height: 1.55; color: #a9a9b2; max-width: 760px; }
+  .mock-head p.tradeoff { margin-top: 8px; font-size: 12.5px; color: #77777f; }
+  .mock-head p.tradeoff b { color: #98989f; font-weight: 600; }
+
+  /* ---------- desktop stage ---------- */
+  .stage {
+    border-radius: 20px;
+    padding: 44px 40px 56px;
+    display: flex; justify-content: center;
+    position: relative; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .stage::before { /* menubar hint */
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 24px;
+    background: rgba(255,255,255,0.09);
+    backdrop-filter: blur(6px);
+  }
+  .stage::after { /* desktop grain */
+    content: ""; position: absolute; inset: 0;
+    background-image: var(--grain);
+    opacity: 0.06; pointer-events: none; mix-blend-mode: overlay;
+  }
+  .stage-1 { background:
+    radial-gradient(60% 70% at 80% 15%, rgba(255,140,90,0.55), transparent 70%),
+    radial-gradient(120% 140% at 15% 0%, #4b3a8f 0%, #28235e 38%, #131233 100%); }
+  .stage-2 { background:
+    radial-gradient(55% 60% at 15% 80%, rgba(80,210,190,0.4), transparent 70%),
+    radial-gradient(120% 140% at 85% 0%, #0e5e63 0%, #0c3a4d 45%, #0a1c2e 100%); }
+  .stage-3 { background:
+    radial-gradient(50% 60% at 85% 85%, rgba(120,60,160,0.5), transparent 70%),
+    radial-gradient(130% 150% at 50% -10%, #ffd9a8 0%, #f3a47c 45%, #b85e8a 100%); }
+  .stage-3::before { background: rgba(255,255,255,0.32); }
+  .stage-4 { background:
+    radial-gradient(55% 65% at 80% 20%, rgba(255,110,150,0.4), transparent 70%),
+    radial-gradient(120% 140% at 20% 100%, #71275e 0%, #3c1f55 45%, #160f2e 100%); }
+  .stage-5 { background:
+    radial-gradient(50% 55% at 20% 15%, rgba(90,160,255,0.35), transparent 70%),
+    radial-gradient(120% 140% at 80% 90%, #1d5c3a 0%, #14333a 50%, #0c1420 100%); }
+
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 14px; position: relative; z-index: 2; }
+
+  /* ---------- glass/solid toggle ---------- */
+  .toggle {
+    display: inline-flex; gap: 2px; padding: 3px;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .toggle button {
+    appearance: none; border: 0; cursor: pointer;
+    font: 600 11px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #c9c9cf; background: transparent;
+    padding: 5px 12px; border-radius: 999px; letter-spacing: 0.2px;
+  }
+  .toggle button.active { background: rgba(255,255,255,0.18); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+  /* ============================================================
+     WINDOW — compact portrait, Raycast-Notes-like (420 × 620)
+     ============================================================ */
+  .window {
+    width: 420px; height: 620px;
+    border-radius: 14px;
+    position: relative;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    font-size: 13px;
+    background: rgba(30,30,36,0.55);
+    backdrop-filter: blur(40px) saturate(1.6);
+    -webkit-backdrop-filter: blur(40px) saturate(1.6);
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,0.20),
+      inset 0 0.5px 0 rgba(255,255,255,0.18),
+      0 2px 6px rgba(0,0,0,0.30),
+      0 24px 60px rgba(0,0,0,0.55),
+      0 60px 120px rgba(0,0,0,0.40);
+  }
+  .window.solid {
+    background: #1c1c1e;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .window::after { /* film grain on window */
+    content: ""; position: absolute; inset: 0; z-index: 60;
+    background-image: var(--grain);
+    opacity: 0.05; pointer-events: none;
+  }
+
+  /* titlebar */
+  .titlebar {
+    flex: none; height: 40px; z-index: 20;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+  }
+  .lights { display: flex; gap: 7px; flex: none; }
+  .lights i { width: 11px; height: 11px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2); }
+  .lights i:nth-child(1) { background: #ff5f57; }
+  .lights i:nth-child(2) { background: #febc2e; }
+  .lights i:nth-child(3) { background: #28c840; }
+  .titlebar .wtitle {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-size: 12.5px; font-weight: 600; color: #b9b9c0; pointer-events: none;
+    letter-spacing: -0.1px;
+  }
+  .titlebar .rec {
+    margin-left: auto; flex: none; z-index: 1;
+    font-size: 10px; font-weight: 700; color: #ff6b6b; letter-spacing: 0.4px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .titlebar .rec::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #ff5252; box-shadow: 0 0 6px rgba(255,82,82,0.8); }
+
+  /* body host */
+  .win-body { flex: 1; position: relative; overflow: hidden; }
+
+  /* ---------- mock note content (the layer that gets frosted) ---------- */
+  .note { position: absolute; inset: 0; padding: 18px 20px; overflow: hidden; z-index: 1; }
+  .note h1 { font-size: 19px; letter-spacing: -0.4px; font-weight: 700; color: #f2f2f4; }
+  .note .nmeta { margin: 6px 0 14px; font-size: 11.5px; color: #8e8e96; }
+  .note .nmeta .live { color: #ff7b7b; font-weight: 600; }
+  .note h2 { font-size: 13px; font-weight: 700; margin: 14px 0 6px; color: #d8d8de; letter-spacing: -0.1px; }
+  .note p { font-size: 12.5px; line-height: 1.55; color: #b6b6be; }
+  .note ul { margin: 4px 0 4px 18px; }
+  .note li { font-size: 12.5px; line-height: 1.6; color: #b6b6be; }
+  .note ul.todos { list-style: none; margin-left: 2px; }
+  .note ul.todos li { display: flex; align-items: center; gap: 8px; }
+  .note ul.todos li::before {
+    content: ""; width: 13px; height: 13px; border-radius: 4px; flex: none;
+    border: 1.5px solid rgba(255,255,255,0.32);
+  }
+  .note ul.todos li.done { color: #7d7d85; text-decoration: line-through; }
+  .note ul.todos li.done::before {
+    background: #ff6363; border-color: #ff6363;
+    content: "✓"; color: #fff; font-size: 9px; line-height: 13px; text-align: center; text-decoration: none;
+  }
+  .note blockquote {
+    margin-top: 12px; padding: 8px 12px;
+    border-left: 2px solid rgba(255,99,99,0.6);
+    background: rgba(255,255,255,0.04); border-radius: 0 8px 8px 0;
+    font-size: 12px; font-style: italic; color: #9d9da5; line-height: 1.5;
+  }
+
+  /* ============================================================
+     SWITCHER LAYERS (shared pieces)
+     ============================================================ */
+
+  /* full-bleed frost overlay over note */
+  .frost {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    background: rgba(22,22,28,0.42);
+    backdrop-filter: blur(18px) saturate(1.5);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  }
+
+  /* light scrim — keeps the note readable-as-blurred at edges */
+  .scrim {
+    position: absolute; inset: 0; z-index: 5;
+    background: rgba(10,10,16,0.30);
+    backdrop-filter: blur(4px) saturate(1.2);
+    -webkit-backdrop-filter: blur(4px) saturate(1.2);
+  }
+
+  /* search field */
+  .search {
+    flex: none;
+    display: flex; align-items: center; gap: 8px;
+    margin: 12px 12px 8px; padding: 0 10px;
+    height: 36px; border-radius: 10px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .search svg { flex: none; opacity: 0.55; }
+  .search input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    font: 400 13px -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #f0f0f2; caret-color: #ff6363;
+  }
+  .search input::placeholder { color: #8b8b93; }
+  kbd {
+    font: 600 10px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #c4c4cb;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-bottom-width: 2px;
+    border-radius: 5px; padding: 3px 5px; white-space: nowrap;
+  }
+
+  /* timeline list */
+  .tl { flex: 1; overflow-y: auto; padding: 2px 8px 8px; }
+  .day {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+    color: #84848d; padding: 10px 8px 5px;
+  }
+  .row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: 8px;
+    cursor: default; position: relative;
+    border: 1px solid transparent;
+  }
+  .row + .row { margin-top: 2px; }
+  .row:hover { background: rgba(255,255,255,0.06); }
+  .row .ic { flex: none; width: 16px; height: 16px; display: grid; place-items: center; color: #9d9da6; }
+  .row .ic svg { display: block; }
+  .row .title {
+    flex: 1; min-width: 0; font-size: 12.5px; color: #dededf;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: -0.1px;
+  }
+  .row .time { flex: none; font-size: 11px; color: #84848d; font-variant-numeric: tabular-nums; }
+  .badge {
+    flex: none; font-size: 9.5px; font-weight: 600; letter-spacing: 0.2px;
+    padding: 2px 6px; border-radius: 999px;
+    background: rgba(255,255,255,0.08); color: #a9a9b2;
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .badge.transcript { display: inline-flex; align-items: center; gap: 4px; color: #8fd4a8; border-color: rgba(110,220,150,0.25); background: rgba(110,220,150,0.10); }
+  .badge.transcript::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #4cd07a; box-shadow: 0 0 5px rgba(76,208,122,0.8); }
+  .badge.current { color: #ffb3b3; border-color: rgba(255,99,99,0.35); background: rgba(255,99,99,0.14); }
+
+  /* selected row — glass highlight */
+  .row.selected {
+    background: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.08));
+    border: 1px solid rgba(255,255,255,0.20);
+    box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .row.selected .title { color: #fff; font-weight: 600; }
+
+  /* ghost "create note" row */
+  .row.ghost { border: 1px dashed rgba(255,255,255,0.22); background: rgba(255,255,255,0.02); }
+  .row.ghost .title, .row.ghost .time { color: #93939c; }
+  .row.ghost .ic { color: #7d7d86; }
+  .badge.create { color: #b6c8ff; border-color: rgba(140,170,255,0.30); background: rgba(140,170,255,0.10); border-style: dashed; }
+  .row.ghost:hover { background: rgba(140,170,255,0.07); border-color: rgba(140,170,255,0.40); }
+
+  /* hover micro-actions (pin / trash) */
+  .acts { display: none; flex: none; gap: 4px; }
+  .acts button {
+    appearance: none; cursor: pointer;
+    width: 22px; height: 22px; border-radius: 6px;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.09); color: #cfcfd6;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .acts button:hover { background: rgba(255,255,255,0.18); color: #fff; }
+  .acts button.danger:hover { background: rgba(255,80,80,0.25); color: #ffb0b0; border-color: rgba(255,80,80,0.4); }
+  .row:hover .acts { display: flex; }
+  .row:hover .time, .row:hover .badge:not(.current) { display: none; }
+
+  /* footer hints */
+  .hints {
+    flex: none; height: 34px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 11px; color: #8b8b93;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+  }
+  .hints .dot { color: #5c5c64; margin: 0 4px; }
+
+  /* ============================================================
+     V2 — FLOATING CARD
+     ============================================================ */
+  .card {
+    position: absolute; z-index: 10;
+    left: 4%; right: 4%; top: 9%; height: 80%;
+    display: flex; flex-direction: column;
+    border-radius: 16px;
+    background: rgba(34,34,42,0.55);
+    backdrop-filter: blur(24px) saturate(1.7);
+    -webkit-backdrop-filter: blur(24px) saturate(1.7);
+    border: 1px solid rgba(255,255,255,0.14);
+    box-shadow:
+      inset 0 0.5px 0 rgba(255,255,255,0.20),
+      0 18px 50px rgba(0,0,0,0.55),
+      0 4px 14px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+  /* forced hover demo (micro-actions visible) — only meaningful in V2 */
+  #v2 .row.demo-hover { background: rgba(255,255,255,0.06); }
+  #v2 .row.demo-hover .acts { display: flex; }
+  #v2 .row.demo-hover .time { display: none; }
+  #v2 .row.demo-hover::after {
+    content: "hover"; position: absolute; top: -7px; right: 8px;
+    font-size: 8px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+    color: #0c0c10; background: #ffd479; padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ============================================================
+     V3 — DROP FROM TOP (sheet attached to chrome)
+     ============================================================ */
+  .sheet-top {
+    position: absolute; z-index: 10;
+    top: 0; left: 0; right: 0; height: 75%;
+    display: flex; flex-direction: column;
+    border-radius: 0 0 16px 16px;
+    background: rgba(24,24,30,0.50);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45), inset 0 -0.5px 0 rgba(255,255,255,0.10);
+  }
+  /* search living inside the titlebar chrome */
+  .chrome-search {
+    flex: 1; min-width: 0; z-index: 1;
+    display: flex; align-items: center; gap: 7px;
+    height: 26px; margin-left: 6px; padding: 0 9px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.13);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .chrome-search svg { flex: none; opacity: 0.55; }
+  .chrome-search input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    font: 400 12px -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #f0f0f2; caret-color: #ff6363;
+  }
+  .chrome-search input::placeholder { color: #8b8b93; }
+
+  /* ============================================================
+     V4 — RISE FROM BOTTOM (bottom sheet)
+     ============================================================ */
+  .sheet-bottom {
+    position: absolute; z-index: 10;
+    bottom: 0; left: 0; right: 0; height: 75%;
+    display: flex; flex-direction: column;
+    border-radius: 16px 16px 0 0;
+    background: rgba(24,24,30,0.50);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border-top: 1px solid rgba(255,255,255,0.16);
+    box-shadow: 0 -14px 40px rgba(0,0,0,0.45), inset 0 0.5px 0 rgba(255,255,255,0.16);
+  }
+  .grabber { flex: none; width: 36px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.22); margin: 8px auto 0; }
+
+  /* ============================================================
+     V5 — DENSE SOLID
+     ============================================================ */
+  #v5 .frost { background: rgba(24,24,26,0.55); }
+  #v5 .row { padding: 4px 8px; border-radius: 6px; }
+  #v5 .row + .row { margin-top: 1px; }
+  #v5 .row .title { font-size: 12px; }
+  #v5 .row .time { font-size: 10.5px; }
+  #v5 .row .ic { display: none; }
+  #v5 .row::before { /* status dot instead of icon */
+    content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+  }
+  #v5 .row.selected::before { background: #ff6363; box-shadow: 0 0 6px rgba(255,99,99,0.7); }
+  #v5 .row.has-transcript::before { background: #4cd07a; box-shadow: 0 0 5px rgba(76,208,122,0.6); }
+  #v5 .row.ghost::before { background: transparent; border: 1px dashed rgba(140,170,255,0.6); }
+  #v5 .day {
+    position: sticky; top: 0; z-index: 3;
+    padding: 7px 8px 4px; margin: 0 -8px; padding-left: 16px;
+    background: rgba(26,26,30,0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  #v5 .search { margin: 10px 10px 6px; height: 32px; }
+
+  footer.page-end { max-width: 1060px; margin: 0 auto; padding: 48px 24px 80px; font-size: 12.5px; color: #77777f; }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav class="topnav">
+  <span class="brand">Note<span>Takr</span> · Round 2</span>
+  <a href="v2-editor.html">Editor</a>
+  <span class="here">Switcher (this page)</span>
+  <a href="v2-settings.html">Settings</a>
+  <a href="02-switcher.html">Round 1</a>
+  <span class="sep"></span>
+  <a href="#v1">1 Full Frost</a>
+  <a href="#v2">2 Floating Card</a>
+  <a href="#v3">3 Drop From Top</a>
+  <a href="#v4">4 Rise From Bottom</a>
+  <a href="#v5">5 Dense Solid</a>
+</nav>
+
+<header class="intro">
+  <h1>⌘K Switcher — Agenda Timeline, refined ×5</h1>
+  <p>Round 1 winner was the <b>Agenda Timeline</b>. Per your request, every variation here keeps one core behavior:
+  when ⌘K opens, the meeting note <b>blurs in place</b> and the timeline floats <b>on top of it</b> — same compact
+  portrait window, Raycast-Notes-sized (420 × 620). The five takes vary only the container, density, and which edge
+  the layer comes from.</p>
+</header>
+
+<!-- ================================================================
+     V1 — FULL FROST
+     ================================================================ -->
+<section class="mock" id="v1">
+  <div class="mock-head">
+    <div class="vnum">Variation 1</div>
+    <h2>Full Frost</h2>
+    <p class="rationale">The timeline takes over the entire window interior: the open note frosts into a soft backdrop
+    and the switcher becomes the window. This is the most Raycast-like reading — one surface, zero chrome ambiguity,
+    and the blurred note underneath still whispers "you haven't left your document."</p>
+    <p class="tradeoff"><b>Tradeoff:</b> with the note fully covered, you lose the spatial cue of where the switcher sits relative to your text.</p>
+  </div>
+  <div class="stage stage-1">
+    <div class="stack">
+      <div class="toggle" data-win="w1">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="solid">Solid</button>
+      </div>
+      <div class="window" id="w1">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="tl tl-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd> Close</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V2 — FLOATING CARD
+     ================================================================ -->
+<section class="mock" id="v2">
+  <div class="mock-head">
+    <div class="vnum">Variation 2</div>
+    <h2>Floating Card</h2>
+    <p class="rationale">A slightly inset glass card floats centered over the lightly blurred note — the note's edges
+    stay visible all around it, so the layering is unmistakable: your document is still there, the switcher just
+    hovers above it. Hover a row to reveal pin/trash micro-actions (shown on the "1:1 Sarah" row).</p>
+    <p class="tradeoff"><b>Tradeoff:</b> the inset costs ~30px of list width and height in an already narrow window.</p>
+  </div>
+  <div class="stage stage-2">
+    <div class="stack">
+      <div class="toggle" data-win="w2">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="solid">Solid</button>
+      </div>
+      <div class="window" id="w2">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="scrim"></div>
+          <div class="card">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="tl tl-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd> Close</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V3 — DROP FROM TOP
+     ================================================================ -->
+<section class="mock" id="v3">
+  <div class="mock-head">
+    <div class="vnum">Variation 3</div>
+    <h2>Drop From Top</h2>
+    <p class="rationale">The timeline drops out of the chrome like a sheet pinned to the title bar — rounded bottom
+    corners only, covering about three quarters of the window while the blurred note peeks out below. The search field
+    moves <i>into</i> the chrome row, replacing the window title while the switcher is open, which saves a full row of height.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> search-in-chrome collides with the traffic lights' drag region and is unusual for macOS muscle memory.</p>
+  </div>
+  <div class="stage stage-3">
+    <div class="stack">
+      <div class="toggle" data-win="w3">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="solid">Solid</button>
+      </div>
+      <div class="window" id="w3">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <div class="chrome-search">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" placeholder="Search meetings…">
+            <kbd>⌘K</kbd>
+          </div>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="scrim"></div>
+          <div class="sheet-top">
+            <div class="tl tl-slot" style="padding-top:8px"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd> Close</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V4 — RISE FROM BOTTOM
+     ================================================================ -->
+<section class="mock" id="v4">
+  <div class="mock-head">
+    <div class="vnum">Variation 4</div>
+    <h2>Rise From Bottom</h2>
+    <p class="rationale">A bottom sheet rises from the footer — grabber handle, rounded top corners, search at its top —
+    while the blurred note title peeks out above. This matches the settings bottom-sheet language, so the whole app
+    speaks one system: layers slide in from window edges and your note never goes away, it just recedes.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> the search field sits mid-window rather than top, which feels less launcher-like than Full Frost.</p>
+  </div>
+  <div class="stage stage-4">
+    <div class="stack">
+      <div class="toggle" data-win="w4">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="solid">Solid</button>
+      </div>
+      <div class="window" id="w4">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="scrim"></div>
+          <div class="sheet-bottom">
+            <div class="grabber"></div>
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="tl tl-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd> Close</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V5 — DENSE SOLID
+     ================================================================ -->
+<section class="mock" id="v5">
+  <div class="mock-head">
+    <div class="vnum">Variation 5</div>
+    <h2>Dense Solid</h2>
+    <p class="rationale">Same Full Frost layout, but the window defaults to solid dark <code>#1c1c1e</code> (toggle back to
+    glass if you like) and the list is tuned for speed: tighter rows, sticky day headers while scrolling, and no icons —
+    just small status dots (red = current, green = has transcript). Maximum rows on screen, fastest keyboard feel.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> losing icons removes the at-a-glance Meet / in-person / note distinction; dots carry less meaning.</p>
+  </div>
+  <div class="stage stage-5">
+    <div class="stack">
+      <div class="toggle" data-win="w5">
+        <button data-mode="glass">Glass</button><button class="active" data-mode="solid">Solid</button>
+      </div>
+      <div class="window solid" id="w5">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="tl tl-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd> Close</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="page-end">
+  Round 2 · all five are the Agenda Timeline over a blurred note — pick a container, then we lock density + edge behavior.
+</footer>
+
+<!-- ============ TEMPLATES (cloned into every window) ============ -->
+
+<template id="note-tpl">
+  <h1>Weekly Sync — Acme GmbH</h1>
+  <div class="nmeta">Today 14:00 · Sarah, Jonas, Mia · <span class="live">● Recording</span></div>
+  <h2>Agenda</h2>
+  <ul>
+    <li>Q3 roadmap check-in</li>
+    <li>Acme onboarding feedback</li>
+    <li>Open invoices &amp; renewal</li>
+  </ul>
+  <h2>Notes</h2>
+  <p>Acme wants the new export flow shipped before the renewal date. Jonas to confirm a realistic timeline with engineering by Thursday.</p>
+  <ul class="todos">
+    <li class="done">Send updated proposal</li>
+    <li>Schedule follow-up with Müller GmbH</li>
+    <li>Loop in legal on the annual terms</li>
+  </ul>
+  <blockquote>"…we'd commit to the annual plan if the export feature lands in July." — transcript, 14:21</blockquote>
+</template>
+
+<template id="tl-tpl">
+  <div class="day">Tomorrow</div>
+  <div class="row ghost">
+    <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2.5V6M16 2.5V6"/></svg></span>
+    <span class="title">Design Review</span>
+    <span class="badge create">＋ Create note</span>
+    <span class="time">10:00</span>
+  </div>
+
+  <div class="day">Today</div>
+  <div class="row selected has-transcript">
+    <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2.5H6a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5z"/><path d="M14 2.5V8.5H20M8.5 13h7M8.5 17h5"/></svg></span>
+    <span class="title">Weekly Sync — Acme GmbH</span>
+    <span class="badge transcript">transcript</span>
+    <span class="badge current">current</span>
+    <span class="time">14:00</span>
+    <span class="acts">
+      <button title="Pin"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 4h6l1 7 3 3H5l3-3zM12 14v7"/></svg></button>
+      <button class="danger" title="Delete"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/></svg></button>
+    </span>
+  </div>
+  <div class="row demo-hover">
+    <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg></span>
+    <span class="title">1:1 Sarah</span>
+    <span class="time">11:00</span>
+    <span class="acts">
+      <button title="Pin"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 4h6l1 7 3 3H5l3-3zM12 14v7"/></svg></button>
+      <button class="danger" title="Delete"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/></svg></button>
+    </span>
+  </div>
+
+  <div class="day">Yesterday</div>
+  <div class="row has-transcript">
+    <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 11l6-3.5v9l-6-3.5z"/></svg></span>
+    <span class="title">Investor Update Call</span>
+    <span class="badge">Meet</span>
+    <span class="time">16:30</span>
+    <span class="acts">
+      <button title="Pin"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 4h6l1 7 3 3H5l3-3zM12 14v7"/></svg></button>
+      <button class="danger" title="Delete"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/></svg></button>
+    </span>
+  </div>
+  <div class="row">
+    <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+    <span class="title">Kundengespräch Müller GmbH</span>
+    <span class="badge">in-person</span>
+    <span class="time">09:00</span>
+    <span class="acts">
+      <button title="Pin"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 4h6l1 7 3 3H5l3-3zM12 14v7"/></svg></button>
+      <button class="danger" title="Delete"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/></svg></button>
+    </span>
+  </div>
+
+  <div class="day">Monday</div>
+  <div class="row">
+    <span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2.5H6a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5z"/><path d="M14 2.5V8.5H20M8.5 13h7M8.5 17h5"/></svg></span>
+    <span class="title">Product Review</span>
+    <span class="time">13:00</span>
+    <span class="acts">
+      <button title="Pin"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 4h6l1 7 3 3H5l3-3zM12 14v7"/></svg></button>
+      <button class="danger" title="Delete"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/></svg></button>
+    </span>
+  </div>
+</template>
+
+<script>
+  // hydrate shared note + timeline content into every window
+  const noteTpl = document.getElementById('note-tpl');
+  document.querySelectorAll('.note-slot').forEach(el => el.appendChild(noteTpl.content.cloneNode(true)));
+
+  const tlTpl = document.getElementById('tl-tpl');
+  document.querySelectorAll('.tl-slot').forEach(el => el.appendChild(tlTpl.content.cloneNode(true)));
+
+  // glass / solid toggles
+  document.querySelectorAll('.toggle').forEach(toggle => {
+    const win = document.getElementById(toggle.dataset.win);
+    toggle.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        win.classList.toggle('solid', btn.dataset.mode === 'solid');
+        toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — v2 · Settings: Bottom Sheet, Refined ×5</title>
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --solid:#1c1c1e;
+    --line:rgba(255,255,255,.07);
+    --tx:#f0f0f2;
+    --tx2:#a7a7af;
+    --tx3:#74747d;
+    --blue:#0a84ff;
+    --green:#32d74b;
+    --orange:#ff9f0a;
+    --red:#ff453a;
+    --grain:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro","Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    font-size:14px;
+  }
+  ::selection{background:rgba(10,132,255,.4)}
+
+  /* ---------- page chrome ---------- */
+  .topnav{
+    position:sticky;top:0;z-index:100;
+    display:flex;align-items:center;gap:4px;
+    padding:8px 20px;
+    background:rgba(11,11,13,.82);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--line);
+    font-size:12px;
+    overflow-x:auto;white-space:nowrap;
+  }
+  .topnav .brand{font-weight:600;color:var(--tx2);margin-right:10px;letter-spacing:.01em}
+  .topnav a{color:var(--tx2);text-decoration:none;padding:4px 10px;border-radius:999px}
+  .topnav a:hover{background:rgba(255,255,255,.08);color:var(--tx)}
+  .topnav a b{color:var(--tx3);font-weight:600;margin-right:4px}
+  .topnav a:hover b{color:var(--tx2)}
+  .topnav .here{color:var(--tx);font-weight:600;padding:4px 10px;background:rgba(255,255,255,.1);border-radius:999px}
+  .topnav .div{width:1px;height:14px;background:rgba(255,255,255,.14);margin:0 8px;flex:none}
+
+  .pagehead{max-width:880px;margin:0 auto;padding:46px 24px 4px}
+  .pagehead h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .pagehead p{color:var(--tx2);font-size:13px;margin-top:6px;max-width:640px;line-height:1.5}
+
+  .vhead{max-width:880px;margin:0 auto;padding:54px 24px 18px}
+  .vhead .num{
+    display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;
+    background:rgba(10,132,255,.18);color:#6db4ff;font-size:12px;font-weight:700;
+    vertical-align:-5px;margin-right:9px;border:1px solid rgba(10,132,255,.3);
+  }
+  .vhead h2{font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .vhead .rationale{color:var(--tx2);font-size:13px;line-height:1.55;margin-top:8px;max-width:680px}
+  .vhead .tradeoffs{color:var(--tx3);font-size:12.5px;margin-top:7px;max-width:680px;line-height:1.5}
+  .vhead .tradeoffs b{color:#c9a36a;font-weight:600}
+
+  /* ---------- desktop backdrops ---------- */
+  .desktop{
+    position:relative;display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;
+    gap:48px;padding:48px 24px 76px;overflow:hidden;
+  }
+  .desktop::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:var(--grain);opacity:.05;
+  }
+  .blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.5;pointer-events:none}
+
+  .bg1{background:linear-gradient(135deg,#352a55 0%,#1c2b4e 45%,#102036 100%)}
+  .bg2{background:linear-gradient(140deg,#0f3a3a 0%,#13294a 55%,#0d1326 100%)}
+  .bg3{background:linear-gradient(135deg,#46233a 0%,#2a1c3e 50%,#141230 100%)}
+  .bg4{background:linear-gradient(130deg,#1f3a63 0%,#45265e 45%,#155067 100%)}
+  .bg5{background:linear-gradient(140deg,#1c3826 0%,#172d3a 55%,#101723 100%)}
+
+  /* ---------- stage = toggle + label + window ---------- */
+  .stage{display:flex;flex-direction:column;align-items:center;gap:12px;position:relative;z-index:1}
+  .stagelabel{font-size:11px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+  .modeseg{
+    display:flex;background:rgba(0,0,0,.35);border-radius:999px;padding:2px;gap:2px;
+    box-shadow:inset 0 0 0 .5px rgba(255,255,255,.12);
+  }
+  .modeseg .mg{
+    font-size:11px;padding:3px 13px;border-radius:999px;color:rgba(255,255,255,.6);
+    cursor:pointer;user-select:none;
+  }
+  .modeseg .mg.active{background:rgba(255,255,255,.18);color:#fff;font-weight:600}
+
+  /* ---------- compact portrait window (Raycast-Notes-like) ---------- */
+  .win{
+    position:relative;width:420px;height:620px;flex:none;
+    border-radius:14px;overflow:hidden;
+    display:flex;flex-direction:column;text-align:left;
+    background:rgba(32,32,40,.5);
+    backdrop-filter:blur(42px) saturate(1.8);
+    -webkit-backdrop-filter:blur(42px) saturate(1.8);
+    box-shadow:0 0 0 .5px rgba(255,255,255,.26),
+               0 30px 70px rgba(0,0,0,.55),
+               0 10px 24px rgba(0,0,0,.4);
+  }
+  .win.solid{
+    background:var(--solid);
+    backdrop-filter:none;-webkit-backdrop-filter:none;
+    box-shadow:0 0 0 .5px rgba(255,255,255,.18),
+               0 30px 70px rgba(0,0,0,.55),
+               0 10px 24px rgba(0,0,0,.4);
+  }
+  .tbar{
+    height:38px;flex:none;position:relative;display:flex;align-items:center;
+    padding:0 13px;border-bottom:1px solid var(--line);
+    background:linear-gradient(rgba(255,255,255,.03),rgba(255,255,255,0));
+  }
+  .lights{display:flex;gap:8px;z-index:2}
+  .lt{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.25)}
+  .lt.r{background:#ff5f57}.lt.y{background:#febc2e}.lt.g{background:#28c840}
+  .ttitle{
+    position:absolute;left:0;right:0;text-align:center;
+    font-size:12.5px;font-weight:500;color:var(--tx2);pointer-events:none;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 70px;
+  }
+  .foot{
+    height:34px;flex:none;display:flex;align-items:center;gap:10px;
+    padding:0 7px 0 13px;border-top:1px solid var(--line);
+    font-size:11px;color:var(--tx3);background:rgba(255,255,255,.02);
+    position:relative;z-index:6;
+  }
+  .gearbtn{
+    margin-left:auto;width:25px;height:25px;border-radius:7px;flex:none;
+    display:grid;place-items:center;color:var(--tx2);cursor:pointer;
+  }
+  .gearbtn:hover{background:rgba(255,255,255,.08)}
+  .gearbtn.active{background:rgba(255,255,255,.14);color:var(--tx)}
+  .gearbtn svg{width:14px;height:14px}
+  .recpill{display:inline-flex;align-items:center;gap:5px;color:var(--tx2);font-variant-numeric:tabular-nums}
+  .recdot{color:var(--red);font-size:9px;animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* ---------- note editor behind ---------- */
+  .note{flex:1;min-height:0;padding:18px 22px;overflow:hidden}
+  .ntitle{font-size:18px;font-weight:650;letter-spacing:-.01em}
+  .nmeta{font-size:11.5px;color:var(--tx3);margin-top:4px}
+  .nmeta .ok{color:var(--green)}
+  .nsep{height:1px;background:var(--line);margin:12px 0}
+  .nline{display:flex;align-items:flex-start;gap:8px;padding:3px 0;font-size:13px;line-height:1.45;color:var(--tx)}
+  .nline.done{color:var(--tx3);text-decoration:line-through}
+  .cb{
+    width:14px;height:14px;border-radius:4.5px;flex:none;margin-top:2px;
+    border:1.5px solid rgba(255,255,255,.28);position:relative;
+  }
+  .cb.on{background:var(--blue);border-color:var(--blue)}
+  .cb.on::after{
+    content:"";position:absolute;left:3.5px;top:1px;width:4px;height:7px;
+    border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);
+  }
+  .npara{font-size:13px;line-height:1.5;color:var(--tx2);padding:4px 0 4px 22px}
+  .nh2{font-size:13px;font-weight:650;color:var(--tx);margin-top:10px}
+  .tcard{
+    margin:12px 0 0;padding:9px 12px;border-radius:9px;
+    background:rgba(255,255,255,.04);border:1px solid var(--line);
+  }
+  .tcard .th{font-size:10px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);display:flex;align-items:center;gap:6px}
+  .tcard .tl{font-size:12px;color:var(--tx2);margin-top:4px;font-style:italic;line-height:1.45}
+
+  /* scrim dims + blurs the note while a sheet is up */
+  .scrim{
+    position:absolute;inset:38px 0 34px;z-index:4;
+    background:rgba(0,0,0,.38);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  }
+  .scrim.tall{inset:38px 0 0}
+
+  /* ---------- the glass bottom sheet ---------- */
+  .sheet{
+    position:absolute;left:0;right:0;bottom:0;z-index:5;
+    display:flex;flex-direction:column;
+    background:rgba(26,26,32,.58);
+    backdrop-filter:blur(34px) saturate(1.7);
+    -webkit-backdrop-filter:blur(34px) saturate(1.7);
+    border-top:1px solid rgba(255,255,255,.12);
+    border-radius:16px 16px 0 0;
+    box-shadow:0 -18px 48px rgba(0,0,0,.5),0 -4px 14px rgba(0,0,0,.35);
+  }
+  .sheet::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:30;
+    border-radius:inherit;background-image:var(--grain);opacity:.05;
+  }
+  .win.solid .sheet{
+    background:var(--solid);
+    backdrop-filter:none;-webkit-backdrop-filter:none;
+    border-top-color:rgba(255,255,255,.1);
+  }
+  .sheet.opaque{background:rgba(26,26,30,.84)}  /* v5 when flipped to glass */
+
+  .grab{width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,.24);margin:8px auto 3px;flex:none}
+  .shead{display:flex;align-items:center;gap:10px;padding:5px 14px 10px;flex:none}
+  .shead .seg{flex:1;max-width:240px;margin:0 auto}
+  .stitle{font-size:14px;font-weight:650;letter-spacing:-.01em}
+  .sclose{
+    width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;
+    background:rgba(255,255,255,.1);color:var(--tx2);font-size:11px;cursor:pointer;
+  }
+  .sclose:hover{background:rgba(255,255,255,.16);color:var(--tx)}
+  .sbody{flex:1;min-height:0;overflow-y:auto;padding:2px 14px 16px}
+  .sbody::-webkit-scrollbar{width:0}
+
+  /* ---------- shared controls ---------- */
+  .hidden{display:none!important}
+
+  .tg{
+    --w:36px;--h:21px;
+    width:var(--w);height:var(--h);border-radius:999px;flex:none;
+    background:#3b3b41;position:relative;cursor:pointer;transition:background .18s;
+    box-shadow:inset 0 0 0 .5px rgba(255,255,255,.12);
+  }
+  .tg::after{
+    content:"";position:absolute;top:1.5px;left:1.5px;
+    width:calc(var(--h) - 3px);height:calc(var(--h) - 3px);border-radius:50%;
+    background:#fff;box-shadow:0 1px 2.5px rgba(0,0,0,.5);transition:left .18s;
+  }
+  .tg.on{background:var(--blue)}
+  .tg.on::after{left:calc(var(--w) - var(--h) + 1.5px)}
+  .tg.sm{--w:30px;--h:18px}
+
+  .seg{display:flex;background:rgba(0,0,0,.32);border-radius:8px;padding:2px;gap:2px}
+  .seg .sg{
+    flex:1;text-align:center;font-size:12px;padding:4px 12px;border-radius:6px;
+    color:var(--tx2);cursor:pointer;user-select:none;white-space:nowrap;
+  }
+  .seg .sg.active{background:#55555c;color:#fff;font-weight:550;box-shadow:0 1px 3px rgba(0,0,0,.4),inset 0 0 0 .5px rgba(255,255,255,.1)}
+  .seg.mini .sg{font-size:11px;padding:2.5px 9px}
+
+  .sel{
+    display:inline-flex;align-items:center;gap:7px;flex:none;
+    background:rgba(255,255,255,.09);border-radius:6px;padding:3px 7px 3px 9px;
+    font-size:12px;color:var(--tx);cursor:default;white-space:nowrap;
+    box-shadow:0 0 0 .5px rgba(255,255,255,.14),0 1px 2px rgba(0,0,0,.3);
+  }
+  .sel svg{color:var(--tx2);flex:none}
+  .sel.sm{font-size:11px;padding:2px 6px 2px 8px}
+
+  .btn{
+    display:inline-flex;align-items:center;flex:none;
+    background:rgba(255,255,255,.1);border-radius:6px;padding:3px 10px;
+    font-size:12px;color:var(--tx);cursor:pointer;white-space:nowrap;
+    box-shadow:0 0 0 .5px rgba(255,255,255,.13),0 1px 2px rgba(0,0,0,.3);
+  }
+  .btn:hover{background:rgba(255,255,255,.15)}
+  .btn.blue{background:var(--blue);font-weight:550;box-shadow:0 0 0 .5px rgba(255,255,255,.18),0 1px 3px rgba(0,0,0,.35)}
+  .btn.sm{font-size:11px;padding:2px 8px}
+
+  kbd{
+    font-family:inherit;font-size:11px;color:#d8d8dd;
+    background:rgba(255,255,255,.1);border-radius:4.5px;padding:1px 5.5px;
+    box-shadow:0 0 0 .5px rgba(255,255,255,.16),0 1.5px 0 rgba(0,0,0,.45);
+    display:inline-block;min-width:13px;text-align:center;
+  }
+  .keyrec{
+    display:inline-flex;align-items:center;gap:4px;flex:none;
+    background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.14);
+    border-radius:7px;padding:3.5px 9px;cursor:pointer;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.35);
+  }
+  .keyrec .hint{font-size:10px;color:var(--tx3);margin-left:3px}
+
+  .chip{
+    display:inline-flex;align-items:center;gap:5px;flex:none;
+    background:rgba(10,132,255,.16);border:1px solid rgba(10,132,255,.32);
+    color:#7fc1ff;border-radius:999px;padding:2px 9px;font-size:11.5px;
+  }
+  .chip .x{opacity:.55;font-size:10px;cursor:pointer}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .vin{
+    flex:1;min-width:90px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12);
+    border-radius:999px;padding:3px 11px;font-size:11.5px;color:var(--tx);font-family:inherit;outline:none;
+  }
+  .vin::placeholder{color:var(--tx3)}
+
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.g{background:var(--green);box-shadow:0 0 7px rgba(50,215,75,.7)}
+  .dot.o{background:var(--orange);box-shadow:0 0 7px rgba(255,159,10,.7)}
+  .stat-ok{font-size:12px;color:var(--green);white-space:nowrap}
+  .stat-warn{font-size:11px;color:var(--orange);white-space:nowrap}
+
+  .gcard{
+    background:rgba(255,255,255,.055);border-radius:10px;
+    box-shadow:0 0 0 .5px rgba(255,255,255,.1);
+  }
+  .win.solid .gcard{background:rgba(255,255,255,.045)}
+  .frow{display:flex;align-items:center;gap:10px;padding:8px 12px;min-height:42px;font-size:13px}
+  .frow + .frow{border-top:1px solid rgba(255,255,255,.07)}
+  .frow.col{flex-direction:column;align-items:stretch;gap:8px;padding-top:10px;padding-bottom:11px}
+  .fl{flex:1;min-width:0}
+  .fl .t{color:var(--tx)}
+  .fl .sub{font-size:11px;color:var(--tx3);margin-top:1.5px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fl .sub.wrap{white-space:normal}
+  .fl .sub .ok{color:var(--green)}
+  .slabel{
+    font-size:10.5px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--tx3);margin:15px 4px 6px;
+  }
+  .slabel:first-child{margin-top:4px}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---------- v2 half sheet ---------- */
+  .allrow{
+    flex:none;display:flex;align-items:center;justify-content:center;gap:7px;
+    padding:9px 14px;border-top:1px solid rgba(255,255,255,.09);
+    font-size:12.5px;color:#8ec4ff;cursor:pointer;
+  }
+  .allrow:hover{background:rgba(255,255,255,.05)}
+  .allrow kbd{margin-left:2px}
+  .allrow .chev{color:var(--tx3)}
+
+  /* ---------- v3 icon tabs ---------- */
+  .ttabs{
+    display:flex;justify-content:center;gap:4px;flex:none;
+    padding:4px 10px 8px;border-bottom:1px solid rgba(255,255,255,.1);
+  }
+  .ttab{
+    width:70px;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:6px 2px 5px;border-radius:8px;font-size:10px;color:var(--tx2);
+    cursor:pointer;user-select:none;
+  }
+  .ttab:hover{background:rgba(255,255,255,.08)}
+  .ttab.active{background:rgba(255,255,255,.17);color:#fff;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.12)}
+  .ttab svg{width:17px;height:17px}
+  .ttab .aa{font-size:13px;font-weight:700;height:17px;line-height:17px}
+
+  /* ---------- v4 peek strip ---------- */
+  .peek{
+    position:absolute;left:0;right:0;bottom:34px;z-index:5;height:122px;
+    display:flex;flex-direction:column;
+    background:rgba(26,26,32,.58);
+    backdrop-filter:blur(34px) saturate(1.7);
+    -webkit-backdrop-filter:blur(34px) saturate(1.7);
+    border-top:1px solid rgba(255,255,255,.12);
+    border-radius:14px 14px 0 0;
+    box-shadow:0 -12px 32px rgba(0,0,0,.45);
+  }
+  .peek::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:30;
+    border-radius:inherit;background-image:var(--grain);opacity:.05;
+  }
+  .win.solid .peek{background:var(--solid);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .qrow{display:flex;align-items:center;gap:9px;padding:4px 14px;font-size:12.5px;flex:1}
+  .qrow + .qrow{border-top:1px solid rgba(255,255,255,.06)}
+  .qrow .fl .t{font-size:12.5px}
+
+  .dragnote{
+    position:absolute;z-index:7;left:50%;transform:translateX(-50%);
+    font-size:10.5px;color:rgba(255,255,255,.5);letter-spacing:.04em;
+    display:flex;align-items:center;gap:5px;pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="brand">NoteTakr · Round 2</span>
+  <a href="v2-editor.html">Editor</a>
+  <a href="v2-switcher.html">Switcher</a>
+  <span class="here">Settings (this page)</span>
+  <a href="03-settings.html">Round 1</a>
+  <span class="div"></span>
+  <a href="#v1"><b>1</b>Classic Sheet</a>
+  <a href="#v2"><b>2</b>Half Sheet + Expand</a>
+  <a href="#v3"><b>3</b>Icon Tabs</a>
+  <a href="#v4"><b>4</b>Two-Stage Peek</a>
+  <a href="#v5"><b>5</b>Solid Sheet</a>
+</nav>
+
+<header class="pagehead">
+  <h1>Settings v2 — Bottom Sheet, Refined ×5</h1>
+  <p>Round 1's winner, pushed further. Every variation is a bottom sheet sliding up inside the compact Raycast-Notes-shaped window (~420 × 620). What varies: sheet height, internal structure, and how the <b>Meeting</b> / <b>General</b> scopes are switched. Use the <b>Glass / Solid</b> toggle above each window to compare materials.</p>
+</header>
+
+<!-- ================================================================
+     1 — CLASSIC SHEET
+================================================================= -->
+<section id="v1">
+  <div class="vhead">
+    <h2><span class="num">1</span>Classic Sheet</h2>
+    <p class="rationale">The straight refinement of the round-1 winner: a ~72%-height glass sheet with a grabber, a segmented [Meeting | General] switch centered at the top, and scrollable grouped cards beneath. One surface, two scopes, zero navigation depth — the note title stays visible above the sheet so you never lose context.</p>
+    <p class="tradeoffs"><b>Tradeoff:</b> at 72% the note is mostly covered, and both scopes share one scroll area so long sections push controls below the fold.</p>
+  </div>
+  <div class="desktop bg1">
+    <div class="blob" style="width:380px;height:380px;left:8%;top:-90px;background:#7a5cff"></div>
+    <div class="blob" style="width:320px;height:320px;right:6%;bottom:-70px;background:#1f6feb"></div>
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg active" data-win="w1" data-mode="glass">Glass</span>
+        <span class="mg" data-win="w1" data-mode="solid">Solid</span>
+      </div>
+      <div class="win" id="w1">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Mon, Jun 8 · 09:30–10:00 · Linked <span class="ok">✓</span></div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+          <div class="nline"><span class="cb"></span><span>Confirm Berlin offsite dates</span></div>
+          <p class="npara">Anna: rollout slips one week — first-launch model download too slow.</p>
+          <div class="tcard">
+            <div class="th"><span class="recdot">●</span> Live transcript · German (auto)</div>
+            <div class="tl">„…wir sollten das Update erst nächste Woche ausrollen…“</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+        </div>
+
+        <div class="scrim"></div>
+        <div class="sheet" style="height:72%">
+          <div class="grab"></div>
+          <div class="shead">
+            <div class="seg">
+              <span class="sg active" data-pane="m">Meeting</span>
+              <span class="sg" data-pane="g">General</span>
+            </div>
+            <div class="sclose">✕</div>
+          </div>
+          <div class="sbody">
+            <div class="pane" data-id="m">
+              <div class="slabel">This Meeting</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Record this meeting</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Transcription language</div></div><div class="sel">German (auto) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+                <div class="frow"><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+              </div>
+              <div class="slabel">Calendar</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Linked event</div><div class="sub">Weekly Sync — Acme GmbH <span class="ok">✓</span></div></div><div class="btn sm">Unlink</div></div>
+              </div>
+              <div class="slabel">Vocabulary Boost</div>
+              <div class="gcard">
+                <div class="frow col">
+                  <div class="fl"><div class="sub wrap" style="margin-top:0">Names &amp; jargon boosted in recognition</div></div>
+                  <div class="chips">
+                    <span class="chip">Acme <span class="x">✕</span></span>
+                    <span class="chip">Müller <span class="x">✕</span></span>
+                    <span class="chip">FluidAudio <span class="x">✕</span></span>
+                    <input class="vin" placeholder="Add term…">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pane hidden" data-id="g">
+              <div class="slabel">App</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Global hotkey</div></div><div class="keyrec"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span class="hint">click to record</span></div></div>
+                <div class="frow"><div class="fl"><div class="t">Launch at login</div></div><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Theme</div></div><div class="seg mini"><span class="sg active">System</span><span class="sg">Dark</span><span class="sg">Light</span></div></div>
+                <div class="frow"><div class="fl"><div class="t">Notes folder</div><div class="sub mono">~/Library/Application Support/NoteTakr</div></div><div class="btn sm">Change…</div></div>
+              </div>
+              <div class="slabel">Permissions</div>
+              <div class="gcard">
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Microphone</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Calendar</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot o"></span><div class="fl"><div class="t">System Audio</div><div class="sub"><span class="stat-warn">⚠ Restart required</span></div></div><div class="btn sm">Restart…</div></div>
+              </div>
+              <div class="slabel">Transcription</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Model</div><div class="sub">Runs fully on-device</div></div><div class="sel">Parakeet v3 (local) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     2 — HALF SHEET + EXPAND
+================================================================= -->
+<section id="v2">
+  <div class="vhead">
+    <h2><span class="num">2</span>Half Sheet + Expand</h2>
+    <p class="rationale">A ~45% 'quick' sheet for mid-meeting tweaks: only the four most-used Meeting controls, instantly reachable, with most of the note still readable above. "All settings ⌘," at the bottom (with an upward chevron) is the gesture/click affordance into the full sheet. Optimized for speed while a call is live.</p>
+    <p class="tradeoffs"><b>Tradeoff:</b> every General-scope change is two steps away, and users may never discover the expand row if they only skim.</p>
+  </div>
+  <div class="desktop bg2">
+    <div class="blob" style="width:360px;height:360px;left:12%;top:-70px;background:#0fb5a6"></div>
+    <div class="blob" style="width:300px;height:300px;right:10%;bottom:-60px;background:#2563eb"></div>
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg active" data-win="w2" data-mode="glass">Glass</span>
+        <span class="mg" data-win="w2" data-mode="solid">Solid</span>
+      </div>
+      <div class="win" id="w2">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Mon, Jun 8 · 09:30–10:00 · Linked <span class="ok">✓</span></div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+          <div class="nline"><span class="cb"></span><span>Confirm Berlin offsite dates</span></div>
+          <div class="nh2">Decisions</div>
+          <p class="npara">Rollout slips one week. Jonas benchmarks Parakeet v3 on the M1 fleet.</p>
+          <div class="tcard">
+            <div class="th"><span class="recdot">●</span> Live transcript · German (auto)</div>
+            <div class="tl">„…wir sollten das Update erst nächste Woche ausrollen…“</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+        </div>
+
+        <div class="scrim"></div>
+        <div class="sheet" style="height:45%">
+          <div class="grab"></div>
+          <div class="shead" style="padding-bottom:6px">
+            <div class="stitle">Meeting</div>
+            <div class="sclose" style="margin-left:auto">✕</div>
+          </div>
+          <div class="sbody" style="padding-bottom:4px">
+            <div class="gcard">
+              <div class="frow"><div class="fl"><div class="t">Record this meeting</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg on"></div></div>
+              <div class="frow"><div class="fl"><div class="t">Transcription language</div></div><div class="sel">German (auto) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              <div class="frow"><div class="fl"><div class="t">In-person meeting</div></div><div class="tg"></div></div>
+              <div class="frow"><div class="fl"><div class="t">Linked event</div><div class="sub">Weekly Sync — Acme GmbH <span class="ok">✓</span></div></div><div class="btn sm">Unlink</div></div>
+            </div>
+          </div>
+          <div class="allrow">
+            <svg class="chev" width="11" height="11" viewBox="0 0 12 12"><path d="M2.5 7.5L6 4l3.5 3.5" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            All settings <kbd>⌘</kbd><kbd>,</kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     3 — SHEET WITH ICON TABS
+================================================================= -->
+<section id="v3">
+  <div class="vhead">
+    <h2><span class="num">3</span>Sheet with Icon Tabs</h2>
+    <p class="rationale">A future-proof ~85% sheet that replaces the two-scope segmented control with a row of System-Settings-style icon tabs: General · Meeting · Recording · Vocabulary · Permissions. Each tab is a short, fully visible pane — no long scrolls — so the surface scales as NoteTakr grows. Shown with Permissions active; tabs are clickable.</p>
+    <p class="tradeoffs"><b>Tradeoff:</b> five tabs is heavy chrome for today's handful of settings, and the Meeting/General mental split gets diluted across tabs.</p>
+  </div>
+  <div class="desktop bg3">
+    <div class="blob" style="width:380px;height:380px;left:6%;top:-80px;background:#e0479e"></div>
+    <div class="blob" style="width:320px;height:320px;right:8%;bottom:-80px;background:#7048e8"></div>
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg active" data-win="w3" data-mode="glass">Glass</span>
+        <span class="mg" data-win="w3" data-mode="solid">Solid</span>
+      </div>
+      <div class="win" id="w3">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Mon, Jun 8 · 09:30–10:00 · Linked <span class="ok">✓</span></div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+        </div>
+
+        <div class="scrim"></div>
+        <div class="sheet" style="height:85%">
+          <div class="grab"></div>
+          <div class="ttabs">
+            <div class="ttab" data-pane="t-gen"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>General</div>
+            <div class="ttab" data-pane="t-mtg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 2.8v4M16 2.8v4"/></svg>Meeting</div>
+            <div class="ttab" data-pane="t-rec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4" fill="currentColor" stroke="none"/></svg>Recording</div>
+            <div class="ttab" data-pane="t-voc"><span class="aa">Aa</span>Vocabulary</div>
+            <div class="ttab active" data-pane="t-perm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.8l7 2.8v6c0 4.8-3.3 8.1-7 9.6-3.7-1.5-7-4.8-7-9.6v-6l7-2.8z"/><path d="M9 12l2.2 2.2L15.4 10"/></svg>Permissions</div>
+          </div>
+          <div class="sbody" style="padding-top:12px">
+            <div class="pane hidden" data-id="t-gen">
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Global hotkey</div></div><div class="keyrec"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span class="hint">click to record</span></div></div>
+                <div class="frow"><div class="fl"><div class="t">Launch at login</div></div><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Theme</div></div><div class="seg mini"><span class="sg active">System</span><span class="sg">Dark</span><span class="sg">Light</span></div></div>
+                <div class="frow"><div class="fl"><div class="t">Notes folder</div><div class="sub mono">~/Library/Application Support/NoteTakr</div></div><div class="btn sm">Change…</div></div>
+              </div>
+            </div>
+            <div class="pane hidden" data-id="t-mtg">
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Linked event</div><div class="sub">Weekly Sync — Acme GmbH <span class="ok">✓</span></div></div><div class="btn sm">Unlink</div></div>
+              </div>
+            </div>
+            <div class="pane hidden" data-id="t-rec">
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Record this meeting</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Transcription language</div></div><div class="sel">German (auto) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+                <div class="frow"><div class="fl"><div class="t">Model</div><div class="sub">Runs fully on-device</div></div><div class="sel">Parakeet v3 (local) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              </div>
+            </div>
+            <div class="pane hidden" data-id="t-voc">
+              <div class="gcard">
+                <div class="frow col">
+                  <div class="fl"><div class="t">Vocabulary boost</div><div class="sub wrap">Names &amp; jargon boosted in recognition</div></div>
+                  <div class="chips">
+                    <span class="chip">Acme <span class="x">✕</span></span>
+                    <span class="chip">Müller <span class="x">✕</span></span>
+                    <span class="chip">FluidAudio <span class="x">✕</span></span>
+                    <input class="vin" placeholder="Add term…">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pane" data-id="t-perm">
+              <div class="gcard">
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Microphone</div><div class="sub">Required for transcription</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Calendar</div><div class="sub">Links notes to events</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot o"></span><div class="fl"><div class="t">System Audio</div><div class="sub"><span class="stat-warn">⚠ Restart required</span></div></div><div class="btn sm">Restart…</div></div>
+              </div>
+              <p style="font-size:11px;color:var(--tx3);margin:10px 4px 0;line-height:1.5">macOS asks again after updates. NoteTakr never sends audio off this Mac.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     4 — TWO-STAGE PEEK
+================================================================= -->
+<section id="v4">
+  <div class="vhead">
+    <h2><span class="num">4</span>Two-Stage Peek</h2>
+    <p class="rationale">One sheet, two detents — shown here as two windows. Stage A is a slim ~120px peek docked above the footer with the three live-meeting toggles; drag the grabber (or hit ⌘,) and it becomes Stage B, the full ~75% sheet with everything. The same surface serves both the two-second tweak and the deep dive.</p>
+    <p class="tradeoffs"><b>Tradeoff:</b> drag-to-detent is an iOS gesture that macOS users rarely attempt with a mouse, so the expand path needs a visible affordance too.</p>
+  </div>
+  <div class="desktop bg4">
+    <div class="blob" style="width:400px;height:400px;left:4%;top:-100px;background:#2e90fa"></div>
+    <div class="blob" style="width:340px;height:340px;right:4%;bottom:-90px;background:#9b51e0"></div>
+
+    <!-- Stage A -->
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg active" data-win="w4a" data-mode="glass">Glass</span>
+        <span class="mg" data-win="w4a" data-mode="solid">Solid</span>
+      </div>
+      <div class="stagelabel">Stage A · Peek</div>
+      <div class="win" id="w4a">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Mon, Jun 8 · 09:30–10:00 · Linked <span class="ok">✓</span></div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+          <div class="nline"><span class="cb"></span><span>Confirm Berlin offsite dates</span></div>
+          <div class="nh2">Decisions</div>
+          <p class="npara">Rollout slips one week. Jonas benchmarks Parakeet v3 on the M1 fleet.</p>
+          <div class="tcard">
+            <div class="th"><span class="recdot">●</span> Live transcript · German (auto)</div>
+            <div class="tl">„…wir sollten das Update erst nächste Woche ausrollen…“</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+        </div>
+
+        <div class="peek">
+          <div class="grab" style="margin:7px auto 1px"></div>
+          <div class="qrow"><div class="fl"><div class="t">Record</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg sm on"></div></div>
+          <div class="qrow"><div class="fl"><div class="t">In-person meeting</div></div><div class="tg sm"></div></div>
+          <div class="qrow"><div class="fl"><div class="t">Language</div></div><div class="sel sm">German (auto) <svg width="7" height="7" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+        </div>
+        <div class="dragnote" style="bottom:166px">
+          <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2.5 7.5L6 4l3.5 3.5" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          drag up for all settings
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage B -->
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg active" data-win="w4b" data-mode="glass">Glass</span>
+        <span class="mg" data-win="w4b" data-mode="solid">Solid</span>
+      </div>
+      <div class="stagelabel">Stage B · Expanded</div>
+      <div class="win" id="w4b">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Mon, Jun 8 · 09:30–10:00 · Linked <span class="ok">✓</span></div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+        </div>
+
+        <div class="scrim"></div>
+        <div class="sheet" style="height:75%">
+          <div class="grab"></div>
+          <div class="shead">
+            <div class="seg">
+              <span class="sg active" data-pane="bm">Meeting</span>
+              <span class="sg" data-pane="bg">General</span>
+            </div>
+            <div class="sclose">✕</div>
+          </div>
+          <div class="sbody">
+            <div class="pane" data-id="bm">
+              <div class="slabel">This Meeting</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Record this meeting</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Transcription language</div></div><div class="sel">German (auto) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+                <div class="frow"><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Linked event</div><div class="sub">Weekly Sync — Acme GmbH <span class="ok">✓</span></div></div><div class="btn sm">Unlink</div></div>
+              </div>
+              <div class="slabel">Vocabulary Boost</div>
+              <div class="gcard">
+                <div class="frow col">
+                  <div class="chips">
+                    <span class="chip">Acme <span class="x">✕</span></span>
+                    <span class="chip">Müller <span class="x">✕</span></span>
+                    <span class="chip">FluidAudio <span class="x">✕</span></span>
+                    <input class="vin" placeholder="Add term…">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pane hidden" data-id="bg">
+              <div class="slabel">App</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Global hotkey</div></div><div class="keyrec"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd></div></div>
+                <div class="frow"><div class="fl"><div class="t">Launch at login</div></div><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Theme</div></div><div class="seg mini"><span class="sg active">System</span><span class="sg">Dark</span><span class="sg">Light</span></div></div>
+                <div class="frow"><div class="fl"><div class="t">Notes folder</div><div class="sub mono">~/Library/Application Support/NoteTakr</div></div><div class="btn sm">Change…</div></div>
+                <div class="frow"><div class="fl"><div class="t">Model</div></div><div class="sel">Parakeet v3 (local) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              </div>
+              <div class="slabel">Permissions</div>
+              <div class="gcard">
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Microphone</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Calendar</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot o"></span><div class="fl"><div class="t">System Audio</div><div class="sub"><span class="stat-warn">⚠ Restart required</span></div></div><div class="btn sm">Restart…</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     5 — SOLID SHEET
+================================================================= -->
+<section id="v5">
+  <div class="vhead">
+    <h2><span class="num">5</span>Solid Sheet</h2>
+    <p class="rationale">Structurally identical to #1, but it defaults to a solid #1c1c1e window and sheet — maximum text contrast, no wallpaper bleed-through behind small gray labels. When flipped to Glass, the sheet stays slightly more opaque than the other variations for legibility. Shown with the General scope active so the full second scope is visible somewhere on this page.</p>
+    <p class="tradeoffs"><b>Tradeoff:</b> loses the airy glass identity that makes the floating window feel like part of the desktop, reading closer to a plain dark panel.</p>
+  </div>
+  <div class="desktop bg5">
+    <div class="blob" style="width:360px;height:360px;left:10%;top:-80px;background:#2f9e44"></div>
+    <div class="blob" style="width:300px;height:300px;right:8%;bottom:-70px;background:#1971c2"></div>
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg" data-win="w5" data-mode="glass">Glass</span>
+        <span class="mg active" data-win="w5" data-mode="solid">Solid</span>
+      </div>
+      <div class="win solid" id="w5">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Mon, Jun 8 · 09:30–10:00 · Linked <span class="ok">✓</span></div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+          <div class="nline"><span class="cb"></span><span>Confirm Berlin offsite dates</span></div>
+          <p class="npara">Anna: rollout slips one week — first-launch model download too slow.</p>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+        </div>
+
+        <div class="scrim"></div>
+        <div class="sheet opaque" style="height:72%">
+          <div class="grab"></div>
+          <div class="shead">
+            <div class="seg">
+              <span class="sg" data-pane="sm">Meeting</span>
+              <span class="sg active" data-pane="sg5">General</span>
+            </div>
+            <div class="btn sm blue" style="flex:none">Done</div>
+          </div>
+          <div class="sbody">
+            <div class="pane hidden" data-id="sm">
+              <div class="slabel">This Meeting</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Record this meeting</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Transcription language</div></div><div class="sel">German (auto) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+                <div class="frow"><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Linked event</div><div class="sub">Weekly Sync — Acme GmbH <span class="ok">✓</span></div></div><div class="btn sm">Unlink</div></div>
+              </div>
+              <div class="slabel">Vocabulary Boost</div>
+              <div class="gcard">
+                <div class="frow col">
+                  <div class="chips">
+                    <span class="chip">Acme <span class="x">✕</span></span>
+                    <span class="chip">Müller <span class="x">✕</span></span>
+                    <span class="chip">FluidAudio <span class="x">✕</span></span>
+                    <input class="vin" placeholder="Add term…">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pane" data-id="sg5">
+              <div class="slabel">App</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Global hotkey</div></div><div class="keyrec"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span class="hint">click to record</span></div></div>
+                <div class="frow"><div class="fl"><div class="t">Launch at login</div></div><div class="tg on"></div></div>
+                <div class="frow"><div class="fl"><div class="t">Theme</div></div><div class="seg mini"><span class="sg active">System</span><span class="sg">Dark</span><span class="sg">Light</span></div></div>
+                <div class="frow"><div class="fl"><div class="t">Notes folder</div><div class="sub mono">~/Library/Application Support/NoteTakr</div></div><div class="btn sm">Change…</div></div>
+              </div>
+              <div class="slabel">Permissions</div>
+              <div class="gcard">
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Microphone</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot g"></span><div class="fl"><div class="t">Calendar</div></div><span class="stat-ok">Granted ✓</span></div>
+                <div class="frow"><span class="dot o"></span><div class="fl"><div class="t">System Audio</div><div class="sub"><span class="stat-warn">⚠ Restart required</span></div></div><div class="btn sm">Restart…</div></div>
+              </div>
+              <div class="slabel">Transcription</div>
+              <div class="gcard">
+                <div class="frow"><div class="fl"><div class="t">Model</div><div class="sub">Runs fully on-device</div></div><div class="sel">Parakeet v3 (local) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer style="max-width:880px;margin:0 auto;padding:40px 24px 70px;color:var(--tx3);font-size:12px;line-height:1.6">
+  NoteTakr design round 2 · Settings — five bottom-sheet refinements of the round-1 winner.
+  See also <a href="v2-editor.html" style="color:#8ec4ff;text-decoration:none">Editor</a> ·
+  <a href="v2-switcher.html" style="color:#8ec4ff;text-decoration:none">Switcher</a> ·
+  <a href="03-settings.html" style="color:#8ec4ff;text-decoration:none">Round 1 settings</a>.
+</footer>
+
+<script>
+document.addEventListener('click', function(e){
+  // Glass / Solid material toggle
+  var m = e.target.closest('.modeseg .mg');
+  if(m){
+    var win = document.getElementById(m.dataset.win);
+    if(win){ win.classList.toggle('solid', m.dataset.mode === 'solid'); }
+    m.parentElement.querySelectorAll('.mg').forEach(function(s){ s.classList.toggle('active', s === m); });
+    return;
+  }
+  // Scope / tab switching within a sheet
+  var t = e.target.closest('[data-pane]');
+  if(t){
+    var root = t.closest('.sheet');
+    if(root){
+      root.querySelectorAll('[data-pane]').forEach(function(s){ s.classList.toggle('active', s === t); });
+      root.querySelectorAll('.pane').forEach(function(p){ p.classList.toggle('hidden', p.dataset.id !== t.dataset.pane); });
+    }
+    return;
+  }
+  // Toggles flip for fun
+  var tg = e.target.closest('.tg');
+  if(tg){ tg.classList.toggle('on'); }
+});
+</script>
+
+</body>
+</html>

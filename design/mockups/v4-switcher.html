@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — ⌘K Switcher · Round 4 (Palette vs. Timeline)</title>
+<style>
+  /* ============================================================
+     GLOBAL
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  :root {
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --acc: #8B5CF6;
+    --acc2: #A78BFA;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #0d0c10;
+    color: #e9e8ec;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- slim sticky nav ---------- */
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 2px;
+    padding: 8px 18px;
+    background: rgba(15,14,19,0.84);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 12px;
+    overflow-x: auto;
+  }
+  .topnav .brand { font-weight: 700; font-size: 12.5px; margin-right: 12px; letter-spacing: -0.2px; color: #fff; white-space: nowrap; }
+  .topnav .brand span { color: var(--acc2); }
+  .topnav a {
+    color: #9b98a6; text-decoration: none;
+    padding: 4px 9px; border-radius: 6px; white-space: nowrap;
+  }
+  .topnav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .topnav .sep { width: 1px; height: 14px; background: rgba(255,255,255,0.12); margin: 0 6px; flex: none; }
+
+  header.intro { max-width: 880px; margin: 0 auto; padding: 40px 24px 0; }
+  header.intro h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.4px; }
+  header.intro p { margin-top: 8px; font-size: 13px; line-height: 1.6; color: #a5a2b0; max-width: 720px; }
+  header.intro b { color: #cfcbdd; font-weight: 600; }
+
+  /* ---------- section scaffolding ---------- */
+  section.mock { padding: 48px 24px 8px; max-width: 880px; margin: 0 auto; }
+  .mock-head { margin-bottom: 16px; padding: 0 4px; }
+  .mock-head .vnum {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--acc2); margin-bottom: 6px;
+  }
+  .mock-head h2 { font-size: 21px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 7px; }
+  .mock-head p.rationale { font-size: 13px; line-height: 1.55; color: #a7a4b1; max-width: 720px; }
+  .mock-head p.tradeoff { margin-top: 7px; font-size: 12.5px; color: #76737f; }
+  .mock-head p.tradeoff b { color: #99959f; font-weight: 600; }
+  .mock-head p.pickif { margin-top: 5px; font-size: 12.5px; color: #8d83ad; }
+  .mock-head p.pickif b { color: var(--acc2); font-weight: 600; }
+
+  /* ---------- desktop stages: high-contrast blobs + grain ---------- */
+  .stage {
+    border-radius: 20px;
+    padding: 46px 40px 58px;
+    display: flex; justify-content: center;
+    position: relative; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .stage::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: var(--grain);
+    opacity: 0.06; pointer-events: none;
+  }
+  .stage-1 { background:
+    radial-gradient(42% 52% at 18% 18%, rgba(255,120,80,0.85), transparent 70%),
+    radial-gradient(48% 58% at 86% 30%, rgba(80,140,255,0.75), transparent 70%),
+    radial-gradient(50% 55% at 60% 95%, rgba(190,70,170,0.7), transparent 70%),
+    linear-gradient(160deg, #18142a 0%, #0e0c1c 100%); }
+  .stage-2 { background:
+    radial-gradient(45% 55% at 80% 15%, rgba(60,220,200,0.65), transparent 70%),
+    radial-gradient(48% 56% at 12% 70%, rgba(70,110,255,0.65), transparent 70%),
+    radial-gradient(40% 50% at 60% 110%, rgba(180,80,220,0.5), transparent 70%),
+    linear-gradient(150deg, #101424 0%, #0a0d18 100%); }
+  .stage-3 { background:
+    radial-gradient(46% 56% at 22% 24%, rgba(255,190,90,0.8), transparent 70%),
+    radial-gradient(46% 56% at 84% 70%, rgba(150,90,255,0.7), transparent 70%),
+    radial-gradient(40% 50% at 55% -10%, rgba(255,90,130,0.55), transparent 70%),
+    linear-gradient(165deg, #1a1322 0%, #100c18 100%); }
+  .stage-4 { background:
+    radial-gradient(44% 54% at 78% 80%, rgba(90,200,140,0.6), transparent 70%),
+    radial-gradient(46% 56% at 16% 28%, rgba(140,100,255,0.7), transparent 70%),
+    radial-gradient(38% 48% at 60% -8%, rgba(255,140,90,0.5), transparent 70%),
+    linear-gradient(155deg, #121626 0%, #0c0b16 100%); }
+
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 14px; position: relative; z-index: 2; }
+
+  /* ---------- 3-way theme toggle ---------- */
+  .toggle {
+    display: inline-flex; gap: 2px; padding: 3px;
+    background: rgba(0,0,0,0.38); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .toggle button {
+    appearance: none; border: 0; cursor: pointer;
+    font: 600 11px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #c9c6d2; background: transparent;
+    padding: 5px 13px; border-radius: 999px; letter-spacing: 0.2px;
+  }
+  .toggle button.active { background: rgba(255,255,255,0.18); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+  /* ============================================================
+     WINDOW — compact portrait 420 × 620, radius 16
+     Themes: .glass / .dark / .light (same recipes as round 3)
+     ============================================================ */
+  .window {
+    width: 420px; height: 620px;
+    border-radius: 16px;
+    position: relative;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .window::after { /* faint film grain */
+    content: ""; position: absolute; inset: 0; z-index: 60;
+    background-image: var(--grain);
+    opacity: 0.045; pointer-events: none;
+  }
+
+  /* ---- GLASS ---- */
+  .window.glass {
+    --tx1: #F3F1F6; --tx2: #ACA8B8; --tx3: #7C7889;
+    --hair: rgba(255,255,255,0.09);
+    --line: rgba(255,255,255,0.15);
+    --node: #6B6678; --node-ring: #26222e;
+    --hover: rgba(255,255,255,0.05);
+    --field: rgba(255,255,255,0.07); --fieldbrd: rgba(255,255,255,0.13);
+    --kbdbg: rgba(255,255,255,0.10); --kbdbrd: rgba(255,255,255,0.16); --kbdtx: #C8C4D2;
+    --selbg: linear-gradient(180deg, rgba(167,139,250,0.26), rgba(139,92,246,0.16));
+    --selbrd: rgba(167,139,250,0.42);
+    --create: #C4B0FC;
+    --cur: #B7A8E8;
+    --bar: rgba(255,255,255,0.04);
+    --ntx1: #EDEBF2; --ntx2: #B4B0BE; --ntx3: #8A8694;
+    background: rgba(29,26,36,0.52);
+    backdrop-filter: blur(40px) saturate(1.5);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,0.22),
+      inset 0 0.5px 0 rgba(255,255,255,0.18),
+      0 2px 6px rgba(0,0,0,0.30),
+      0 24px 60px rgba(0,0,0,0.55),
+      0 60px 120px rgba(0,0,0,0.40);
+  }
+  .window.glass .frost { background: rgba(34,30,42,0.40); }
+
+  /* ---- DARK (solid, purple-tinted near-black) ---- */
+  .window.dark {
+    --tx1: #FAF9FC; --tx2: #B5B1C0; --tx3: #817D8E;
+    --hair: rgba(255,255,255,0.11);
+    --line: rgba(255,255,255,0.19);
+    --node: #7A7588; --node-ring: #1c1a21;
+    --hover: rgba(255,255,255,0.06);
+    --field: rgba(255,255,255,0.07); --fieldbrd: rgba(255,255,255,0.14);
+    --kbdbg: rgba(255,255,255,0.10); --kbdbrd: rgba(255,255,255,0.18); --kbdtx: #D0CCDA;
+    --selbg: linear-gradient(180deg, rgba(167,139,250,0.28), rgba(139,92,246,0.18));
+    --selbrd: rgba(167,139,250,0.46);
+    --create: #C9B6FE;
+    --cur: #BCACEE;
+    --bar: rgba(255,255,255,0.035);
+    --ntx1: #F0EEF4; --ntx2: #B8B4C2; --ntx3: #8C8896;
+    background: #151417;
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,0.16),
+      inset 0 0.5px 0 rgba(255,255,255,0.10),
+      0 2px 6px rgba(0,0,0,0.30),
+      0 24px 60px rgba(0,0,0,0.55),
+      0 60px 120px rgba(0,0,0,0.40);
+  }
+  .window.dark .frost { background: rgba(27,25,32,0.66); }
+
+  /* ---- LIGHT (warm paper) ---- */
+  .window.light {
+    --tx1: #28242E; --tx2: #6F6A78; --tx3: #9C97A6;
+    --hair: rgba(40,30,50,0.10);
+    --line: rgba(40,30,50,0.16);
+    --node: #A6A0B0; --node-ring: #f3efe8;
+    --hover: rgba(40,30,50,0.05);
+    --field: rgba(255,255,255,0.75); --fieldbrd: rgba(40,30,50,0.13);
+    --kbdbg: rgba(40,30,50,0.06); --kbdbrd: rgba(40,30,50,0.14); --kbdtx: #5E5968;
+    --selbg: linear-gradient(180deg, rgba(139,92,246,0.14), rgba(139,92,246,0.08));
+    --selbrd: rgba(139,92,246,0.34);
+    --create: #7C3AED;
+    --cur: #8668D6;
+    --bar: rgba(40,30,50,0.03);
+    --ntx1: #2C2833; --ntx2: #5C5765; --ntx3: #8B8694;
+    background: #F7F4EE;
+    box-shadow:
+      0 0 0 0.5px rgba(0,0,0,0.18),
+      inset 0 0.5px 0 rgba(255,255,255,0.9),
+      0 2px 6px rgba(0,0,0,0.22),
+      0 24px 60px rgba(10,5,25,0.45),
+      0 60px 120px rgba(10,5,25,0.30);
+  }
+  .window.light .frost { background: rgba(251,248,242,0.55); box-shadow: inset 0 1px 0 rgba(255,255,255,0.75); }
+
+  /* ---------- titlebar ---------- */
+  .titlebar {
+    flex: none; height: 40px; z-index: 20;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    background: var(--bar);
+    border-bottom: 1px solid var(--hair);
+    position: relative;
+  }
+  .lights { display: flex; gap: 7px; flex: none; }
+  .lights i { width: 11px; height: 11px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2); }
+  .lights i:nth-child(1) { background: #ff5f57; }
+  .lights i:nth-child(2) { background: #febc2e; }
+  .lights i:nth-child(3) { background: #28c840; }
+  .wtitle {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-size: 12.5px; font-weight: 600; color: var(--tx2); pointer-events: none;
+    letter-spacing: -0.1px;
+  }
+  .rec {
+    margin-left: auto; flex: none; z-index: 1;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: var(--tx3);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .rec::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #ff4b4b; box-shadow: 0 0 6px rgba(255,75,75,0.8); }
+
+  /* ---------- body / blurred note underneath ---------- */
+  .win-body { flex: 1; position: relative; overflow: hidden; }
+  .note {
+    position: absolute; inset: 0; padding: 20px 22px; overflow: hidden; z-index: 1;
+    filter: blur(8px) saturate(1.1);
+  }
+  .note h1 { font-size: 19px; letter-spacing: -0.4px; font-weight: 700; color: var(--ntx1); }
+  .note .nmeta { margin: 7px 0 14px; font-size: 11.5px; color: var(--ntx3); }
+  .note .nmeta .live { color: #ff6b6b; font-weight: 600; }
+  .note h2 { font-size: 13px; font-weight: 700; margin: 14px 0 6px; color: var(--ntx1); letter-spacing: -0.1px; }
+  .note p, .note li { font-size: 12.5px; line-height: 1.6; color: var(--ntx2); }
+  .note ul { margin: 4px 0 4px 18px; }
+  .note mark {
+    background: rgba(255,206,110,0.9); color: #2c2415;
+    border-radius: 3px; padding: 0 3px;
+  }
+  .note .callout {
+    margin-top: 12px; padding: 9px 12px;
+    border-left: 2px solid rgba(167,139,250,0.8);
+    background: rgba(167,139,250,0.18);
+    border-radius: 0 8px 8px 0;
+    font-size: 12px; color: var(--ntx2); line-height: 1.5;
+  }
+  .window.light .note mark { background: rgba(255,206,110,0.75); }
+  .window.light .note .callout { background: rgba(139,92,246,0.10); }
+
+  /* ---------- frost layer (crisp recipe from round 3) ---------- */
+  .frost {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    backdrop-filter: blur(40px) saturate(1.5);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+
+  /* ---------- search ---------- */
+  .search {
+    flex: none;
+    display: flex; align-items: center; gap: 8px;
+    margin: 12px 14px 6px; padding: 0 11px;
+    height: 36px; border-radius: 10px;
+    background: var(--field);
+    border: 1px solid var(--fieldbrd);
+  }
+  .search svg { flex: none; color: var(--tx3); }
+  .search input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    font: 400 13px -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--tx1); caret-color: var(--acc);
+  }
+  .search input::placeholder { color: var(--tx3); }
+  kbd {
+    font: 600 10px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--kbdtx);
+    background: var(--kbdbg);
+    border: 1px solid var(--kbdbrd);
+    border-bottom-width: 2px;
+    border-radius: 5px; padding: 3px 5px; white-space: nowrap;
+  }
+
+  /* ---------- footer hints ---------- */
+  .hints {
+    flex: none; height: 36px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 11px; color: var(--tx3);
+    border-top: 1px solid var(--hair);
+    background: var(--bar);
+  }
+  .hints .dot { color: var(--tx3); opacity: 0.6; margin: 0 4px; }
+
+  /* ============================================================
+     PALETTE LIST (variations 1, 2, 4) — round-1 row anatomy:
+     icon · title · right-aligned muted time
+     ============================================================ */
+  .pal { flex: 1; overflow-y: auto; padding: 8px 14px 10px; position: relative; }
+  .pgroup {
+    font-size: 13px; font-weight: 600; color: var(--tx3);
+    font-variant-caps: all-small-caps; letter-spacing: 1.6px;
+    padding: 12px 10px 5px;
+  }
+  .pal > .pgroup:first-child { padding-top: 6px; }
+  .prow {
+    position: relative;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 9px;
+    border: 1px solid transparent;
+    cursor: default;
+  }
+  .prow + .prow { margin-top: 3px; }
+  .prow:hover { background: var(--hover); }
+  .prow .glyph { flex: none; width: 16px; height: 16px; display: grid; place-items: center; color: var(--tx3); }
+  .prow .glyph svg { display: block; }
+  .prow .t {
+    flex: 1; min-width: 0;
+    font-size: 12.5px; font-weight: 400; color: var(--tx1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: -0.1px;
+  }
+  .prow .time { flex: none; font-size: 11px; color: var(--tx3); font-variant-numeric: tabular-nums; }
+  .prow .cur {
+    flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+    color: var(--cur);
+  }
+  .tdot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #ff4b4b; box-shadow: 0 0 5px rgba(255,75,75,0.7); }
+
+  /* selected row — soft purple glass highlight */
+  .prow.sel {
+    background: var(--selbg);
+    border-color: var(--selbrd);
+    box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .prow.sel .t { font-weight: 500; }
+  .prow.sel .glyph { color: var(--tx1); }
+  .window.light .prow.sel { box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(80,50,140,0.10); }
+
+  /* ghost "create note" entry — dashed */
+  .prow.ghost {
+    border: 1px dashed color-mix(in srgb, var(--acc2) 42%, transparent);
+    background: color-mix(in srgb, var(--acc) 6%, transparent);
+  }
+  .prow.ghost .t { color: var(--tx2); }
+  .prow.ghost .glyph { color: color-mix(in srgb, var(--acc2) 70%, var(--tx3)); }
+  .prow.ghost:hover { border-color: color-mix(in srgb, var(--acc2) 62%, transparent); }
+  .create {
+    flex: none; font-size: 11px; font-weight: 600; color: var(--create);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .create svg { display: block; }
+
+  /* ---- V2 modifier: tighter rows (keyboard-speed take) ---- */
+  .pal.tight .prow { padding: 6px 10px; gap: 9px; }
+  .pal.tight .prow + .prow { margin-top: 2px; }
+  .pal.tight .pgroup { padding: 10px 10px 4px; }
+  .pal.tight > .pgroup:first-child { padding-top: 5px; }
+
+  /* ============================================================
+     V3 — STREAMLINED TIMELINE
+     continuous 1px line · small dots, two states · no icons
+     ============================================================ */
+  .stl { flex: 1; overflow-y: auto; position: relative; padding: 10px 16px 12px; }
+  .stl .axis {
+    position: absolute; left: 24px; top: 8px; bottom: 10px;
+    width: 1px; background: var(--line);
+  }
+  .stl .sgroup {
+    font-size: 13px; font-weight: 600; color: var(--tx3);
+    font-variant-caps: all-small-caps; letter-spacing: 1.6px;
+    margin-left: 22px; padding: 12px 10px 5px;
+  }
+  .stl > .sgroup:first-of-type { padding-top: 4px; }
+  .srow {
+    position: relative;
+    margin-left: 22px;
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 9px;
+    border: 1px solid transparent;
+    cursor: default;
+  }
+  .srow + .srow { margin-top: 3px; }
+  .srow:hover { background: var(--hover); }
+  .srow .t {
+    flex: 1; min-width: 0;
+    font-size: 12.5px; font-weight: 400; color: var(--tx1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: -0.1px;
+  }
+  .srow .time { flex: none; font-size: 11px; color: var(--tx3); font-variant-numeric: tabular-nums; }
+  .srow .cur {
+    flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+    color: var(--cur);
+  }
+  /* node dots — only two states: purple (upcoming/current) and neutral (past) */
+  .snode {
+    position: absolute; left: -25px; top: 50%;
+    width: 7px; height: 7px; border-radius: 50%;
+    transform: translate(0, -50%);
+    background: var(--node);
+    border: 1.5px solid var(--node-ring);
+  }
+  .snode.live { background: var(--acc); box-shadow: 0 0 7px rgba(139,92,246,0.6); }
+  .srow.sel {
+    background: var(--selbg);
+    border-color: var(--selbrd);
+    box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .srow.sel .t { font-weight: 500; }
+  .window.light .srow.sel { box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(80,50,140,0.10); }
+  .srow.ghost {
+    border: 1px dashed color-mix(in srgb, var(--acc2) 42%, transparent);
+    background: color-mix(in srgb, var(--acc) 6%, transparent);
+  }
+  .srow.ghost .t { color: var(--tx2); }
+  .srow.ghost:hover { border-color: color-mix(in srgb, var(--acc2) 62%, transparent); }
+
+  /* ============================================================
+     V4 — TIMELINE LITE
+     palette + barely-there 1px gutter line along the icon column,
+     dots only on upcoming + current, line fades at both ends
+     ============================================================ */
+  .pal.lite { padding-left: 26px; }
+  .pal.lite .lite-line {
+    position: absolute; left: 13px; top: 6px; bottom: 8px;
+    width: 1px; background: var(--hair);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30px, #000 calc(100% - 30px), transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 30px, #000 calc(100% - 30px), transparent);
+  }
+  .pal.lite .lnode {
+    position: absolute; left: -15px; top: 50%;
+    width: 5px; height: 5px; border-radius: 50%;
+    transform: translateY(-50%);
+    background: var(--acc2);
+  }
+  .pal.lite .lnode.live { background: var(--acc); box-shadow: 0 0 6px rgba(139,92,246,0.6); }
+
+  footer.page-end {
+    text-align: center; padding: 44px 0 60px;
+    font-size: 12px; color: #5d5a66;
+  }
+  footer.page-end a { color: #8d8999; }
+</style>
+</head>
+<body>
+
+<!-- ============ SLIM STICKY NAV ============ -->
+<nav class="topnav">
+  <span class="brand">Note<span>Takr</span> · Round 4</span>
+  <a href="v4-editor.html">Editor</a>
+  <a href="v4-settings.html">Settings</a>
+  <a href="v3-switcher.html">Round 3</a>
+  <a href="02-switcher.html">Round 1</a>
+  <span class="sep"></span>
+  <a href="#v1">1 Frost Palette</a>
+  <a href="#v2">2 Solid Palette</a>
+  <a href="#v3">3 Streamlined Timeline</a>
+  <a href="#v4">4 Timeline Lite</a>
+</nav>
+
+<header class="intro">
+  <h1>⌘K Switcher — head-to-head: Palette vs. Timeline</h1>
+  <p>This round decides whether the timeline stays. <b>1 + 2</b> bring round one's Palette Overlay — the row anatomy
+  and icons you liked — into the current identity, with no timeline at all. <b>3</b> is the Solid Timeline stripped to
+  its skeleton, so the line has to earn its place on merit. <b>4</b> splits the difference: palette rows, icons kept,
+  and a line so faint it's texture. Same window, same content, same three themes everywhere — only the chronology
+  treatment changes.</p>
+</header>
+
+<!-- ================================================================
+     V1 — FROST PALETTE
+     ================================================================ -->
+<section class="mock" id="v1">
+  <div class="mock-head">
+    <div class="vnum">Variation 1</div>
+    <h2>Frost Palette</h2>
+    <p class="rationale">Round one's Palette Overlay reborn as a full-window frost over the blurred note: search on
+    top, small-caps day labels, and the loved row anatomy — stroke icon, quiet title, right-aligned muted time.
+    Chronology lives entirely in the section labels, so every other pixel can stay silent.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> with no line or dots, relative position in time is read, not seen — long histories become label-scanning.</p>
+    <p class="pickif"><b>Pick this if</b> the icons and the calm are what you loved, and day labels alone tell you enough about "when".</p>
+  </div>
+  <div class="stage stage-1">
+    <div class="stack">
+      <div class="toggle" data-win="w1">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="dark">Dark</button><button data-mode="light">Light</button>
+      </div>
+      <div class="window glass" id="w1">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="pal pal-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V2 — SOLID PALETTE
+     ================================================================ -->
+<section class="mock" id="v2">
+  <div class="mock-head">
+    <div class="vnum">Variation 2</div>
+    <h2>Solid Palette</h2>
+    <p class="rationale">The identical palette on the solid Dark surface (<code>#151417</code>) with rows pulled one
+    notch tighter — eleven items fit without scrolling and nothing translucent sits between you and the list. This is
+    the keyboard-speed take: summon, type two letters, hit return.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> the opaque surface drops the "your note is still right there" layering cue, and tighter rows leave less air around the selection.</p>
+    <p class="pickif"><b>Pick this if</b> the switcher's only job is raw speed and legibility over any desktop, any hour.</p>
+  </div>
+  <div class="stage stage-2">
+    <div class="stack">
+      <div class="toggle" data-win="w2">
+        <button data-mode="glass">Glass</button><button class="active" data-mode="dark">Dark</button><button data-mode="light">Light</button>
+      </div>
+      <div class="window dark" id="w2">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="pal tight pal-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V3 — STREAMLINED TIMELINE
+     ================================================================ -->
+<section class="mock" id="v3">
+  <div class="mock-head">
+    <div class="vnum">Variation 3</div>
+    <h2>Streamlined Timeline</h2>
+    <p class="rationale">The Solid Timeline decluttered to answer one question: does the line earn its place once
+    everything else is quiet? The day rail is gone (labels become inline small-caps headers the line runs straight
+    past), the line is 1px, the dots are smaller with exactly two states — purple for upcoming/current, neutral for
+    past — and rows carry no icons and no sublines, just title and right-aligned time.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> losing the per-row icons means video / in-person / calendar provenance is gone — the dot is the only glyph left.</p>
+    <p class="pickif"><b>Pick this if</b> "where am I in the week" is the mental model and you'd rather keep the axis than the icons.</p>
+  </div>
+  <div class="stage stage-3">
+    <div class="stack">
+      <div class="toggle" data-win="w3">
+        <button data-mode="glass">Glass</button><button class="active" data-mode="dark">Dark</button><button data-mode="light">Light</button>
+      </div>
+      <div class="window dark" id="w3">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="stl stl-slot"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     V4 — TIMELINE LITE
+     ================================================================ -->
+<section class="mock" id="v4">
+  <div class="mock-head">
+    <div class="vnum">Variation 4</div>
+    <h2>Timeline Lite</h2>
+    <p class="rationale">The minimal hybrid: variation 1's palette — icons and all — plus a barely-there 1px line
+    running down the icon gutter, fading out at both ends, with dots only where they mean something (the upcoming
+    ghost and the current meeting). Timeline as texture, not structure: the eye gets a faint thread of continuity
+    without a single extra column.</p>
+    <p class="tradeoff"><b>Tradeoff:</b> at this opacity the line can disappear entirely on busy glass backdrops — it's a whisper, and some will never notice it.</p>
+    <p class="pickif"><b>Pick this if</b> you can't choose: round-1 rows to use, a hint of timeline to feel.</p>
+  </div>
+  <div class="stage stage-4">
+    <div class="stack">
+      <div class="toggle" data-win="w4">
+        <button class="active" data-mode="glass">Glass</button><button data-mode="dark">Dark</button><button data-mode="light">Light</button>
+      </div>
+      <div class="window glass" id="w4">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="wtitle">Weekly Sync — Acme GmbH</span>
+          <span class="rec">REC</span>
+        </div>
+        <div class="win-body">
+          <div class="note note-slot"></div>
+          <div class="frost">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" placeholder="Search meetings…">
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="pal lite pal-slot" data-variant="lite"></div>
+            <div class="hints"><kbd>↩</kbd> Open <span class="dot">·</span> <kbd>⌘N</kbd> New <span class="dot">·</span> <kbd>esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="page-end">
+  NoteTakr · Round 4 · v4-switcher.html — Frost Palette / Solid Palette / Streamlined Timeline / Timeline Lite ·
+  <a href="v3-switcher.html">round 3</a> · <a href="02-switcher.html#v1">round-1 palette</a>
+</footer>
+
+<script>
+/* ---------- shared mock note (the layer that gets frosted) ---------- */
+const NOTE_HTML = `
+  <h1>Weekly Sync — Acme GmbH</h1>
+  <div class="nmeta">Today 14:00–14:45 · Zoom · Anna, Tom, Luis · <span class="live">transcribing</span></div>
+  <h2>Agenda</h2>
+  <ul>
+    <li>Q3 rollout status &amp; open blockers</li>
+    <li>API migration timeline (Tom)</li>
+    <li>Contract renewal — pricing tier</li>
+  </ul>
+  <h2>Notes</h2>
+  <p>Anna confirmed the staging environment will be ready by <mark>Thursday</mark>. Tom flagged the auth migration
+  as the main risk; needs a decision on the deprecation window before the next release train.</p>
+  <div class="callout">Decision: ship the switcher redesign first, transcript search second. Revisit the widget
+  experiment in Q4.</div>
+  <p style="margin-top:10px">Follow-up: send the updated pricing tier to Anna by Friday and loop in legal on the
+  renewal clause.</p>`;
+
+/* ---------- the round-1 row icons, recreated at 1.5px stroke ---------- */
+const I = {
+  cam: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10.5 21 8v8l-5-2.5"/></svg>`,
+  person: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 19.5c1.2-3.2 4-4.5 7-4.5s5.8 1.3 7 4.5"/></svg>`,
+  people: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c1-2.9 3.4-4.2 6-4.2s5 1.3 6 4.2"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8"/><path d="M17.6 15.6c1.7.7 3 2.1 3.6 3.9"/></svg>`,
+  cal: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>`,
+  plus: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`
+};
+
+/* ---------- palette builder (variations 1, 2, 4) ----------
+   lite adds the faint gutter line + dots on upcoming/current */
+function palette({ lite = false } = {}) {
+  const line = lite ? `<div class="lite-line"></div>` : ``;
+  const nodeUp  = lite ? `<i class="lnode"></i>` : ``;
+  const nodeNow = lite ? `<i class="lnode live"></i>` : ``;
+  return `${line}
+  <div class="pgroup">Tomorrow</div>
+  <div class="prow ghost">
+    ${nodeUp}
+    <span class="glyph">${I.cal}</span>
+    <span class="t">Design Review</span>
+    <span class="time">10:00</span>
+    <span class="create">${I.plus}Create note</span>
+  </div>
+  <div class="pgroup">Today</div>
+  <div class="prow sel">
+    ${nodeNow}
+    <span class="glyph">${I.cam}</span>
+    <span class="t">Weekly Sync — Acme GmbH</span>
+    <span class="tdot" title="Transcript live"></span>
+    <span class="cur">current</span>
+    <span class="time">14:00</span>
+  </div>
+  <div class="prow">
+    <span class="glyph">${I.person}</span>
+    <span class="t">1:1 Sarah</span>
+    <span class="time">11:00</span>
+  </div>
+  <div class="pgroup">Yesterday</div>
+  <div class="prow">
+    <span class="glyph">${I.cam}</span>
+    <span class="t">Investor Update Call</span>
+    <span class="time">16:30</span>
+  </div>
+  <div class="prow">
+    <span class="glyph">${I.person}</span>
+    <span class="t">Kundengespräch Müller GmbH</span>
+    <span class="time">09:30</span>
+  </div>
+  <div class="pgroup">Monday</div>
+  <div class="prow">
+    <span class="glyph">${I.people}</span>
+    <span class="t">Product Review</span>
+    <span class="time">15:00</span>
+  </div>`;
+}
+
+/* ---------- streamlined timeline builder (variation 3) ----------
+   continuous 1px axis · 2-state dots · no icons, no sublines */
+function streamlined() {
+  return `
+  <div class="axis"></div>
+  <div class="sgroup">Tomorrow</div>
+  <div class="srow ghost">
+    <i class="snode live"></i>
+    <span class="t">Design Review</span>
+    <span class="time">10:00</span>
+    <span class="create">${I.plus}Create note</span>
+  </div>
+  <div class="sgroup">Today</div>
+  <div class="srow sel">
+    <i class="snode live"></i>
+    <span class="t">Weekly Sync — Acme GmbH</span>
+    <span class="tdot" title="Transcript live"></span>
+    <span class="cur">current</span>
+    <span class="time">14:00</span>
+  </div>
+  <div class="srow">
+    <i class="snode"></i>
+    <span class="t">1:1 Sarah</span>
+    <span class="time">11:00</span>
+  </div>
+  <div class="sgroup">Yesterday</div>
+  <div class="srow">
+    <i class="snode"></i>
+    <span class="t">Investor Update Call</span>
+    <span class="time">16:30</span>
+  </div>
+  <div class="srow">
+    <i class="snode"></i>
+    <span class="t">Kundengespräch Müller GmbH</span>
+    <span class="time">09:30</span>
+  </div>
+  <div class="sgroup">Monday</div>
+  <div class="srow">
+    <i class="snode"></i>
+    <span class="t">Product Review</span>
+    <span class="time">15:00</span>
+  </div>`;
+}
+
+/* ---------- inject content ---------- */
+document.querySelectorAll('.note-slot').forEach(el => { el.innerHTML = NOTE_HTML; });
+document.querySelectorAll('.pal-slot').forEach(el => {
+  el.innerHTML = palette({ lite: el.dataset.variant === 'lite' });
+});
+document.querySelectorAll('.stl-slot').forEach(el => { el.innerHTML = streamlined(); });
+
+/* ---------- 3-way theme toggle ---------- */
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    t.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+    const w = document.getElementById(t.dataset.win);
+    w.classList.remove('glass', 'dark', 'light');
+    w.classList.add(b.dataset.mode);
+  });
+});
+</script>
+
+</body>
+</html>
