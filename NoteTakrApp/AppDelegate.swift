@@ -14,21 +14,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: .noteTakrShowSettingsWindow,
             object: nil
         )
-        if !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") {
-            UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
-            DispatchQueue.main.async { [weak self] in
-                self?.showSettingsWindow()
-            }
-        } else {
-            DispatchQueue.main.async { [weak self] in
-                self?.statusBarController?.showSessionsWindow()
-            }
+        UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.showSettingsWindow()
         }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
-            statusBarController?.showSessionsWindow()
+            showSettingsWindow()
         }
         return true
     }
