@@ -18,6 +18,10 @@ final class NativeAudioRecorder: AudioRecorder, AudioCaptureReporter, @unchecked
     var lastMissingReasons: [String: String] { _lastMissingReasons }
 
     func startRecording(into directory: URL) async throws {
+        try await startRecording(into: directory, mode: .online)
+    }
+
+    func startRecording(into directory: URL, mode: MeetingMode) async throws {
         guard !isRecording else {
             throw AudioRecorderError.alreadyRecording
         }
@@ -49,7 +53,12 @@ final class NativeAudioRecorder: AudioRecorder, AudioCaptureReporter, @unchecked
 
         // System-audio via ScreenCaptureKit; requires screen recording permission.
         // Gracefully skipped when permission is absent or hardware is unavailable.
-        if CGPreflightScreenCaptureAccess() {
+        // In-person meetings deliberately capture the microphone only — the room
+        // mic holds every voice and speaker separation is left to diarization.
+        if !mode.capturesSystemAudio {
+            _lastMissingReasons[AudioSourceType.systemAudio.rawValue] =
+                "In-person meeting — microphone only"
+        } else if CGPreflightScreenCaptureAccess() {
             let capturer = SystemAudioCapturer()
             do {
                 try await capturer.startCapture(to: sysURL)

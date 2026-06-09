@@ -44,6 +44,13 @@ final class StatusBarController: NSObject {
         let open = NSMenuItem(title: "Open NoteTakr", action: #selector(openMain), keyEquivalent: "")
         open.target = self
         menu.addItem(open)
+
+        let floatingNote = NSMenuItem(
+            title: "Floating Note", action: #selector(toggleFloatingNote), keyEquivalent: "n"
+        )
+        floatingNote.keyEquivalentModifierMask = [.command, .option]
+        floatingNote.target = self
+        menu.addItem(floatingNote)
         menu.addItem(.separator())
 
         let quick = NSMenuItem(title: "Quick Recording", action: #selector(quickRecording), keyEquivalent: "")
@@ -77,6 +84,9 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func openMain() { model.showWindow(tab: .sessions) }
+    @objc private func toggleFloatingNote() {
+        NotificationCenter.default.post(name: .noteTakrToggleFloatingNote, object: nil)
+    }
     @objc private func openSettings() { model.showWindow(tab: .settings) }
     @objc private func openRecordingsFolder() { model.openRecordingsFolder() }
     @objc private func quickRecording() { Task { await model.quickRecording() } }

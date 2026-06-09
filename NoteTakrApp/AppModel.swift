@@ -49,6 +49,18 @@ final class AppModel: ObservableObject {
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
 
+    // MARK: - Floating note state
+
+    /// The user-editable meeting name shown in the floating note header. Empty
+    /// means "fall back to the calendar event, then Unnamed Meeting".
+    @Published var floatingMeetingName: String = ""
+    /// The calendar event the floating note is currently attached to.
+    @Published var floatingSelectedEventID: String?
+    /// Online (mic + system audio) vs in-person (mic only, diarized).
+    @Published var floatingMode: MeetingMode = .online
+    /// The markdown scratchpad text in the floating note.
+    @Published var floatingNoteText: String = ""
+
     /// The hosting NSWindow, captured from SwiftUI so the menu bar can surface it.
     weak var mainWindow: NSWindow?
 
@@ -96,6 +108,66 @@ final class AppModel: ObservableObject {
             self, selector: #selector(handleCalendarAccessGranted),
             name: .noteTakrCalendarAccessGranted, object: nil
         )
+    }
+
+    // MARK: - Floating note
+
+    /// The calendar event currently attached to the floating note, if any.
+    var floatingSelectedEvent: CalendarEvent? {
+        guard let id = floatingSelectedEventID else { return nil }
+        return upcomingEvents.first { $0.id == id }
+    }
+
+    /// The title shown in the floating note header / used when recording starts:
+    /// the typed name, else the linked calendar event, else "Unnamed Meeting".
+    var floatingResolvedTitle: String {
+        MeetingTitleResolver.resolve(meetingName: floatingMeetingName, event: floatingSelectedEvent)
+    }
+
+    /// Attaches a calendar event to the floating note and mirrors its title into
+    /// the editable meeting name so the header updates automatically.
+    func selectFloatingEvent(_ event: CalendarEvent?) {
+        floatingSelectedEventID = event?.id
+        if let event {
+            floatingMeetingName = event.title
+        }
+    }
+
+    /// Loads upcoming events so the floating note's event picker has data.
+    func prepareFloatingNote() {
+        Task { await loadUpcomingEvents() }
+    }
+
+    /// Starts a recording from the floating note: resolved title, chosen mode,
+    /// linked event, and the current scratchpad seeded as personal notes.
+    func startFloatingRecording() async {
+        guard !recordingManager.isRecording else { return }
+        let title = floatingResolvedTitle
+        let mode = floatingMode
+        do {
+            let session = try await recordingManager.startRecording(title: title, mode: mode)
+            isRecording = true
+            var updated = session
+            updated.personalNotes = floatingNoteText
+            if let event = floatingSelectedEvent {
+                updated.linkedEventID = event.id
+                updated.linkedEventTitle = event.title
+                updated.participants = event.attendees
+            }
+            persist(updated)
+            selectedTab = .sessions
+            selectedSessionID = updated.id
+        } catch {
+            isRecording = recordingManager.isRecording
+        }
+    }
+
+    /// Persists the floating scratchpad into the active recording session so the
+    /// note and the session stay in sync while recording.
+    func syncFloatingNote() {
+        guard isRecording, let id = selectedSessionID, var session = session(for: id) else { return }
+        session.personalNotes = floatingNoteText
+        persist(session)
     }
 
     // MARK: - Sessions

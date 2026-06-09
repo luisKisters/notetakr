@@ -36,6 +36,9 @@
 		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
+		AAFADE000000000000000540 /* GlobalHotkey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000240 /* GlobalHotkey.swift */; };
+		AAFADE000000000000000541 /* FloatingNoteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000241 /* FloatingNoteWindowController.swift */; };
+		AAFADE000000000000000542 /* FloatingNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000242 /* FloatingNoteView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +79,9 @@
 		AAFADE00000000000000021D /* TranscriptionModelSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionModelSettings.swift; path = NoteTakrApp/Transcription/TranscriptionModelSettings.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsStoreTests.swift; path = NoteTakrTests/TranscriptionSettingsStoreTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinatorTests.swift; path = NoteTakrTests/TranscriptionCoordinatorTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000240 /* GlobalHotkey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GlobalHotkey.swift; path = NoteTakrApp/FloatingNote/GlobalHotkey.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000241 /* FloatingNoteWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FloatingNoteWindowController.swift; path = NoteTakrApp/FloatingNote/FloatingNoteWindowController.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000242 /* FloatingNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FloatingNoteView.swift; path = NoteTakrApp/Views/FloatingNoteView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000300 /* NoteTakr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteTakr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAFADE000000000000000310 /* NoteTakrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteTakrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -132,6 +138,9 @@
 				AAFADE00000000000000021D /* TranscriptionModelSettings.swift */,
 				AAFADE00000000000000021C /* TranscriptionCoordinator.swift */,
 				AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */,
+				AAFADE000000000000000240 /* GlobalHotkey.swift */,
+				AAFADE000000000000000241 /* FloatingNoteWindowController.swift */,
+				AAFADE000000000000000242 /* FloatingNoteView.swift */,
 			);
 			name = NoteTakrApp;
 			sourceTree = "<group>";
@@ -279,6 +288,9 @@
 				AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */,
 				AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */,
 				AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */,
+				AAFADE000000000000000540 /* GlobalHotkey.swift in Sources */,
+				AAFADE000000000000000541 /* FloatingNoteWindowController.swift in Sources */,
+				AAFADE000000000000000542 /* FloatingNoteView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
