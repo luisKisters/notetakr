@@ -23,15 +23,19 @@ public final class RecordingManager: @unchecked Sendable {
 
     /// Creates a new session in .recording state, starts the recorder, and persists the session.
     /// If the recorder fails to start, the session is saved as .failed.
-    public func startRecording(title: String, date: Date = Date()) async throws -> MeetingSession {
+    public func startRecording(
+        title: String,
+        date: Date = Date(),
+        mode: MeetingMode = .online
+    ) async throws -> MeetingSession {
         guard !recorder.isRecording else {
             throw RecordingManagerError.alreadyRecording
         }
-        var session = MeetingSession(title: title, date: date, status: .recording)
+        var session = MeetingSession(title: title, date: date, status: .recording, meetingMode: mode)
         try store.save(session)
         let dir = store.sessionURL(for: session)
         do {
-            try await recorder.startRecording(into: dir)
+            try await recorder.startRecording(into: dir, mode: mode)
         } catch {
             session.status = .failed
             try store.save(session)

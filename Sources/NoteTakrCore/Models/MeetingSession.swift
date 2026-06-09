@@ -13,6 +13,7 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
     public var linkedEventID: String?
     public var linkedEventTitle: String?
     public var participants: [Participant]
+    public var meetingMode: MeetingMode
 
     public init(
         id: UUID = UUID(),
@@ -26,7 +27,8 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         summary: String? = nil,
         linkedEventID: String? = nil,
         linkedEventTitle: String? = nil,
-        participants: [Participant] = []
+        participants: [Participant] = [],
+        meetingMode: MeetingMode = .online
     ) {
         self.id = id
         self.title = title
@@ -40,6 +42,7 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         self.linkedEventID = linkedEventID
         self.linkedEventTitle = linkedEventTitle
         self.participants = participants
+        self.meetingMode = meetingMode
     }
 
     // Custom decoder so existing session.json files without the newer fields
@@ -58,11 +61,12 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         linkedEventID = try? c.decodeIfPresent(String.self, forKey: .linkedEventID)
         linkedEventTitle = try? c.decodeIfPresent(String.self, forKey: .linkedEventTitle)
         participants = (try? c.decode([Participant].self, forKey: .participants)) ?? []
+        meetingMode = (try? c.decodeIfPresent(MeetingMode.self, forKey: .meetingMode)) ?? .online
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, date, status, transcriptSegments, personalNotes
         case audioFilePaths, audioSourceStatuses
-        case summary, linkedEventID, linkedEventTitle, participants
+        case summary, linkedEventID, linkedEventTitle, participants, meetingMode
     }
 }

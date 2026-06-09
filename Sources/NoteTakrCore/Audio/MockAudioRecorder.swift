@@ -16,15 +16,27 @@ public final class MockAudioRecorder: AudioRecorder, AudioCaptureReporter, @unch
     // Controls whether system-audio.wav is omitted from stopRecording results.
     public var omitSystemAudio: Bool = false
 
+    // The mode passed to the most recent startRecording call.
+    public private(set) var lastMode: MeetingMode?
+
     public init() {}
 
     public func startRecording(into directory: URL) async throws {
+        try await startRecording(into: directory, mode: .online)
+    }
+
+    public func startRecording(into directory: URL, mode: MeetingMode) async throws {
         startCallCount += 1
+        lastMode = mode
         if shouldFailOnStart {
             throw AudioRecorderError.recordingFailed("mock start failure")
         }
         guard !isRecording else {
             throw AudioRecorderError.alreadyRecording
+        }
+        // In person: microphone only, no system audio captured.
+        if !mode.capturesSystemAudio {
+            omitSystemAudio = true
         }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         currentDirectory = directory
