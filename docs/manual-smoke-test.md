@@ -7,7 +7,7 @@ Run these steps after every significant change to audio capture or transcription
 
 - macOS 14 (Sonoma) or later
 - Downloaded `NoteTakr-dmg` artifact from a successful `Build DMG` workflow run,
-  or Xcode 15 or later installed for local app builds
+  or Xcode 16 or later installed for local app builds
 - A calendar account configured in System Settings > Internet Accounts
 - A browser open with a tab that plays audio (e.g. YouTube)
 
@@ -26,8 +26,9 @@ verified manually.
 
 ## Optional Xcode Installation
 
-Full Xcode is optional for this workflow. Install it only for local app archive
-builds, local XCTest, and SwiftUI previews.
+Full Xcode 16 or later is optional for this workflow. Install it only for local
+app archive builds, local XCTest, and SwiftUI previews. FluidAudio uses a Swift
+tools 6.0 package manifest, so Xcode 15.4 cannot resolve package dependencies.
 
 - Free disk before install: 80 GB preferred, 60 GB minimum.
 - Use `xcodes` or Apple's developer downloads rather than the App Store when

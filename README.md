@@ -18,7 +18,7 @@ generates structured notes — no cloud, no account required.
 ## Requirements
 
 - macOS 14 (Sonoma) or later
-- Xcode 15 or later for local app builds, previews, archives, and XCTest
+- Xcode 16 or later for local app builds, previews, archives, and XCTest
 - Swift 5.9 or later
 
 ## GitHub-built DMG

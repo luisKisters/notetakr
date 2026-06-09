@@ -101,7 +101,7 @@ No cloud service, login flow, browser extension, Electron dependency, Tauri depe
 
 ### Remaining manual steps
 
-1. Follow docs/manual-smoke-test.md on a physical Mac running macOS 14+ with Xcode 15+.
+1. Follow docs/manual-smoke-test.md on a physical Mac running macOS 14+ with Xcode 16+.
 2. Build with `bash scripts/build-macos-app.sh --install` and launch from `/Applications/NoteTakr.app`.
 3. Grant Calendar, Microphone, and Screen Recording permissions as prompted.
 4. Confirm per-source recording status appears after stopping a recording.

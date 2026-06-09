@@ -20,7 +20,7 @@
 #     NOTETAKR_SIGN_IDENTITY="Apple Development" scripts/build-macos-app.sh
 #
 # Xcode requirements:
-#   xcodebuild must be on PATH. Install Xcode with xcodes or from
+#   xcodebuild from Xcode 16+ must be on PATH. Install Xcode with xcodes or from
 #   https://developer.apple.com/download/all/ and then run:
 #     sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 #   To verify: xcode-select -p && xcodebuild -version
@@ -58,9 +58,15 @@ done
 # --- Preflight checks ---
 if ! command -v xcodebuild &>/dev/null; then
     die "xcodebuild not found.
-Install Xcode with xcodes or from https://developer.apple.com/download/all/
+Install Xcode 16 or later with xcodes or from https://developer.apple.com/download/all/
 then run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 Verify with: xcode-select -p && xcodebuild -version"
+fi
+
+XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode / {print $2}')"
+XCODE_MAJOR="${XCODE_VERSION%%.*}"
+if [[ "${XCODE_MAJOR:-0}" -lt 16 ]]; then
+    die "Xcode 16 or later is required for FluidAudio Swift tools 6.0 support. Selected Xcode: ${XCODE_VERSION:-unknown}"
 fi
 
 if [[ ! -d "$XCODEPROJ" ]]; then

@@ -9,13 +9,29 @@ on:
 jobs:
   swift-package-tests:
     name: Swift Package Tests (macOS)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Select Xcode 16
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -r | head -1 || true)"
+          if [[ -z "$XCODE_PATH" && -d /Applications/Xcode.app ]]; then
+            XCODE_PATH="/Applications/Xcode.app"
+          fi
+          if [[ -z "$XCODE_PATH" ]]; then
+            echo "Xcode 16 is required for FluidAudio Swift tools 6.0 support."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode / {print $2}')"
+          XCODE_MAJOR="${XCODE_VERSION%%.*}"
+          if [[ "${XCODE_MAJOR:-0}" -lt 16 ]]; then
+            echo "Xcode 16 is required for FluidAudio Swift tools 6.0 support; selected Xcode $XCODE_VERSION."
+            exit 1
+          fi
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -36,13 +52,29 @@ jobs:
 
   xcode-build-and-test:
     name: Xcode Build & Test
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Select Xcode 16
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -r | head -1 || true)"
+          if [[ -z "$XCODE_PATH" && -d /Applications/Xcode.app ]]; then
+            XCODE_PATH="/Applications/Xcode.app"
+          fi
+          if [[ -z "$XCODE_PATH" ]]; then
+            echo "Xcode 16 is required for FluidAudio Swift tools 6.0 support."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode / {print $2}')"
+          XCODE_MAJOR="${XCODE_VERSION%%.*}"
+          if [[ "${XCODE_MAJOR:-0}" -lt 16 ]]; then
+            echo "Xcode 16 is required for FluidAudio Swift tools 6.0 support; selected Xcode $XCODE_VERSION."
+            exit 1
+          fi
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
