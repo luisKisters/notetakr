@@ -139,16 +139,12 @@ struct SessionDetailView: View {
             .accessibilityIdentifier("transcribingIndicator")
         case .modelUnavailable:
             VStack(alignment: .leading, spacing: 6) {
-                Label("Transcription model not available", systemImage: "exclamationmark.triangle")
+                Label("Transcription model not configured.", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
                     .accessibilityIdentifier("transcriptionModelUnavailable")
-                Text("To enable local transcription, download a Parakeet model to:")
+                Text("Choose a FluidAudio model folder or enable automatic download in Settings.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("~/Library/Application Support/NoteTakr/Models/parakeet-tdt-0.6b.bin")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case .failed(let message):

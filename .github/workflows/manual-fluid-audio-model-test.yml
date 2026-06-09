@@ -1,0 +1,36 @@
+name: Manual FluidAudio Model Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_model_test:
+        description: "Run the model-backed smoke-test hook"
+        type: boolean
+        default: false
+
+jobs:
+  model-test:
+    name: Manual FluidAudio probe
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+
+      - name: Build transcription probe
+        run: swift build --target NoteTakrTranscriptionProbe
+
+      - name: Model-backed smoke test hook
+        if: ${{ inputs.run_model_test }}
+        run: |
+          echo "Probe compiled. Add a model/audio artifact download here before running real transcription in CI."

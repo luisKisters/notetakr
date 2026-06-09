@@ -8,12 +8,12 @@ The meeting-notes-mvp branch is complete. All eight planned tasks were implement
 
 ### What was built
 
-- Native SwiftUI macOS menu-bar app (NoteTakrApp target, Swift 5.9, macOS 13+)
+- Native SwiftUI macOS menu-bar app (NoteTakrApp target, Swift 5.9, macOS 14+)
 - Local JSON session storage with deterministic folder names and interrupted-session recovery
 - EventKit calendar adapter (behind a protocol) with Google Meet / Zoom / Teams URL matching and keyword fallback
 - AudioRecorder protocol with a mock recorder for CI and a NativeAudioRecorder (AVAudioRecorder + ScreenCaptureKit) for real hardware
 - Permission handling screen for microphone and screen-recording access
-- TranscriptionEngine protocol with a mock engine and a FluidAudioAdapter skeleton for local Parakeet inference
+- TranscriptionEngine protocol with a mock engine and FluidAudio adapter support for local Parakeet inference
 - Vocabulary editor (phrases, aliases, boost weights, enabled toggle) with persistence
 - Markdown note generation from session metadata, personal notes, and transcript segments
 - macOS UserNotifications for pre-meeting reminders with a Start Recording action
@@ -32,7 +32,7 @@ No cloud service, login flow, browser extension, Electron dependency, or Tauri d
 
 ### Remaining manual steps
 
-1. Follow docs/manual-smoke-test.md on a physical Mac running macOS 13 or later.
+1. Follow docs/manual-smoke-test.md on a physical Mac running macOS 14 or later.
 2. Grant Calendar, Microphone, and Screen Recording permissions when prompted.
 3. Confirm audible microphone and browser-audio recording produce separate local files.
 4. Confirm note generation and session persistence after relaunch.
@@ -106,6 +106,6 @@ No cloud service, login flow, browser extension, Electron dependency, Tauri depe
 3. Grant Calendar, Microphone, and Screen Recording permissions as prompted.
 4. Confirm per-source recording status appears after stopping a recording.
 5. Confirm Screen Recording shows "Restart Required" and the restart explanation.
-6. Download `parakeet-tdt-0.6b.bin` to Application Support and link FluidAudio SDK, then test local transcription.
+6. Configure a FluidAudio model folder or automatic download in Settings, then test local transcription.
 7. Confirm `note.md` is auto-generated after transcription and "Open Note" opens it.
 8. If all checks pass, merge next-product-phase into main.

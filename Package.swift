@@ -4,10 +4,14 @@ import PackageDescription
 let package = Package(
     name: "NoteTakr",
     platforms: [
-        .macOS(.v13),
+        .macOS(.v14),
     ],
     products: [
         .library(name: "NoteTakrCore", targets: ["NoteTakrCore"]),
+        .executable(name: "NoteTakrTranscriptionProbe", targets: ["NoteTakrTranscriptionProbe"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
     ],
     targets: [
         .target(
@@ -18,6 +22,14 @@ let package = Package(
             name: "NoteTakrCoreTests",
             dependencies: ["NoteTakrCore"],
             path: "Tests/NoteTakrCoreTests"
+        ),
+        .executableTarget(
+            name: "NoteTakrTranscriptionProbe",
+            dependencies: [
+                "NoteTakrCore",
+                .product(name: "FluidAudio", package: "FluidAudio"),
+            ],
+            path: "Tools/NoteTakrTranscriptionProbe"
         ),
     ]
 )

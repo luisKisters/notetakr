@@ -20,7 +20,7 @@
 #     NOTETAKR_SIGN_IDENTITY="Apple Development" scripts/build-macos-app.sh
 #
 # Xcode requirements:
-#   xcodebuild must be on PATH.  Install Xcode from the App Store or
+#   xcodebuild must be on PATH. Install Xcode with xcodes or from
 #   https://developer.apple.com/download/all/ and then run:
 #     sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 #   To verify: xcode-select -p && xcodebuild -version
@@ -58,7 +58,7 @@ done
 # --- Preflight checks ---
 if ! command -v xcodebuild &>/dev/null; then
     die "xcodebuild not found.
-Install Xcode from the App Store or https://developer.apple.com/download/all/
+Install Xcode with xcodes or from https://developer.apple.com/download/all/
 then run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 Verify with: xcode-select -p && xcodebuild -version"
 fi
@@ -87,6 +87,11 @@ fi
 # --- Build ---
 mkdir -p "$BUILD_DIR" "$DERIVED_DATA"
 
+log "Resolving Swift package dependencies ..."
+xcodebuild -resolvePackageDependencies \
+    -project "$XCODEPROJ" \
+    -scheme "$SCHEME"
+
 log "Building $XCODEPROJ ..."
 xcodebuild build \
     -project "$XCODEPROJ" \
@@ -95,6 +100,7 @@ xcodebuild build \
     -derivedDataPath "$DERIVED_DATA" \
     SYMROOT="$BUILD_DIR/symroot" \
     ONLY_ACTIVE_ARCH=NO \
+    MACOSX_DEPLOYMENT_TARGET=14.0 \
     PRODUCT_BUNDLE_IDENTIFIER="com.notetakr.app" \
     "${SIGN_ARGS[@]}" \
     | tee "$BUILD_DIR/xcodebuild.log" \

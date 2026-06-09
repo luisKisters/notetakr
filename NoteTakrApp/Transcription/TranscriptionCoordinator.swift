@@ -23,6 +23,9 @@ final class TranscriptionCoordinator: ObservableObject {
         } catch TranscriptionError.audioFileNotFound {
             state = .failed("Audio file not found")
             return nil
+        } catch TranscriptionError.transcriptionFailed(let message) {
+            state = .failed(message)
+            return nil
         } catch {
             state = .failed(error.localizedDescription)
             return nil

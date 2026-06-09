@@ -16,6 +16,20 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+
+      - name: Resolve package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project Notetakr.xcodeproj \
+            -scheme NoteTakr
+
       - name: Archive (Release, unsigned)
         run: |
           set -o pipefail
@@ -28,7 +42,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            MACOSX_DEPLOYMENT_TARGET=13.0 \
+            MACOSX_DEPLOYMENT_TARGET=14.0 \
             | tee /tmp/archive.log
 
       - name: Stage .app and create .dmg

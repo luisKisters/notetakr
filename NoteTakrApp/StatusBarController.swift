@@ -8,6 +8,8 @@ final class StatusBarController: NSObject {
     private let store: SessionStore
     private let recordingManager: RecordingManager
     private let vocabularyStore: VocabularyStore
+    private let transcriptionSettingsStore: TranscriptionSettingsStore
+    private let fluidAudioRuntime: FluidAudioRuntime
     private let notificationScheduler = MeetingNotificationScheduler()
     private var sessionsWindow: NSPanel?
     private var detailWindow: NSPanel?
@@ -32,6 +34,12 @@ final class StatusBarController: NSObject {
         let vocabURL = appSupportBase
             .appendingPathComponent("NoteTakr/vocabulary.json")
         vocabularyStore = VocabularyStore(fileURL: vocabURL)
+        transcriptionSettingsStore = TranscriptionSettingsStore(
+            fileURL: appSupportBase
+                .appendingPathComponent("NoteTakr", isDirectory: true)
+                .appendingPathComponent("transcription-settings.json")
+        )
+        fluidAudioRuntime = FluidAudioRuntime()
 
         recordingManager = RecordingManager(store: store, recorder: NativeAudioRecorder())
 
@@ -249,11 +257,10 @@ final class StatusBarController: NSObject {
             let sessionSnapshot = mutable
             Task { @MainActor in
                 let vocab = (try? self.vocabularyStore.enabledEntries()) ?? []
-                let appSupportBase = FileManager.default
-                    .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-                    .first ?? FileManager.default.temporaryDirectory
-                let modelDir = appSupportBase.appendingPathComponent("NoteTakr/Models")
-                let engine = FluidAudioAdapter(modelDirectory: modelDir)
+                let engine = FluidAudioAdapter(
+                    settingsStore: self.transcriptionSettingsStore,
+                    runtime: self.fluidAudioRuntime
+                )
                 let service = TranscriptionService(engine: engine, store: self.store)
                 if let updated = await coordinator.transcribe(
                     session: sessionSnapshot, service: service, vocabulary: vocab

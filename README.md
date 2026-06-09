@@ -18,8 +18,17 @@ generates structured notes — no cloud, no account required.
 ## Requirements
 
 - macOS 14 (Sonoma) or later
-- Xcode 15 or later (for building from source)
+- Xcode 15 or later for local app builds, previews, archives, and XCTest
 - Swift 5.9 or later
+
+## GitHub-built DMG
+
+The canonical unsigned app bundle and DMG are built by GitHub Actions on macOS
+runners. Push a branch, wait for the `Build DMG` workflow, then download the
+`NoteTakr-dmg` artifact.
+
+The DMG does not bundle FluidAudio model files. Configure the model in Settings
+after installing the app.
 
 ## Building from source
 
@@ -32,11 +41,44 @@ open Notetakr.xcodeproj
 Select the `NoteTakr` scheme, choose `My Mac` as the destination, and press
 Cmd+R. The app appears in the menu bar as a microphone icon.
 
-## Running automated tests
+Local SwiftPM work does not require full Xcode:
 
-Linux-compatible Swift package tests:
 ```
-bash scripts/local-validate.sh
+swift build --target NoteTakrCore
+swift build --target NoteTakrTranscriptionProbe
+```
+
+Probe a local FluidAudio model folder:
+
+```
+swift run NoteTakrTranscriptionProbe \
+  --audio /path/to/audio.wav \
+  --model-folder /path/to/parakeet-tdt-0.6b-v3-coreml \
+  --version v3
+```
+
+Probe FluidAudio automatic cache download:
+
+```
+swift run NoteTakrTranscriptionProbe \
+  --audio /path/to/audio.wav \
+  --auto-download \
+  --version tdtCtc110m
+```
+
+## Running automated checks
+
+SwiftPM build checks:
+
+```
+swift build --target NoteTakrCore
+swift build --target NoteTakrTranscriptionProbe
+```
+
+Swift package tests require an XCTest-capable local toolchain:
+
+```
+swift test
 ```
 
 Full macOS test suite (requires Xcode):
@@ -65,6 +107,17 @@ button for each permission you want to enable:
 
 You can also review and grant permissions at any time from
 menu bar > Settings… > Permissions.
+
+## Transcription model setup
+
+Open menu bar > Settings… > Transcription Model and choose one model source:
+
+- `Select Model Folder...` for an existing FluidAudio Parakeet CoreML repo folder.
+- `Use Automatic Download` to let FluidAudio download and load from its cache.
+- `Clear` to return to the not-configured state.
+
+The selected source and model version are stored in
+`~/Library/Application Support/NoteTakr/transcription-settings.json`.
 
 ### Screen Recording troubleshooting
 
@@ -98,11 +151,10 @@ tccutil reset ScreenCapture com.notetakr.app
   verified on real hardware yet. See `docs/manual-smoke-test.md` for the
   verification checklist.
 
-- **Local transcription is not enabled by default.** The `FluidAudioAdapter`
-  skeleton is wired up but model downloading and inference are disabled in
-  automated CI. Transcription currently uses a mock engine that returns fixture
-  data. Real Parakeet / FluidAudio integration requires a physical Mac with the
-  model downloaded.
+- **Local transcription needs model setup.** `FluidAudioAdapter` links the
+  FluidAudio package and can load a selected model folder or use FluidAudio's
+  automatic cache download. Normal CI and DMG builds do not download Parakeet
+  models, so real transcription quality still needs physical-Mac validation.
 
 - **Calendar detection is heuristic.** The app scores events by URL patterns
   and keywords. Events without recognisable video-call URLs or meeting keywords
@@ -123,6 +175,8 @@ tccutil reset ScreenCapture com.notetakr.app
       system-audio.m4a    — system audio recording (when available)
       note.md             — generated Markdown note
   vocabulary.json         — custom vocabulary entries for transcription boosting
+  transcription-settings.json
+                          — FluidAudio model source and version selection
 ```
 
 ## Documentation

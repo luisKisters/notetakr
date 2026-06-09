@@ -6,26 +6,37 @@ Run these steps after every significant change to audio capture or transcription
 ## Prerequisites
 
 - macOS 14 (Sonoma) or later
-- Xcode 15 or later installed
+- Downloaded `NoteTakr-dmg` artifact from a successful `Build DMG` workflow run,
+  or Xcode 15 or later installed for local app builds
 - A calendar account configured in System Settings > Internet Accounts
 - A browser open with a tab that plays audio (e.g. YouTube)
 
-## Xcode Installation
+## Recommended App Install
 
-Xcode 15 or later is required to build the app target.
+For release-style manual testing, use the GitHub-built DMG:
 
-- Install from the App Store: search "Xcode".
-- Or download from https://developer.apple.com/download/all/ (sign in with an
-  Apple ID).
+1. Open the successful GitHub Actions `Build DMG` run.
+2. Download the `NoteTakr-dmg` artifact.
+3. Mount `NoteTakr.dmg`.
+4. Drag `NoteTakr.app` into `/Applications`.
+5. Open `/Applications/NoteTakr.app`.
+
+The DMG is unsigned for now. Gatekeeper behavior on unsigned builds must be
+verified manually.
+
+## Optional Xcode Installation
+
+Full Xcode is optional for this workflow. Install it only for local app archive
+builds, local XCTest, and SwiftUI previews.
+
+- Free disk before install: 80 GB preferred, 60 GB minimum.
+- Use `xcodes` or Apple's developer downloads rather than the App Store when
+  App Store installs are blocked by device management.
 - After installing, run:
   ```
   sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-  xcode-select -p          # should print the Developer path
-  xcodebuild -version      # should print Xcode 15.x or later
-  ```
-- To switch between multiple Xcode versions installed under different names:
-  ```
-  sudo xcode-select --switch /Applications/Xcode_16.app/Contents/Developer
+  xcode-select -p
+  xcodebuild -version
   ```
 
 ## Build Script (Recommended)
@@ -177,42 +188,62 @@ open /Applications/NoteTakr.app
 
 ## Local Transcription
 
-Local transcription requires a Parakeet model file downloaded to the correct
-location.  CI does not download the model, so this section is manual-only.
+Local transcription requires either an existing FluidAudio Parakeet CoreML model
+folder or FluidAudio automatic cache download. CI builds and DMGs do not bundle
+or download full Parakeet models, so this section is manual-only.
 
 ### Prerequisites for Transcription
 
-- Download `parakeet-tdt-0.6b.bin` (or equivalent Parakeet RNNT model).
-- Place it at:
+- For selected-folder testing, stage a FluidAudio model repo folder such as
+  `parakeet-tdt-0.6b-v3-coreml`.
+- For automatic-download testing, allow enough disk and network time for
+  FluidAudio to download into its default cache.
+- Optional local probe before app testing:
   ```
-  ~/Library/Application Support/NoteTakr/Models/parakeet-tdt-0.6b.bin
+  swift run NoteTakrTranscriptionProbe \
+    --audio /path/to/audio.wav \
+    --model-folder /path/to/parakeet-tdt-0.6b-v3-coreml \
+    --version v3
   ```
-- The FluidAudio SDK must be linked in the Xcode project for inference to run.
-  Until the package is integrated, the adapter throws `modelUnavailable` even
-  when the file is present.
 
-### Model-Unavailable State (no model downloaded)
+### Model-Unavailable State (not configured)
 
+- [ ] Open Settings: menu-bar icon > "Settings…".
+- [ ] In "Transcription Model", click "Clear".
 - [ ] Open Sessions: menu-bar icon > "Sessions…".
 - [ ] Click a completed session that has audio files.
 - [ ] In the Transcript section, click "Transcribe Audio".
 - [ ] Confirm the Transcript section changes to show an orange warning:
-      "Transcription model not available".
-- [ ] Confirm the model path hint is displayed in the transcript area.
+      "Transcription model not configured."
+- [ ] Confirm the message says to choose a FluidAudio model folder or enable
+      automatic download in Settings.
 - [ ] Confirm no crash and no empty transcript silently appears.
 
-### Successful Transcription (model present, FluidAudio linked)
+### Successful Transcription (selected model folder)
 
-- [ ] Place `parakeet-tdt-0.6b.bin` in Application Support as described above.
+- [ ] Open Settings: menu-bar icon > "Settings…".
+- [ ] In "Transcription Model", choose the desired model version.
+- [ ] Click "Select Model Folder..." and choose the FluidAudio model repo folder.
 - [ ] Open a completed session in the detail view.
 - [ ] Click "Transcribe Audio".
 - [ ] Confirm a spinner and "Transcribing…" text appear immediately.
 - [ ] After completion, confirm the detail view reloads and transcript segments
-      appear with timestamps and speaker labels (where detected).
+      appear.
 - [ ] Confirm the session folder contains an updated `session.json` with
       `transcriptSegments` populated.
-- [ ] Click "Generate Note…" and confirm the generated `note.md` includes the
-      transcript with formatted timestamps.
+- [ ] Confirm `note.md` is generated and includes the transcript.
+- [ ] Click "Open Note" and confirm it opens the generated note.
+
+### Successful Transcription (automatic download)
+
+- [ ] Open Settings: menu-bar icon > "Settings…".
+- [ ] In "Transcription Model", choose the desired model version.
+- [ ] Click "Use Automatic Download".
+- [ ] Open a completed session in the detail view.
+- [ ] Click "Transcribe Audio".
+- [ ] Confirm first run downloads/loads the model and creates transcript text.
+- [ ] Repeat transcription on another short recording and confirm the cached
+      model path is reused without asking for a bundled model.
 
 ### Vocabulary Boosting
 
@@ -220,8 +251,8 @@ location.  CI does not download the model, so this section is manual-only.
 - [ ] Enable the entry and set a boosting weight above 1.0.
 - [ ] Run a recording that includes the term.
 - [ ] Transcribe; confirm no error about vocabulary.
-- [ ] (When FluidAudio is linked) Confirm the term appears correctly in the
-      transcript, indicating vocabulary boosting was applied.
+- [ ] Confirm the term appears correctly in the transcript when FluidAudio
+      supports vocabulary biasing for the selected model.
 
 ## Note Generation
 
@@ -267,6 +298,8 @@ The following are covered by automated tests that run on every push:
 - End-to-end recording flow with MockAudioRecorder
 - Vocabulary persistence, filtering, and Markdown note rendering
 - Mock transcription engine output and segment parsing
+- Transcription settings persistence and fake-runtime adapter behavior
+- Transcription probe target compilation
 - AudioPermissionManager state reporting (mock)
 - Xcode build of NativeAudioRecorder, AudioPermissionManager,
   EventKitCalendarAdapter, FluidAudioAdapter, and all SwiftUI views
@@ -283,6 +316,6 @@ The following cannot be verified in automated CI and require this smoke test:
 - macOS permission prompts (Calendar, Microphone, Screen Recording)
 - Meeting notification banner and "Start Recording" action
 - Note opening in the system default app via `NSWorkspace`
-- FluidAudio / Parakeet local transcription (model download and SDK linking disabled in CI)
+- FluidAudio / Parakeet local transcription quality and model download behavior
 - Model-unavailable UI state shown in SessionDetailView when model is absent
 - Transcription spinner and reload behaviour after successful inference

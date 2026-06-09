@@ -26,6 +26,10 @@
 		AAFADE000000000000000519 /* FluidAudioAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000218 /* FluidAudioAdapter.swift */; };
 		AAFADE000000000000000520 /* FluidAudioAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */; };
 		AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021C /* TranscriptionCoordinator.swift */; };
+		AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021D /* TranscriptionModelSettings.swift */; };
+		AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */; };
+		AAFADE000000000000000524 /* TranscriptionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */; };
+		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
 /* End PBXBuildFile section */
@@ -61,6 +65,9 @@
 		AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeetingNotificationScheduler.swift; path = NoteTakrApp/Notifications/MeetingNotificationScheduler.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021B /* MVPPolishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MVPPolishTests.swift; path = NoteTakrTests/MVPPolishTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021C /* TranscriptionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinator.swift; path = NoteTakrApp/Transcription/TranscriptionCoordinator.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000021D /* TranscriptionModelSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionModelSettings.swift; path = NoteTakrApp/Transcription/TranscriptionModelSettings.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsStoreTests.swift; path = NoteTakrTests/TranscriptionSettingsStoreTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinatorTests.swift; path = NoteTakrTests/TranscriptionCoordinatorTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000300 /* NoteTakr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteTakr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAFADE000000000000000310 /* NoteTakrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteTakrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -71,6 +78,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAFADE000000000000000503 /* NoteTakrCore in Frameworks */,
+				AAFADE000000000000000525 /* FluidAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -109,6 +117,7 @@
 				AAFADE000000000000000215 /* AudioPermissionManager.swift */,
 				AAFADE000000000000000216 /* SettingsView.swift */,
 				AAFADE000000000000000218 /* FluidAudioAdapter.swift */,
+				AAFADE00000000000000021D /* TranscriptionModelSettings.swift */,
 				AAFADE00000000000000021C /* TranscriptionCoordinator.swift */,
 				AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */,
 			);
@@ -123,6 +132,8 @@
 				AAFADE000000000000000212 /* EventKitAdapterTests.swift */,
 				AAFADE000000000000000217 /* NativeAudioRecorderTests.swift */,
 				AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */,
+				AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */,
+				AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */,
 				AAFADE00000000000000021B /* MVPPolishTests.swift */,
 			);
 			name = NoteTakrTests;
@@ -155,6 +166,7 @@
 			name = NoteTakr;
 			packageProductDependencies = (
 				AAFADE000000000000000801 /* NoteTakrCore */,
+				AAFADE000000000000000803 /* FluidAudio */,
 			);
 			productName = NoteTakr;
 			productReference = AAFADE000000000000000300 /* NoteTakr.app */;
@@ -210,6 +222,7 @@
 			mainGroup = AAFADE000000000000000100;
 			packageReferences = (
 				AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */,
+				AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 			);
 			productRefGroup = AAFADE000000000000000130 /* Products */;
 			projectDirPath = "";
@@ -247,6 +260,7 @@
 				AAFADE000000000000000516 /* AudioPermissionManager.swift in Sources */,
 				AAFADE000000000000000517 /* SettingsView.swift in Sources */,
 				AAFADE000000000000000519 /* FluidAudioAdapter.swift in Sources */,
+				AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */,
 				AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */,
 				AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */,
 			);
@@ -261,6 +275,8 @@
 				AAFADE000000000000000513 /* EventKitAdapterTests.swift in Sources */,
 				AAFADE000000000000000518 /* NativeAudioRecorderTests.swift in Sources */,
 				AAFADE000000000000000520 /* FluidAudioAdapterTests.swift in Sources */,
+				AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */,
+				AAFADE000000000000000524 /* TranscriptionCoordinatorTests.swift in Sources */,
 				AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -319,7 +335,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -364,7 +380,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -498,6 +514,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.12.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		AAFADE000000000000000801 /* NoteTakrCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -508,6 +535,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */;
 			productName = NoteTakrCore;
+		};
+		AAFADE000000000000000803 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

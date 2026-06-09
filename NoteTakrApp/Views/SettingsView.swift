@@ -47,6 +47,8 @@ struct SettingsView: View {
     @StateObject private var permissions = AudioPermissionManager()
     @StateObject private var vocab = VocabularyViewModel()
     @State private var newPhrase: String = ""
+    @State private var modelSettings: TranscriptionModelSettings = .default
+    private let transcriptionSettingsStore = TranscriptionSettingsStore()
 
     var body: some View {
         Form {
@@ -84,6 +86,48 @@ struct SettingsView: View {
                     .accessibilityIdentifier("systemAudioNote")
             }
 
+            Section("Transcription Model") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Status")
+                            .fontWeight(.medium)
+                        Text(modelStatusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .accessibilityIdentifier("transcriptionModelStatus")
+                    }
+                    Spacer()
+                    transcriptionModelStatusBadge
+                }
+                .padding(.vertical, 2)
+
+                Picker("Model Version", selection: modelVersionBinding) {
+                    ForEach(FluidAudioModelVersion.allCases, id: \.self) { version in
+                        Text(version.displayName).tag(version)
+                    }
+                }
+                .accessibilityIdentifier("transcriptionModelVersionPicker")
+
+                HStack {
+                    Button("Select Model Folder...") {
+                        selectModelFolder()
+                    }
+                    .accessibilityIdentifier("selectModelFolderButton")
+
+                    Button("Use Automatic Download") {
+                        updateModelSettings(source: .fluidAudioDefaultCache)
+                    }
+                    .accessibilityIdentifier("useAutomaticModelDownloadButton")
+
+                    Button("Clear") {
+                        updateModelSettings(source: .notConfigured)
+                    }
+                    .accessibilityIdentifier("clearModelSettingsButton")
+                    .disabled(modelSettings.source == .notConfigured)
+                }
+            }
+
             Section("Vocabulary Boosting") {
                 if vocab.entries.isEmpty {
                     Text("No custom vocabulary entries. Add phrases to improve transcription accuracy.")
@@ -111,10 +155,53 @@ struct SettingsView: View {
         .onAppear {
             permissions.refresh()
             vocab.reload()
+            modelSettings = transcriptionSettingsStore.load()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             permissions.refresh()
+            modelSettings = transcriptionSettingsStore.load()
         }
+    }
+
+    private var modelVersionBinding: Binding<FluidAudioModelVersion> {
+        Binding(
+            get: { modelSettings.modelVersion },
+            set: { newValue in
+                modelSettings.modelVersion = newValue
+                persistModelSettings()
+            }
+        )
+    }
+
+    private var modelStatusText: String {
+        switch modelSettings.source {
+        case .notConfigured:
+            return "Not configured"
+        case .localFolder(let url):
+            return "Using selected folder: \(url.path)"
+        case .fluidAudioDefaultCache:
+            return "Using FluidAudio cache"
+        }
+    }
+
+    @ViewBuilder
+    private var transcriptionModelStatusBadge: some View {
+        let (label, color): (String, Color) = switch modelSettings.source {
+        case .notConfigured:
+            ("Not Set", .orange)
+        case .localFolder:
+            ("Folder", .green)
+        case .fluidAudioDefaultCache:
+            ("Auto", .green)
+        }
+        Text(label)
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15))
+            .foregroundStyle(color)
+            .clipShape(Capsule())
+            .accessibilityIdentifier("transcriptionModelStatusBadge")
     }
 
     private var systemAudioPermissionDetail: String {
@@ -175,6 +262,28 @@ struct SettingsView: View {
         guard !newPhrase.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         vocab.add(phrase: newPhrase)
         newPhrase = ""
+    }
+
+    private func selectModelFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Select FluidAudio Model Folder"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+
+        if panel.runModal() == .OK, let url = panel.url {
+            updateModelSettings(source: .localFolder(url))
+        }
+    }
+
+    private func updateModelSettings(source: TranscriptionModelSettings.Source) {
+        modelSettings.source = source
+        persistModelSettings()
+    }
+
+    private func persistModelSettings() {
+        try? transcriptionSettingsStore.save(modelSettings)
     }
 
     @ViewBuilder

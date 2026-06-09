@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstraps the Swift toolchain if missing, then runs Linux-compatible tests.
+# Bootstraps the Swift toolchain if missing, then runs SwiftPM tests.
 # Safe to run repeatedly — installs Swift only when not already on PATH.
 set -euo pipefail
 
@@ -98,7 +98,7 @@ ensure_swift() {
 
 ensure_swift
 
-log "Running Swift package tests (Linux-compatible subset)..."
+log "Running Swift package tests..."
 cd "$REPO_ROOT"
 swift test
 
