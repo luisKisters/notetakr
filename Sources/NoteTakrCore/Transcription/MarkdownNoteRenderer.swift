@@ -12,7 +12,30 @@ public struct MarkdownNoteRenderer {
         dateFormatter.timeStyle = .short
         lines.append("**Date:** \(dateFormatter.string(from: session.date))")
         lines.append("**Status:** \(session.status.rawValue)")
+        if let eventTitle = session.linkedEventTitle, !eventTitle.isEmpty {
+            lines.append("**Calendar Event:** \(eventTitle)")
+        }
         lines.append("")
+
+        if let summary = session.summary?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
+            lines.append("## Summary")
+            lines.append("")
+            lines.append(summary)
+            lines.append("")
+        }
+
+        if !session.participants.isEmpty {
+            lines.append("## Participants")
+            lines.append("")
+            for participant in session.participants {
+                if let email = participant.email, !email.isEmpty {
+                    lines.append("- \(participant.name) (\(email))")
+                } else {
+                    lines.append("- \(participant.name)")
+                }
+            }
+            lines.append("")
+        }
 
         if !session.audioSourceStatuses.isEmpty {
             lines.append("## Audio Sources")

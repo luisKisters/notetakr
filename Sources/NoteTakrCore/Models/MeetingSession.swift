@@ -9,6 +9,10 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
     public var personalNotes: String
     public var audioFilePaths: [String]
     public var audioSourceStatuses: [AudioSourceStatus]
+    public var summary: String?
+    public var linkedEventID: String?
+    public var linkedEventTitle: String?
+    public var participants: [Participant]
 
     public init(
         id: UUID = UUID(),
@@ -18,7 +22,11 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         transcriptSegments: [TranscriptSegment] = [],
         personalNotes: String = "",
         audioFilePaths: [String] = [],
-        audioSourceStatuses: [AudioSourceStatus] = []
+        audioSourceStatuses: [AudioSourceStatus] = [],
+        summary: String? = nil,
+        linkedEventID: String? = nil,
+        linkedEventTitle: String? = nil,
+        participants: [Participant] = []
     ) {
         self.id = id
         self.title = title
@@ -28,9 +36,14 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         self.personalNotes = personalNotes
         self.audioFilePaths = audioFilePaths
         self.audioSourceStatuses = audioSourceStatuses
+        self.summary = summary
+        self.linkedEventID = linkedEventID
+        self.linkedEventTitle = linkedEventTitle
+        self.participants = participants
     }
 
-    // Custom decoder so existing session.json files without audioSourceStatuses decode cleanly.
+    // Custom decoder so existing session.json files without the newer fields
+    // (audioSourceStatuses, summary, calendar links) decode cleanly.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
@@ -41,9 +54,15 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         personalNotes = try c.decode(String.self, forKey: .personalNotes)
         audioFilePaths = try c.decode([String].self, forKey: .audioFilePaths)
         audioSourceStatuses = (try? c.decode([AudioSourceStatus].self, forKey: .audioSourceStatuses)) ?? []
+        summary = try? c.decodeIfPresent(String.self, forKey: .summary)
+        linkedEventID = try? c.decodeIfPresent(String.self, forKey: .linkedEventID)
+        linkedEventTitle = try? c.decodeIfPresent(String.self, forKey: .linkedEventTitle)
+        participants = (try? c.decode([Participant].self, forKey: .participants)) ?? []
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, date, status, transcriptSegments, personalNotes, audioFilePaths, audioSourceStatuses
+        case id, title, date, status, transcriptSegments, personalNotes
+        case audioFilePaths, audioSourceStatuses
+        case summary, linkedEventID, linkedEventTitle, participants
     }
 }

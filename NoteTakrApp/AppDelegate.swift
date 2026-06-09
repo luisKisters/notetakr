@@ -7,27 +7,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        statusBarController = StatusBarController()
+        statusBarController = StatusBarController(model: .shared)
         UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.showSettingsWindow()
-        }
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            showSettingsWindow()
-        }
+        AppModel.shared.showWindow()
         return true
     }
-
-    private func showSettingsWindow() {
-        NotificationCenter.default.post(name: .noteTakrShowSettingsWindow, object: nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-}
-
-extension Notification.Name {
-    static let noteTakrShowSettingsWindow =
-        Notification.Name("NoteTakrShowSettingsWindow")
 }

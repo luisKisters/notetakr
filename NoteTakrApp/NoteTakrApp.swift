@@ -4,28 +4,19 @@ import SwiftUI
 @main
 struct NoteTakrApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var model = AppModel.shared
 
     var body: some Scene {
-        Settings {
-            SettingsView()
+        Window("NoteTakr", id: "main") {
+            MainWindowView()
+                .environmentObject(model)
         }
         .commands {
-            NoteTakrSettingsCommands()
-        }
-    }
-}
-
-struct NoteTakrSettingsCommands: Commands {
-    @Environment(\.openSettings) private var openSettings
-
-    var body: some Commands {
-        CommandGroup(replacing: .appSettings) {
-            SettingsLink {
-                Text("Settings...")
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .noteTakrShowSettingsWindow)) { _ in
-                openSettings()
-                NSApp.activate(ignoringOtherApps: true)
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    model.showWindow(tab: .settings)
+                }
+                .keyboardShortcut(",", modifiers: .command)
             }
         }
     }

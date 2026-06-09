@@ -24,6 +24,10 @@
 		AAFADE000000000000000517 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000216 /* SettingsView.swift */; };
 		AAFADE000000000000000518 /* NativeAudioRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000217 /* NativeAudioRecorderTests.swift */; };
 		AAFADE000000000000000519 /* FluidAudioAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000218 /* FluidAudioAdapter.swift */; };
+		AAFADE000000000000000530 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000230 /* AppModel.swift */; };
+		AAFADE000000000000000531 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000231 /* MainWindowView.swift */; };
+		AAFADE000000000000000532 /* SessionDetailPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000232 /* SessionDetailPane.swift */; };
+		AAFADE000000000000000533 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000233 /* CalendarView.swift */; };
 		AAFADE000000000000000520 /* FluidAudioAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */; };
 		AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021C /* TranscriptionCoordinator.swift */; };
 		AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021D /* TranscriptionModelSettings.swift */; };
@@ -61,6 +65,10 @@
 		AAFADE000000000000000216 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = NoteTakrApp/Views/SettingsView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000217 /* NativeAudioRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeAudioRecorderTests.swift; path = NoteTakrTests/NativeAudioRecorderTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000218 /* FluidAudioAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FluidAudioAdapter.swift; path = NoteTakrApp/Transcription/FluidAudioAdapter.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000230 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppModel.swift; path = NoteTakrApp/AppModel.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000231 /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MainWindowView.swift; path = NoteTakrApp/Views/MainWindowView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000232 /* SessionDetailPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionDetailPane.swift; path = NoteTakrApp/Views/SessionDetailPane.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000233 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarView.swift; path = NoteTakrApp/Views/CalendarView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FluidAudioAdapterTests.swift; path = NoteTakrTests/FluidAudioAdapterTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeetingNotificationScheduler.swift; path = NoteTakrApp/Notifications/MeetingNotificationScheduler.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021B /* MVPPolishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MVPPolishTests.swift; path = NoteTakrTests/MVPPolishTests.swift; sourceTree = "<group>"; };
@@ -117,6 +125,10 @@
 				AAFADE000000000000000215 /* AudioPermissionManager.swift */,
 				AAFADE000000000000000216 /* SettingsView.swift */,
 				AAFADE000000000000000218 /* FluidAudioAdapter.swift */,
+				AAFADE000000000000000230 /* AppModel.swift */,
+				AAFADE000000000000000231 /* MainWindowView.swift */,
+				AAFADE000000000000000232 /* SessionDetailPane.swift */,
+				AAFADE000000000000000233 /* CalendarView.swift */,
 				AAFADE00000000000000021D /* TranscriptionModelSettings.swift */,
 				AAFADE00000000000000021C /* TranscriptionCoordinator.swift */,
 				AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */,
@@ -260,6 +272,10 @@
 				AAFADE000000000000000516 /* AudioPermissionManager.swift in Sources */,
 				AAFADE000000000000000517 /* SettingsView.swift in Sources */,
 				AAFADE000000000000000519 /* FluidAudioAdapter.swift in Sources */,
+				AAFADE000000000000000530 /* AppModel.swift in Sources */,
+				AAFADE000000000000000531 /* MainWindowView.swift in Sources */,
+				AAFADE000000000000000532 /* SessionDetailPane.swift in Sources */,
+				AAFADE000000000000000533 /* CalendarView.swift in Sources */,
 				AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */,
 				AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */,
 				AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */,

@@ -43,9 +43,112 @@ final class VocabularyViewModel: ObservableObject {
     }
 }
 
+@MainActor
+final class SummarizationViewModel: ObservableObject {
+    @Published var settings: SummarizationSettings
+    @Published var templates: [SummaryTemplate]
+    @Published var apiKeyConfigured: Bool
+    @Published var apiKeyDraft: String = ""
+
+    private let settingsStore: SummarizationSettingsStore
+    private let templateStore: SummaryTemplateStore
+    private let keychain = KeychainStore()
+
+    init() {
+        let base = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first!
+        settingsStore = SummarizationSettingsStore(
+            fileURL: base.appendingPathComponent("NoteTakr/summarization-settings.json")
+        )
+        templateStore = SummaryTemplateStore(
+            fileURL: base.appendingPathComponent("NoteTakr/summary-templates.json")
+        )
+        settings = settingsStore.load()
+        templates = templateStore.load()
+        apiKeyConfigured = keychain.hasValue
+        normalizeActiveTemplate()
+    }
+
+    func reload() {
+        settings = settingsStore.load()
+        templates = templateStore.load()
+        apiKeyConfigured = keychain.hasValue
+        normalizeActiveTemplate()
+    }
+
+    private func normalizeActiveTemplate() {
+        if settings.activeTemplateID == nil
+            || !templates.contains(where: { $0.id == settings.activeTemplateID }) {
+            settings.activeTemplateID = templates.first?.id
+            saveSettings()
+        }
+    }
+
+    func saveSettings() { try? settingsStore.save(settings) }
+    func saveTemplates() { try? templateStore.save(templates) }
+
+    // API key (Keychain)
+
+    func saveAPIKey() {
+        let trimmed = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        try? keychain.save(trimmed)
+        apiKeyConfigured = keychain.hasValue
+        apiKeyDraft = ""
+    }
+
+    func clearAPIKey() {
+        keychain.delete()
+        apiKeyConfigured = false
+        apiKeyDraft = ""
+    }
+
+    // Templates
+
+    func template(id: UUID?) -> SummaryTemplate? {
+        guard let id else { return nil }
+        return templates.first { $0.id == id }
+    }
+
+    func update(_ template: SummaryTemplate) {
+        guard let idx = templates.firstIndex(where: { $0.id == template.id }) else { return }
+        templates[idx] = template
+        saveTemplates()
+    }
+
+    func addTemplate() {
+        let new = SummaryTemplate(name: "New Template", prompt: "", isBuiltIn: false)
+        templates.append(new)
+        settings.activeTemplateID = new.id
+        saveTemplates()
+        saveSettings()
+    }
+
+    func deleteActiveTemplate() {
+        guard let id = settings.activeTemplateID,
+              let idx = templates.firstIndex(where: { $0.id == id }),
+              templates.count > 1
+        else { return }
+        templates.remove(at: idx)
+        settings.activeTemplateID = templates.first?.id
+        saveTemplates()
+        saveSettings()
+    }
+
+    func resetBuiltInTemplates() {
+        var custom = templates.filter { !$0.isBuiltIn }
+        custom.insert(contentsOf: SummaryTemplate.defaults, at: 0)
+        templates = custom
+        normalizeActiveTemplate()
+        saveTemplates()
+    }
+}
+
 struct SettingsView: View {
     @StateObject private var permissions = AudioPermissionManager()
     @StateObject private var vocab = VocabularyViewModel()
+    @StateObject private var summarization = SummarizationViewModel()
     @State private var newPhrase: String = ""
     @State private var modelSettings: TranscriptionModelSettings = .default
     private let transcriptionSettingsStore = TranscriptionSettingsStore()
@@ -149,12 +252,15 @@ struct SettingsView: View {
                         .accessibilityIdentifier("addPhraseButton")
                 }
             }
+
+            summarizationSection
         }
         .formStyle(.grouped)
         .frame(minWidth: 420, minHeight: 340)
         .onAppear {
             permissions.refresh()
             vocab.reload()
+            summarization.reload()
             modelSettings = transcriptionSettingsStore.load()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -256,6 +362,153 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityIdentifier("vocabEntry_\(entry.phrase)")
+    }
+
+    // MARK: - Summarization
+
+    @ViewBuilder
+    private var summarizationSection: some View {
+        Section("Summarization") {
+            // API key
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("OpenRouter API Key")
+                        .fontWeight(.medium)
+                    Spacer()
+                    if summarization.apiKeyConfigured {
+                        Label("Configured", systemImage: "checkmark.seal.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                            .accessibilityIdentifier("openRouterKeyConfigured")
+                    }
+                }
+                HStack {
+                    SecureField(
+                        summarization.apiKeyConfigured ? "Enter a new key to replace" : "sk-or-…",
+                        text: $summarization.apiKeyDraft
+                    )
+                    .accessibilityIdentifier("openRouterKeyField")
+                    .onSubmit { summarization.saveAPIKey() }
+                    Button("Save") { summarization.saveAPIKey() }
+                        .disabled(summarization.apiKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityIdentifier("saveOpenRouterKeyButton")
+                    if summarization.apiKeyConfigured {
+                        Button("Clear") { summarization.clearAPIKey() }
+                            .accessibilityIdentifier("clearOpenRouterKeyButton")
+                    }
+                }
+                Text("Stored securely in the macOS Keychain. Required for summaries.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 2)
+
+            // Model
+            Picker("Model", selection: modelPresetBinding) {
+                ForEach(SummarizationSettings.presets) { preset in
+                    Text(preset.displayName).tag(preset.slug)
+                }
+                if !SummarizationSettings.presets.contains(where: { $0.slug == summarization.settings.selectedModelSlug }) {
+                    Text("Custom").tag(summarization.settings.selectedModelSlug)
+                }
+            }
+            .accessibilityIdentifier("summarizationModelPicker")
+
+            HStack {
+                Text("Model slug")
+                    .foregroundStyle(.secondary)
+                TextField("provider/model", text: modelSlugBinding)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("summarizationModelSlugField")
+            }
+
+            Toggle("Summarize automatically after transcription", isOn: autoSummarizeBinding)
+                .accessibilityIdentifier("autoSummarizeToggle")
+
+            // Templates
+            Picker("Active Template", selection: activeTemplateBinding) {
+                ForEach(summarization.templates) { template in
+                    Text(template.name).tag(Optional(template.id))
+                }
+            }
+            .accessibilityIdentifier("activeTemplatePicker")
+
+            if let id = summarization.settings.activeTemplateID {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Template name", text: templateNameBinding(id))
+                        .accessibilityIdentifier("templateNameField")
+                    Text("Prompt (system instruction)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: templatePromptBinding(id))
+                        .frame(minHeight: 100)
+                        .font(.callout)
+                        .accessibilityIdentifier("templatePromptEditor")
+                }
+                .padding(.vertical, 2)
+            }
+
+            HStack {
+                Button("Add Template") { summarization.addTemplate() }
+                    .accessibilityIdentifier("addTemplateButton")
+                Button("Delete") { summarization.deleteActiveTemplate() }
+                    .disabled(summarization.templates.count <= 1)
+                    .accessibilityIdentifier("deleteTemplateButton")
+                Spacer()
+                Button("Reset Built-ins") { summarization.resetBuiltInTemplates() }
+                    .accessibilityIdentifier("resetTemplatesButton")
+            }
+        }
+    }
+
+    private var modelPresetBinding: Binding<String> {
+        Binding(
+            get: { summarization.settings.selectedModelSlug },
+            set: { summarization.settings.selectedModelSlug = $0; summarization.saveSettings() }
+        )
+    }
+
+    private var modelSlugBinding: Binding<String> {
+        Binding(
+            get: { summarization.settings.selectedModelSlug },
+            set: { summarization.settings.selectedModelSlug = $0; summarization.saveSettings() }
+        )
+    }
+
+    private var autoSummarizeBinding: Binding<Bool> {
+        Binding(
+            get: { summarization.settings.autoSummarize },
+            set: { summarization.settings.autoSummarize = $0; summarization.saveSettings() }
+        )
+    }
+
+    private var activeTemplateBinding: Binding<UUID?> {
+        Binding(
+            get: { summarization.settings.activeTemplateID },
+            set: { summarization.settings.activeTemplateID = $0; summarization.saveSettings() }
+        )
+    }
+
+    private func templateNameBinding(_ id: UUID) -> Binding<String> {
+        Binding(
+            get: { summarization.template(id: id)?.name ?? "" },
+            set: { newValue in
+                guard var t = summarization.template(id: id) else { return }
+                t.name = newValue
+                summarization.update(t)
+            }
+        )
+    }
+
+    private func templatePromptBinding(_ id: UUID) -> Binding<String> {
+        Binding(
+            get: { summarization.template(id: id)?.prompt ?? "" },
+            set: { newValue in
+                guard var t = summarization.template(id: id) else { return }
+                t.prompt = newValue
+                summarization.update(t)
+            }
+        )
     }
 
     private func submitNewPhrase() {

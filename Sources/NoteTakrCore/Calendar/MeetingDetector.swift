@@ -71,6 +71,14 @@ public struct MeetingDetector {
         return MeetingScore(event: event, score: totalScore, detectedVia: .keyword(matchedKeyword: keyword))
     }
 
+    /// Whether an event should be badged as a "meeting" rather than a plain
+    /// event. True when it scores via a conferencing URL or meeting keyword, or
+    /// when it has at least two attendees (a gathering of people).
+    public static func isMeeting(_ event: CalendarEvent) -> Bool {
+        if score(event) != nil { return true }
+        return event.attendees.count >= 2
+    }
+
     public static func detectMeetings(from events: [CalendarEvent]) -> [MeetingScore] {
         events.compactMap { score($0) }
             .sorted { $0.event.startDate < $1.event.startDate }
