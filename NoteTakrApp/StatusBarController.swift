@@ -65,7 +65,7 @@ final class StatusBarController: NSObject {
         recItem.target = self
         recordingMenuItem = recItem
 
-        let sessionsItem = NSMenuItem(title: "Sessions\u{2026}", action: #selector(showSessions), keyEquivalent: "")
+        let sessionsItem = NSMenuItem(title: "Sessions\u{2026}", action: #selector(showSessionsWindow), keyEquivalent: "")
         sessionsItem.target = self
 
         let openFolderItem = NSMenuItem(
@@ -123,7 +123,7 @@ final class StatusBarController: NSObject {
             do {
                 _ = try await recordingManager.startRecording(title: title)
                 updateRecordingUI()
-                showSessions()
+                showSessionsWindow()
             } catch {
                 // Recording start failed — continue without recording.
             }
@@ -165,7 +165,7 @@ final class StatusBarController: NSObject {
             do {
                 _ = try await recordingManager.startRecording(title: "Quick Recording")
                 updateRecordingUI()
-                showSessions()
+                showSessionsWindow()
             } catch {
                 // Recording start failed — ignore silently.
             }
@@ -177,7 +177,7 @@ final class StatusBarController: NSObject {
             Task { @MainActor in
                 _ = try? await recordingManager.stopRecording()
                 updateRecordingUI()
-                showSessions()
+                showSessionsWindow()
             }
         } else {
             Task { @MainActor in
@@ -185,7 +185,7 @@ final class StatusBarController: NSObject {
                     let title = nextCalendarMeeting?.title ?? "Meeting Recording"
                     _ = try await recordingManager.startRecording(title: title)
                     updateRecordingUI()
-                    showSessions()
+                    showSessionsWindow()
                 } catch {
                     // Recording start failed — ignore silently.
                 }
@@ -206,7 +206,7 @@ final class StatusBarController: NSObject {
         }
     }
 
-    @objc private func showSessions() {
+    @objc func showSessionsWindow() {
         if let existing = sessionsWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)

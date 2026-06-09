@@ -16,8 +16,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         if !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") {
             UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
-            showSettingsWindow()
+            DispatchQueue.main.async { [weak self] in
+                self?.showSettingsWindow()
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.statusBarController?.showSessionsWindow()
+            }
         }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            statusBarController?.showSessionsWindow()
+        }
+        return true
     }
 
     @objc private func handleShowSettingsWindow() {
