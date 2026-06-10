@@ -215,20 +215,20 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 12: AppSettingsStore and effective settings (Kit)
 
-- [ ] In NoteTakrKit, add `AppSettingsStore` (JSON file `settings.json` in the injected
+- [x] In NoteTakrKit, add `AppSettingsStore` (JSON file `settings.json` in the injected
       root): `transcribeByDefault` (default true), `defaultLanguage` (`auto` |
       fixed ISO code, default auto), `inPersonByDefault` (false), `appearance`
       (`glass|dark|light`, default glass), `hotkey` (string combo, default "⌃⌥⌘N"),
       `launchAtLogin` (false), `notesFolderPath` (optional override).
-- [ ] Add `EffectiveMeetingSettings.resolve(note:defaults:)` — note frontmatter values win
+- [x] Add `EffectiveMeetingSettings.resolve(note:defaults:)` — note frontmatter values win
       when present. Warning rule: `languageWarning == (defaultLanguage != .auto)` with the
       exact copy "Meetings in any other language will be transcribed incorrectly.
       Auto-detect is recommended." Per-meeting vocabulary merge: note `vocabulary` +
       enabled global entries, deduped case-insensitively.
-- [ ] Replace Task 10's defaults stub so `createNote(from:)` materializes these defaults.
-- [ ] Tests: store round-trip + defaults when file missing/corrupt; resolution matrix;
+- [x] Replace Task 10's defaults stub so `createNote(from:)` materializes these defaults.
+- [x] Tests: store round-trip + defaults when file missing/corrupt; resolution matrix;
       warning rule both ways; new-note inheritance; vocabulary merge dedupe.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 13: Settings sheet UI (App — CI-validated)
 
