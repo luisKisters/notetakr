@@ -8,6 +8,9 @@ struct EditorView: View {
     @ObservedObject var frontmatterBridge: FrontmatterPresenterBridge
     @ObservedObject var tabsBridge: NoteTabsBridge
     @ObservedObject var switcherBridge: SwitcherBridge
+    @ObservedObject var settingsBridge: SettingsSheetViewModel
+
+    @State private var isHoveringPanel: Bool = false
 
     var body: some View {
         ZStack {
@@ -21,17 +24,63 @@ struct EditorView: View {
                     .zIndex(10)
             }
 
+            // Settings sheet overlay
+            if settingsBridge.isVisible {
+                SettingsSheetView(viewModel: settingsBridge)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.22), value: settingsBridge.isVisible)
+                    .zIndex(20)
+            }
+
             VStack(alignment: .leading, spacing: 0) {
-                TextField("Title", text: Binding(
-                    get: { bridge.title },
-                    set: { bridge.setTitle($0) }
-                ))
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(.white)
-                .textFieldStyle(.plain)
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 12)
+                ZStack(alignment: .topTrailing) {
+                    TextField("Title", text: Binding(
+                        get: { bridge.title },
+                        set: { bridge.setTitle($0) }
+                    ))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.white)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 12)
+
+                    // Gear icon — visible on panel hover or when settings are open
+                    if isHoveringPanel || settingsBridge.isVisible {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                settingsBridge.isVisible.toggle()
+                            }
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 13, weight: .light))
+                                .foregroundColor(settingsBridge.isVisible
+                                    ? .white
+                                    : Color.white.opacity(0.55))
+                                .frame(width: 25, height: 25)
+                                .background(settingsBridge.isVisible
+                                    ? Color.white.opacity(0.12)
+                                    : Color.clear)
+                                .cornerRadius(7)
+                                .overlay {
+                                    if settingsBridge.isVisible {
+                                        RoundedRectangle(cornerRadius: 7)
+                                            .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 14)
+                        .padding(.trailing, 14)
+                        .accessibilityIdentifier("settingsGearButton")
+                        .transition(.opacity)
+                    }
+                }
+                .onHover { hovering in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isHoveringPanel = hovering
+                    }
+                }
 
                 ChipsRowView(bridge: frontmatterBridge)
 

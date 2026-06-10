@@ -50,11 +50,34 @@ final class FrontmatterPresenterBridge: ObservableObject {
         try? presenter?.unlinkEvent()
     }
 
+    func setTranscribe(_ value: Bool) {
+        try? presenter?.setTranscribe(value)
+    }
+
+    func setLanguage(_ lang: TranscribeLanguage) {
+        try? presenter?.setLanguage(lang)
+    }
+
+    func addVocabularyTerm(_ term: String) {
+        try? presenter?.addVocabularyTerm(term)
+    }
+
+    func removeVocabularyTerm(_ term: String) {
+        try? presenter?.removeVocabularyTerm(term)
+    }
+
     // MARK: - Read-only access
 
     var participants: [Participant] {
         presenter?.note.participants ?? []
     }
+
+    var noteID: String { presenter?.note.id ?? "" }
+    var noteTitle: String { presenter?.note.title ?? "" }
+    var noteTranscribe: Bool? { presenter?.note.transcribe }
+    var noteLanguage: TranscribeLanguage? { presenter?.note.language }
+    var noteVocabulary: [String] { presenter?.note.vocabulary ?? [] }
+    var noteCalendarEvent: String? { presenter?.note.calendarEvent }
 
     // MARK: - Private
 

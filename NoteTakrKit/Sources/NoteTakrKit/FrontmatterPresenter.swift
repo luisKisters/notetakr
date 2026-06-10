@@ -124,6 +124,34 @@ public final class FrontmatterPresenter {
         onChange?()
     }
 
+    public func setTranscribe(_ transcribe: Bool) throws {
+        note.transcribe = transcribe
+        try store.save(note)
+        onChange?()
+    }
+
+    public func setLanguage(_ language: TranscribeLanguage) throws {
+        note.language = language
+        try store.save(note)
+        onChange?()
+    }
+
+    public func addVocabularyTerm(_ term: String) throws {
+        let trimmed = term.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              !note.vocabulary.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame })
+        else { return }
+        note.vocabulary.append(trimmed)
+        try store.save(note)
+        onChange?()
+    }
+
+    public func removeVocabularyTerm(_ term: String) throws {
+        note.vocabulary.removeAll { $0 == term }
+        try store.save(note)
+        onChange?()
+    }
+
     // MARK: - Formatting
 
     private func timeRangeLabel() -> String {

@@ -4,7 +4,7 @@ import NoteTakrKit
 import NoteTakrCore
 
 /// Floating note panel (420×620). Owns the Kit NoteStore + NoteEditorBridge
-/// + FrontmatterPresenterBridge + NoteTabsBridge + SwitcherBridge.
+/// + FrontmatterPresenterBridge + NoteTabsBridge + SwitcherBridge + SettingsSheetViewModel.
 /// Menu bar "Open Note Panel" calls `show()`.
 @MainActor
 final class NotePanelController {
@@ -14,6 +14,7 @@ final class NotePanelController {
     let frontmatterBridge: FrontmatterPresenterBridge
     let tabsBridge: NoteTabsBridge
     let switcherBridge: SwitcherBridge
+    let settingsBridge: SettingsSheetViewModel
 
     private let sessionStore: SessionStore?
     private let calendarEventsProvider = CalendarEventsProvider()
@@ -22,6 +23,14 @@ final class NotePanelController {
         store = NoteStore(root: notesRoot)
         bridge = NoteEditorBridge(store: store)
         frontmatterBridge = FrontmatterPresenterBridge(store: store)
+
+        // AppSettingsStore lives one level above the Sessions folder (in the NoteTakr folder)
+        let settingsRoot = notesRoot.deletingLastPathComponent()
+        let appSettings = AppSettingsStore(root: settingsRoot)
+        settingsBridge = SettingsSheetViewModel(
+            frontmatterBridge: frontmatterBridge,
+            appSettings: appSettings
+        )
 
         let generator: (any SummaryGenerating)?
         let sessionStoreRef: SessionStore?
@@ -139,7 +148,8 @@ final class NotePanelController {
                 bridge: bridge,
                 frontmatterBridge: frontmatterBridge,
                 tabsBridge: tabsBridge,
-                switcherBridge: switcherBridge
+                switcherBridge: switcherBridge,
+                settingsBridge: settingsBridge
             )
         )
         self.panel = p
