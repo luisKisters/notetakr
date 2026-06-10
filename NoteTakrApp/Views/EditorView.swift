@@ -1,7 +1,7 @@
 import SwiftUI
 import NoteTakrKit
 
-private let accentColor = Color(red: 0.545, green: 0.361, blue: 0.965)
+private let tabsAccentColor = Color(red: 0.545, green: 0.361, blue: 0.965)
 
 struct EditorView: View {
     @ObservedObject var bridge: NoteEditorBridge
@@ -85,7 +85,7 @@ struct EditorView: View {
     private func tabButton(_ label: String, tab: NoteTab) -> some View {
         let isActive = tabsBridge.selectedTab == tab
         let weight: Font.Weight = isActive ? .medium : .regular
-        let color: Color = isActive ? accentColor : Color.white.opacity(0.45)
+        let color: Color = isActive ? tabsAccentColor : Color.white.opacity(0.45)
         return Button(label) {
             tabsBridge.selectTab(tab)
         }
