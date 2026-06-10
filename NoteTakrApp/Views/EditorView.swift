@@ -84,12 +84,14 @@ struct EditorView: View {
 
     private func tabButton(_ label: String, tab: NoteTab) -> some View {
         let isActive = tabsBridge.selectedTab == tab
+        let weight: Font.Weight = isActive ? .medium : .regular
+        let color: Color = isActive ? accentColor : Color.white.opacity(0.45)
         return Button(label) {
             tabsBridge.selectTab(tab)
         }
         .buttonStyle(.plain)
-        .font(.system(size: 12, weight: isActive ? .medium : .regular))
-        .foregroundColor(isActive ? accentColor : .white.opacity(0.45))
+        .font(.system(size: 12, weight: weight))
+        .foregroundColor(color)
         .animation(.easeInOut(duration: 0.15), value: tabsBridge.selectedTab)
     }
 }
