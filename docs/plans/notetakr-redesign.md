@@ -137,16 +137,16 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 7: Chips row and property panel UI (App — CI-validated)
 
-- [ ] Add `ChipsRowView` under the title in `EditorView`: quiet chips per the final mockup
+- [x] Add `ChipsRowView` under the title in `EditorView`: quiet chips per the final mockup
       (SF Symbols ~1.5pt stroke: clock, video, person.2; avatar-initial circles for up to 3
       participants; pulsing red REC dot), faint chevron, whole row toggles expansion.
-- [ ] Add `PropertyPanelView`: hairline rows (icon + muted label left, value right), purple
+- [x] Add `PropertyPanelView`: hairline rows (icon + muted label left, value right), purple
       toggle for In-person, quiet Unlink text button. Animate expand/collapse.
-- [ ] Both views bind to `FrontmatterPresenter` via the ObservableObject bridge; calendar
+- [x] Both views bind to `FrontmatterPresenter` via the ObservableObject bridge; calendar
       linking UI reuses `AppModel.eventsNear(_:)` for candidates.
-- [ ] App-target tests: bridge round-trip (toggle in-person from the view model → file
+- [x] App-target tests: bridge round-trip (toggle in-person from the view model → file
       changes via spy); chips view model state for a fixture note matches the Kit presenter.
-- [ ] Validate: Kit loop + push + `gh run watch` green. Commit.
+- [x] Validate: Kit loop + push + `gh run watch` green. Commit.
 
 ### Task 8: NoteTabsPresenter — Private Notes / Summary / Transcript (Kit)
 
