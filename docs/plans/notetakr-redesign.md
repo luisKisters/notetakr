@@ -122,18 +122,18 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 6: FrontmatterPresenter — chips and properties (Kit)
 
-- [ ] In NoteTakrKit, add `FrontmatterPresenter` (injected `now: () -> Date`): exposes
+- [x] In NoteTakrKit, add `FrontmatterPresenter` (injected `now: () -> Date`): exposes
       `chips: [Chip]` (time range "14:00–14:45"; location label — "Zoom"/"In person"/…;
       "N people" only when participants exist; REC chip with elapsed "12:34" only while
       recording) and `propertyRows: [PropertyRow]` (Date, Calendar event, Participants,
       Location, In-person, Transcript) for the expanded panel; `isExpanded` toggle state.
-- [ ] Mutations persisting through `NoteStore`: `setInPerson(_:)`,
+- [x] Mutations persisting through `NoteStore`: `setInPerson(_:)`,
       `linkEvent(_ event: LinkedEventInfo)` (sets calendar_event + title + merges
       participants), `unlinkEvent()`, `addParticipant(_:)` / `removeParticipant(_:)`.
-- [ ] Tests: chip matrix (full/partial/empty metadata, in-person, cross-midnight range);
+- [x] Tests: chip matrix (full/partial/empty metadata, in-person, cross-midnight range);
       elapsed formatting (0:09 / 12:34 / 1:02:03); each mutation reflected in the rendered
       `note.md` (temp-dir store); unlink clears event but keeps manually added participants.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 7: Chips row and property panel UI (App — CI-validated)
 
