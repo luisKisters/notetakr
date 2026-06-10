@@ -17,7 +17,8 @@ public final class AppSettingsStore {
     private var _defaultLanguage: String = "auto"
     private var _inPersonByDefault: Bool = false
     private var _appearance: Appearance = .glass
-    private var _hotkey: String = "⌃⌥⌘N"
+    // try! is safe: the default string is a known-valid combo
+    private var _hotkey: HotkeyCombo = try! HotkeyCombo.parse("⌃⌥⌘N")
     private var _launchAtLogin: Bool = false
     private var _notesFolderPath: String? = nil
 
@@ -48,7 +49,7 @@ public final class AppSettingsStore {
         set { _appearance = newValue; saveToDisk() }
     }
 
-    public var hotkey: String {
+    public var hotkey: HotkeyCombo {
         get { _hotkey }
         set { _hotkey = newValue; saveToDisk() }
     }
@@ -70,7 +71,7 @@ public final class AppSettingsStore {
         var defaultLanguage: String?
         var inPersonByDefault: Bool?
         var appearance: Appearance?
-        var hotkey: String?
+        var hotkey: HotkeyCombo?
         var launchAtLogin: Bool?
         var notesFolderPath: String?
     }

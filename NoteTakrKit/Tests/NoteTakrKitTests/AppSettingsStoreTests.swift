@@ -25,7 +25,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.defaultLanguage, .auto)
         XCTAssertFalse(store.inPersonByDefault)
         XCTAssertEqual(store.appearance, .glass)
-        XCTAssertEqual(store.hotkey, "⌃⌥⌘N")
+        XCTAssertEqual(store.hotkey.displayString, "⌃⌥⌘N")
         XCTAssertFalse(store.launchAtLogin)
         XCTAssertNil(store.notesFolderPath)
     }
@@ -39,7 +39,7 @@ final class AppSettingsStoreTests: XCTestCase {
         store.defaultLanguage = .code("de")
         store.inPersonByDefault = true
         store.appearance = .dark
-        store.hotkey = "⌃⌥⌘P"
+        store.hotkey = try HotkeyCombo.parse("⌃⌥⌘P")
         store.launchAtLogin = true
         store.notesFolderPath = "/Users/me/Notes"
 
@@ -48,7 +48,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(store2.defaultLanguage, .code("de"))
         XCTAssertTrue(store2.inPersonByDefault)
         XCTAssertEqual(store2.appearance, .dark)
-        XCTAssertEqual(store2.hotkey, "⌃⌥⌘P")
+        XCTAssertEqual(store2.hotkey.displayString, "⌃⌥⌘P")
         XCTAssertTrue(store2.launchAtLogin)
         XCTAssertEqual(store2.notesFolderPath, "/Users/me/Notes")
     }

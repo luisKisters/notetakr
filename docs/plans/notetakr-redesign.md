@@ -254,17 +254,17 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 14: Theme tokens and HotkeyCombo (Kit)
 
-- [ ] In NoteTakrKit, add `Theme` token table for `glass|dark|light`: background, elevated
+- [x] In NoteTakrKit, add `Theme` token table for `glass|dark|light`: background, elevated
       fill, primary/secondary text, hairline, accent, destructive — as platform-neutral RGBA
       values matching the final mockups (dark `#151417`, purple `#8B5CF6`/`#A78BFA`, warm
       paper light). Exhaustive: every token defined for every mode (enum-driven, compiler +
       test enforced).
-- [ ] Add `HotkeyCombo`: parse/format symbols ("⌃⌥⌘N" ⇄ modifiers + key), reject combos
+- [x] Add `HotkeyCombo`: parse/format symbols ("⌃⌥⌘N" ⇄ modifiers + key), reject combos
       without a modifier or with unknown keys; Codable as the display string (used by
       `AppSettingsStore.hotkey`).
-- [ ] Tests: token completeness across modes; combo round-trip for all modifier subsets;
+- [x] Tests: token completeness across modes; combo round-trip for all modifier subsets;
       invalid inputs ("N", "⌘", "⌃⌥⌘♞") rejected; lowercase/uppercase normalization.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 15: Appearance system and global hotkey (App — CI-validated)
 
