@@ -9,7 +9,6 @@ struct ChipsRowView: View {
     var body: some View {
         Button {
             bridge.isExpanded.toggle()
-            bridge.presenter.isExpanded = bridge.isExpanded
         } label: {
             HStack(spacing: 6) {
                 ForEach(Array(bridge.chips.enumerated()), id: \.offset) { _, chip in
@@ -35,7 +34,7 @@ struct ChipsRowView: View {
         case .participants(let label):
             ParticipantsChip(
                 label: label,
-                participants: bridge.presenter.note.participants
+                participants: bridge.participants
             )
         case .recording(let elapsed):
             RecordingChip(elapsed: elapsed)

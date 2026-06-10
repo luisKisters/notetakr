@@ -40,16 +40,23 @@ final class FrontmatterPresenterBridge: ObservableObject {
     }
 
     func linkEvent(_ event: CalendarEvent) {
+        let kitParticipants = event.attendees.map {
+            NoteTakrKit.Participant(name: $0.name, email: $0.email)
+        }
         let info = LinkedEventInfo(
             eventID: event.id,
             title: event.title,
-            participants: event.attendees
+            participants: kitParticipants
         )
         try? presenter?.linkEvent(info)
     }
 
     func unlinkEvent() {
         try? presenter?.unlinkEvent()
+    }
+
+    var participants: [NoteTakrKit.Participant] {
+        presenter?.note.participants ?? []
     }
 
     // MARK: - Private
