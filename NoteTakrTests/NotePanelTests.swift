@@ -2,6 +2,7 @@ import XCTest
 import NoteTakrKit
 @testable import NoteTakr
 
+@MainActor
 final class NotePanelTests: XCTestCase {
 
     func testPanelControllerInitDoesNotCrash() throws {
@@ -53,7 +54,7 @@ final class NotePanelTests: XCTestCase {
     }
 }
 
-private final class SpyNoteStore: NoteStoring {
+private final class SpyNoteStore: NoteStoring, @unchecked Sendable {
     var notes: [String: MeetingNote] = [:]
 
     func load(id: String) throws -> MeetingNote? { notes[id] }
