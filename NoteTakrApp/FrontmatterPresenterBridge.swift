@@ -1,6 +1,5 @@
 import Foundation
 import NoteTakrKit
-import NoteTakrCore
 
 /// ObservableObject wrapper around Kit's `FrontmatterPresenter`.
 /// Call `load(note:)` whenever the active note changes.
@@ -9,7 +8,6 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published private(set) var chips: [Chip] = []
     @Published private(set) var propertyRows: [PropertyRow] = []
     @Published var isExpanded: Bool = false
-    @Published var calendarCandidates: [CalendarEvent] = []
 
     private(set) var presenter: FrontmatterPresenter?
     private let store: any NoteStoring
@@ -39,15 +37,12 @@ final class FrontmatterPresenterBridge: ObservableObject {
         try? presenter?.setInPerson(value)
     }
 
-    func linkEvent(_ event: CalendarEvent) {
-        let kitParticipants = event.attendees.map {
-            NoteTakrKit.Participant(name: $0.name, email: $0.email)
-        }
-        let info = LinkedEventInfo(
-            eventID: event.id,
-            title: event.title,
-            participants: kitParticipants
-        )
+    /// Link a calendar event. `attendees` is passed as plain tuples to avoid
+    /// importing NoteTakrCore here (which would conflict with the Kit Participant type
+    /// due to the public enum NoteTakrKit shadowing the module name).
+    func linkCalendarEvent(id: String, title: String, attendees: [(name: String, email: String?)]) {
+        let participants = attendees.map { Participant(name: $0.name, email: $0.email) }
+        let info = LinkedEventInfo(eventID: id, title: title, participants: participants)
         try? presenter?.linkEvent(info)
     }
 
@@ -55,7 +50,9 @@ final class FrontmatterPresenterBridge: ObservableObject {
         try? presenter?.unlinkEvent()
     }
 
-    var participants: [NoteTakrKit.Participant] {
+    // MARK: - Read-only access
+
+    var participants: [Participant] {
         presenter?.note.participants ?? []
     }
 
