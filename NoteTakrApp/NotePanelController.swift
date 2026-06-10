@@ -33,7 +33,9 @@ final class NotePanelController {
         )
         // IMPORTANT: set collectionBehavior BEFORE calling makeKeyAndOrderFront —
         // omitting this causes a launch-abort crash on macOS.
-        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .moveToActiveSpace]
+        // .canJoinAllSpaces and .moveToActiveSpace are mutually exclusive; use canJoinAllSpaces
+        // so the panel is visible on every Space without moving.
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.level = .floating
         p.isFloatingPanel = true
         p.hidesOnDeactivate = false
