@@ -75,20 +75,20 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 3: NoteStore with legacy migration (Kit)
 
-- [ ] In NoteTakrKit, add `NoteStore` operating on a root directory (injected URL): list all
+- [x] In NoteTakrKit, add `NoteStore` operating on a root directory (injected URL): list all
       notes (folders containing `note.md`), load, save (atomic write), create (folder name
       `YYYY-MM-DD_sanitized-title_shortid` — port the sanitization rules from
       `Sources/NoteTakrCore/Storage/SessionStore.swift` into Kit), rename folder on title
       change preserving other files.
-- [ ] Migration: a folder with `session.json` but no frontmatter in `note.md` gets
+- [x] Migration: a folder with `session.json` but no frontmatter in `note.md` gets
       frontmatter synthesized on first load — read the JSON leniently via a Kit-local
       `LegacySessionMetadata` Codable (id, title, date, linkedEventID, linkedEventTitle,
       participants). Idempotent: second load does not rewrite. Never modify `session.json`.
-- [ ] Tests against real temp directories: CRUD; listing sorted by date desc; rename keeps
+- [x] Tests against real temp directories: CRUD; listing sorted by date desc; rename keeps
       sibling files (fake `.m4a` fixtures); migration from a fixture `session.json`
       (copy a real shape from `Tests/NoteTakrCoreTests/SessionStoreTests.swift`);
       idempotency; corrupt `session.json` → body-only note, no crash.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 4: NoteEditorViewModel (Kit)
 
