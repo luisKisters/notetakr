@@ -184,20 +184,20 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 10: SwitcherViewModel — Timeline Lite (Kit)
 
-- [ ] In NoteTakrKit, add `SwitcherViewModel` (injected: note list provider, upcoming-events
+- [x] In NoteTakrKit, add `SwitcherViewModel` (injected: note list provider, upcoming-events
       provider via a Kit-local `UpcomingEvent` struct, `now()`): merges notes + events into
       day groups (Upcoming/Tomorrow first, then Today, Yesterday, weekday names, then dates)
       in timeline order (future ascending, past descending); per-item dot state
       `upcoming | current | past`; events already linked to a note are not duplicated.
-- [ ] Search: case- and diacritic-insensitive over title + participant names ("muller"
+- [x] Search: case- and diacritic-insensitive over title + participant names ("muller"
       matches "Müller"). Keyboard model: up/down moves selection across groups (skipping
       headers) with wrap; `open()` returns the selected note id; `createNote(from: event)`
       builds a note with title/date/end/calendar_event/participants prefilled and general
       defaults materialized (defaults provider injected; until Task 12 use a stub protocol).
-- [ ] Tests: grouping/order fixtures; ghost de-duplication; search matrix incl. diacritics;
+- [x] Tests: grouping/order fixtures; ghost de-duplication; search matrix incl. diacritics;
       selection wrap; create-from-event frontmatter exact-match and the new note appearing
       as `current`.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 11: ⌘K switcher overlay (App — CI-validated)
 
