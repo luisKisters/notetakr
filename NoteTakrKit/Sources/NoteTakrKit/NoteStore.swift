@@ -1,6 +1,6 @@
 import Foundation
 
-public final class NoteStore {
+public final class NoteStore: NoteStoring {
     public let root: URL
     private let fileManager = FileManager.default
 

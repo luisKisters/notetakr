@@ -92,15 +92,15 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 4: NoteEditorViewModel (Kit)
 
-- [ ] In NoteTakrKit, add `NoteEditorViewModel`: plain class, no Combine — change
+- [x] In NoteTakrKit, add `NoteEditorViewModel`: plain class, no Combine — change
       notification via a `onChange: (() -> Void)?` callback (App will bridge to SwiftUI).
       API: `load(noteID:)` exposing `title`/`body`; edits mark dirty and schedule a save
       through an injected `Scheduler` protocol (debounce 1s); `flush()` saves immediately
       (used on tab switch/panel hide); title commit triggers store rename.
-- [ ] Tests with a virtual `TestScheduler`: typing twice within the window → exactly one
+- [x] Tests with a virtual `TestScheduler`: typing twice within the window → exactly one
       save; flush cancels pending debounce and saves once; title change persists + renames
       via store spy; loading a new note flushes the previous one; no save when not dirty.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 5: Floating panel with editor (App — CI-validated)
 
