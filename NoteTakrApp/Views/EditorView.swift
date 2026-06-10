@@ -7,11 +7,19 @@ struct EditorView: View {
     @ObservedObject var bridge: NoteEditorBridge
     @ObservedObject var frontmatterBridge: FrontmatterPresenterBridge
     @ObservedObject var tabsBridge: NoteTabsBridge
+    @ObservedObject var switcherBridge: SwitcherBridge
 
     var body: some View {
         ZStack {
             Color(red: 0.082, green: 0.078, blue: 0.090)
                 .ignoresSafeArea()
+
+            // ⌘K switcher overlay (sits over the entire editor when visible)
+            if switcherBridge.isVisible {
+                SwitcherOverlayView(bridge: switcherBridge)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+                    .zIndex(10)
+            }
 
             VStack(alignment: .leading, spacing: 0) {
                 TextField("Title", text: Binding(
@@ -40,6 +48,12 @@ struct EditorView: View {
                 footerTabs
             }
         }
+        // ⌘K keyboard shortcut — always active while the panel is open
+        .background(
+            Button("") { switcherBridge.toggle() }
+                .keyboardShortcut("k", modifiers: .command)
+                .hidden()
+        )
     }
 
     @ViewBuilder

@@ -4,7 +4,7 @@ import NoteTakrKit
 import NoteTakrCore
 
 /// Floating note panel (420×620). Owns the Kit NoteStore + NoteEditorBridge
-/// + FrontmatterPresenterBridge + NoteTabsBridge.
+/// + FrontmatterPresenterBridge + NoteTabsBridge + SwitcherBridge.
 /// Menu bar "Open Note Panel" calls `show()`.
 @MainActor
 final class NotePanelController {
@@ -13,8 +13,10 @@ final class NotePanelController {
     let bridge: NoteEditorBridge
     let frontmatterBridge: FrontmatterPresenterBridge
     let tabsBridge: NoteTabsBridge
+    let switcherBridge: SwitcherBridge
 
     private let sessionStore: SessionStore?
+    private let calendarEventsProvider = CalendarEventsProvider()
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
@@ -55,7 +57,49 @@ final class NotePanelController {
         }
 
         tabsBridge = NoteTabsBridge(presenter: presenter)
+
+        // Build switcher
+        let noteListProvider = NoteStoreListProvider(store: store)
+        let switcherVM = SwitcherViewModel(
+            noteListProvider: noteListProvider,
+            eventsProvider: calendarEventsProvider,
+            now: { Date() },
+            store: store
+        )
+        switcherBridge = SwitcherBridge(viewModel: switcherVM)
+
         buildPanel()
+        wireSwitcher()
+    }
+
+    /// Updates calendar events in the switcher from AppModel's current snapshot.
+    func refreshCalendarEvents(from events: [CalendarEvent]) {
+        calendarEventsProvider.events = events.map { ce in
+            UpcomingEvent(
+                id: ce.id,
+                title: ce.title,
+                start: ce.startDate,
+                end: ce.endDate,
+                participants: ce.attendees.map { p in
+                    NoteTakrKit.Participant(name: p.name, email: p.email)
+                }
+            )
+        }
+    }
+
+    private func wireSwitcher() {
+        switcherBridge.onOpenNote = { [weak self] noteID in
+            self?.loadNote(id: noteID)
+        }
+        switcherBridge.onEditorFocusRequest = { [weak self] in
+            self?.panel?.makeFirstResponder(self?.panel?.contentView)
+        }
+        switcherBridge.onCreateBlankNote = { [weak self] in
+            guard let self else { return }
+            if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
+                self.loadNote(id: note.id)
+            }
+        }
     }
 
     func show() {
@@ -94,7 +138,8 @@ final class NotePanelController {
             rootView: EditorView(
                 bridge: bridge,
                 frontmatterBridge: frontmatterBridge,
-                tabsBridge: tabsBridge
+                tabsBridge: tabsBridge,
+                switcherBridge: switcherBridge
             )
         )
         self.panel = p
@@ -109,20 +154,25 @@ final class NotePanelController {
             note = try? store.create(title: "Untitled meeting", date: Date())
         }
         guard let note else { return }
+        loadNote(id: note.id)
+    }
 
-        try? bridge.viewModel.load(noteID: note.id)
+    /// Loads a note by ID into all bridges (editor, frontmatter, tabs).
+    func loadNote(id: String) {
+        guard let note = try? store.load(id: id) else { return }
+        try? bridge.viewModel.load(noteID: id)
         frontmatterBridge.load(note: note)
-        tabsBridge.load(noteID: note.id)
+        tabsBridge.load(noteID: id)
 
         if let ss = sessionStore,
-           let uuid = UUID(uuidString: note.id),
+           let uuid = UUID(uuidString: id),
            let session = try? ss.load(id: uuid) {
             let rawSegments = session.transcriptSegments.map { seg in
                 RawSegment(speaker: seg.speaker, timestamp: seg.timestamp, text: seg.text)
             }
-            tabsBridge.presenter.setSegments(rawSegments, for: note.id)
+            tabsBridge.presenter.setSegments(rawSegments, for: id)
             if let summary = session.summary, !summary.isEmpty {
-                tabsBridge.presenter.setSummary(summary, for: note.id)
+                tabsBridge.presenter.setSummary(summary, for: id)
             }
         }
     }
