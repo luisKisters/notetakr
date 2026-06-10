@@ -38,12 +38,6 @@ final class NotePanelTests: XCTestCase {
         XCTAssertEqual(bridge.viewModel.body, "Body text")
     }
 
-    func testLegacyMainWindowViewCompiles() {
-        // MainWindowView must keep building until Task 17 cutover.
-        _ = MainWindowView.self
-        XCTAssertTrue(true)
-    }
-
     // MARK: - Helpers
 
     private func makeTempDir() -> URL {

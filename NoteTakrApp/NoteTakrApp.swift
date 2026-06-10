@@ -4,20 +4,13 @@ import SwiftUI
 @main
 struct NoteTakrApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var model = AppModel.shared
 
     var body: some Scene {
-        Window("NoteTakr", id: "main") {
-            MainWindowView()
-                .environmentObject(model)
-        }
-        .commands {
-            CommandGroup(replacing: .appSettings) {
-                Button("Settings…") {
-                    model.showWindow(tab: .settings)
-                }
-                .keyboardShortcut(",", modifiers: .command)
+        // Panel-only app — no main window. The floating NSPanel is managed by AppDelegate.
+        // Settings scene suppressed; settings are accessed via the gear in the note panel.
+        Settings { EmptyView() }
+            .commands {
+                CommandGroup(replacing: .appSettings) { }
             }
-        }
     }
 }

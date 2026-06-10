@@ -318,5 +318,5 @@ The following cannot be verified in automated CI and require this smoke test:
 - Meeting notification banner and "Start Recording" action
 - Note opening in the system default app via `NSWorkspace`
 - FluidAudio / Parakeet local transcription quality and model download behavior
-- Model-unavailable UI state shown in SessionDetailView when model is absent
-- Transcription spinner and reload behaviour after successful inference
+- Model-unavailable state surfaced in the Transcript tab when model is absent
+- Transcript tab populating after successful transcription

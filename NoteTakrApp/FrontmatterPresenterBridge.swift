@@ -79,6 +79,12 @@ final class FrontmatterPresenterBridge: ObservableObject {
     var noteVocabulary: [String] { presenter?.note.vocabulary ?? [] }
     var noteCalendarEvent: String? { presenter?.note.calendarEvent }
 
+    /// Re-reads chips from the presenter (used by REC timer to tick the elapsed label).
+    func refreshChips() {
+        guard let p = presenter else { return }
+        chips = p.chips
+    }
+
     // MARK: - Private
 
     private func refresh() {

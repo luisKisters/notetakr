@@ -1,17 +1,8 @@
 import AppKit
-import SwiftUI
 import NoteTakrCore
 
-/// Top-level navigation tabs shown in the window sidebar.
-enum MainTab: Hashable {
-    case sessions
-    case calendar
-    case settings
-}
-
 /// Single shared source of truth for the app: owns the session store, recorder,
-/// transcription pipeline, and calendar state. Drives both the main window UI
-/// and the menu-bar controller so they never diverge.
+/// transcription pipeline, and calendar state.
 @MainActor
 final class AppModel: ObservableObject {
     static let shared = AppModel()
@@ -33,10 +24,7 @@ final class AppModel: ObservableObject {
     private let notificationScheduler = MeetingNotificationScheduler()
     private var calendarAdapter: (any CalendarAdapter)?
 
-    // Published UI state
-    @Published var selectedTab: MainTab = .sessions
-    @Published private(set) var sessions: [MeetingSession] = []
-    @Published var selectedSessionID: UUID?
+    // Published pipeline state
     @Published private(set) var isRecording = false
     @Published private(set) var transcriptionStates: [UUID: TranscriptionState] = [:]
     @Published private(set) var summarizationStates: [UUID: SummarizationState] = [:]
@@ -49,15 +37,10 @@ final class AppModel: ObservableObject {
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
 
-    /// The hosting NSWindow, captured from SwiftUI so the menu bar can surface it.
-    weak var mainWindow: NSWindow?
-
-    /// Brings the main window to the front, optionally switching tabs first.
-    func showWindow(tab: MainTab? = nil) {
-        if let tab { selectedTab = tab }
-        mainWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
+    /// Called when recording starts; argument is the session ID string.
+    var onRecordingStarted: ((String) -> Void)?
+    /// Called when recording stops; argument is the session ID string (nil on error).
+    var onRecordingStopped: ((String?) -> Void)?
 
     init() {
         let base = FileManager.default
@@ -85,9 +68,6 @@ final class AppModel: ObservableObject {
         keychainStore = KeychainStore()
         recordingManager = RecordingManager(store: store, recorder: NativeAudioRecorder())
 
-        refreshSessions()
-        selectedSessionID = sessions.first?.id
-
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleStartRecordingFromNotification),
             name: .meetingNotificationStartRecording, object: nil
@@ -98,46 +78,6 @@ final class AppModel: ObservableObject {
         )
     }
 
-    // MARK: - Sessions
-
-    func refreshSessions() {
-        sessions = (try? store.loadAll()) ?? []
-    }
-
-    var selectedSession: MeetingSession? {
-        guard let id = selectedSessionID else { return nil }
-        return sessions.first { $0.id == id }
-    }
-
-    func session(for id: UUID) -> MeetingSession? {
-        sessions.first { $0.id == id }
-    }
-
-    /// Persists user edits (title/notes) without disturbing selection or the
-    /// detail view's local draft.
-    func persist(_ session: MeetingSession) {
-        try? store.save(session)
-        applyUpdatedSession(session)
-    }
-
-    func deleteSession(_ session: MeetingSession) {
-        try? store.delete(session)
-        sessions.removeAll { $0.id == session.id }
-        transcriptionStates[session.id] = nil
-        if selectedSessionID == session.id {
-            selectedSessionID = sessions.first?.id
-        }
-    }
-
-    private func applyUpdatedSession(_ session: MeetingSession) {
-        if let idx = sessions.firstIndex(where: { $0.id == session.id }) {
-            sessions[idx] = session
-        } else {
-            sessions.append(session)
-        }
-        sessions.sort { $0.date > $1.date }
-    }
-
     // MARK: - Recording
 
     func startRecording(title: String? = nil) async {
@@ -146,9 +86,7 @@ final class AppModel: ObservableObject {
         do {
             let session = try await recordingManager.startRecording(title: name)
             isRecording = true
-            refreshSessions()
-            selectedTab = .sessions
-            selectedSessionID = session.id
+            onRecordingStarted?(session.id.uuidString)
         } catch {
             isRecording = recordingManager.isRecording
         }
@@ -162,11 +100,7 @@ final class AppModel: ObservableObject {
         guard recordingManager.isRecording else { return }
         let stopped = try? await recordingManager.stopRecording()
         isRecording = false
-        refreshSessions()
-        if let stopped {
-            selectedSessionID = stopped.id
-            autoTranscribeIfNeeded(stopped)
-        }
+        onRecordingStopped?(stopped?.id.uuidString)
     }
 
     func toggleRecording() async {
@@ -177,44 +111,26 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: - Transcription (diarization + vocabulary boosting, automatic)
+    // MARK: - Transcription (called by TranscriptionRequestingAdapter)
 
-    /// Kicks off transcription for a session that has audio but no transcript yet.
-    /// Called when a session is selected and right after a recording stops, so
-    /// transcripts appear without any manual step.
-    func autoTranscribeIfNeeded(_ session: MeetingSession) {
-        guard !session.audioFilePaths.isEmpty, session.transcriptSegments.isEmpty else { return }
-        guard session.status == .stopped else { return }
-        guard !transcribingIDs.contains(session.id) else { return }
-        guard transcriptionSettingsStore.load().source != .notConfigured else {
-            transcriptionStates[session.id] = .modelUnavailable
-            return
+    /// Transcribes a session by ID with explicit vocabulary, returns raw segments.
+    /// Also triggers auto-summarize if enabled.
+    func transcribeForRecordingBridge(noteID: String, vocabulary: [String]) async throws -> [TranscriptSegment] {
+        guard let uuid = UUID(uuidString: noteID) else {
+            throw TranscriptionError.audioFileNotFound
         }
-        Task { await transcribe(session) }
-    }
+        guard !transcribingIDs.contains(uuid) else {
+            throw TranscriptionError.transcriptionFailed("Already transcribing this session")
+        }
+        guard let latest = try? store.load(id: uuid) else {
+            throw TranscriptionError.audioFileNotFound
+        }
 
-    func autoTranscribeSelected() {
-        guard let session = selectedSession else { return }
-        autoTranscribeIfNeeded(session)
-    }
+        let vocabEntries = vocabulary.map { VocabularyEntry(phrase: $0) }
+        transcribingIDs.insert(uuid)
+        transcriptionStates[uuid] = .transcribing
+        defer { transcribingIDs.remove(uuid) }
 
-    /// Re-runs transcription from scratch (used by the manual "Transcribe again" button).
-    func retranscribe(_ session: MeetingSession) {
-        guard !transcribingIDs.contains(session.id) else { return }
-        var cleared = session
-        cleared.transcriptSegments = []
-        persist(cleared)
-        Task { await transcribe(cleared) }
-    }
-
-    func transcribe(_ session: MeetingSession) async {
-        guard !transcribingIDs.contains(session.id) else { return }
-        transcribingIDs.insert(session.id)
-        transcriptionStates[session.id] = .transcribing
-
-        // Reload the freshest copy so concurrent note edits are not clobbered.
-        let latest = (try? store.load(id: session.id)) ?? session
-        let vocab = (try? vocabularyStore.enabledEntries()) ?? []
         let engine = FluidAudioAdapter(
             settingsStore: transcriptionSettingsStore,
             runtime: runtime,
@@ -225,37 +141,30 @@ final class AppModel: ObservableObject {
         let service = TranscriptionService(engine: engine, store: store)
 
         do {
-            let updated = try await service.transcribe(session: latest, vocabulary: vocab)
-            transcriptionStates[session.id] = .completed
-            applyUpdatedSession(updated)
+            let updated = try await service.transcribe(session: latest, vocabulary: vocabEntries)
+            transcriptionStates[uuid] = .completed
+            regenerateNote(for: updated)
             autoSummarizeIfNeeded(updated)
+            return updated.transcriptSegments
         } catch TranscriptionError.modelUnavailable {
-            transcriptionStates[session.id] = .modelUnavailable
+            transcriptionStates[uuid] = .modelUnavailable
+            throw TranscriptionError.modelUnavailable
         } catch TranscriptionError.audioFileNotFound {
-            transcriptionStates[session.id] = .failed("Audio file not found")
+            transcriptionStates[uuid] = .failed("Audio file not found")
+            throw TranscriptionError.audioFileNotFound
         } catch TranscriptionError.transcriptionFailed(let message) {
-            transcriptionStates[session.id] = .failed(message)
+            transcriptionStates[uuid] = .failed(message)
+            throw TranscriptionError.transcriptionFailed(message)
         } catch {
-            transcriptionStates[session.id] = .failed(error.localizedDescription)
+            transcriptionStates[uuid] = .failed(error.localizedDescription)
+            throw error
         }
-        transcribingIDs.remove(session.id)
     }
 
-    func transcriptionState(for id: UUID) -> TranscriptionState {
-        transcriptionStates[id] ?? .idle
-    }
+    // MARK: - Summarization
 
-    // MARK: - Summarization (OpenRouter, automatic after transcription)
-
-    func summarizationState(for id: UUID) -> SummarizationState {
-        summarizationStates[id] ?? .idle
-    }
-
-    /// Whether an OpenRouter API key is configured in the Keychain.
     var hasSummarizationKey: Bool { keychainStore.hasValue }
 
-    /// Runs summarization automatically once a transcript exists, if the user has
-    /// enabled it and supplied an API key.
     private func autoSummarizeIfNeeded(_ session: MeetingSession) {
         guard summarizationSettingsStore.load().autoSummarize else { return }
         guard !session.transcriptSegments.isEmpty else { return }
@@ -263,12 +172,6 @@ final class AppModel: ObservableObject {
             summarizationStates[session.id] = .noAPIKey
             return
         }
-        Task { await summarize(session) }
-    }
-
-    /// Re-runs summarization from the user's "Summarize" / "Summarize again" button.
-    func summarizeSelected() {
-        guard let session = selectedSession else { return }
         Task { await summarize(session) }
     }
 
@@ -290,7 +193,6 @@ final class AppModel: ObservableObject {
         summarizingIDs.insert(session.id)
         summarizationStates[session.id] = .summarizing
 
-        // Reload the freshest copy so concurrent edits are not clobbered.
         let latest = (try? store.load(id: session.id)) ?? session
         do {
             let summary = try await summarizationService.summarize(
@@ -303,7 +205,6 @@ final class AppModel: ObservableObject {
             updated.summary = summary
             try? store.save(updated)
             regenerateNote(for: updated)
-            applyUpdatedSession(updated)
             summarizationStates[session.id] = .completed
         } catch {
             summarizationStates[session.id] = .failed(Self.summarizationErrorMessage(error))
@@ -337,18 +238,11 @@ final class AppModel: ObservableObject {
 
     // MARK: - Notes
 
-    /// Writes note.md without opening it (used after summarization updates it).
+    /// Writes note.md without opening it (used after transcription/summarization updates it).
     private func regenerateNote(for session: MeetingSession) {
         let markdown = MarkdownNoteRenderer.render(session: session)
         let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
         try? markdown.write(to: noteURL, atomically: true, encoding: .utf8)
-    }
-
-    func openNote(for session: MeetingSession) {
-        let markdown = MarkdownNoteRenderer.render(session: session)
-        let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
-        try? markdown.write(to: noteURL, atomically: true, encoding: .utf8)
-        NSWorkspace.shared.open(noteURL)
     }
 
     func openRecordingsFolder() {
@@ -378,7 +272,6 @@ final class AppModel: ObservableObject {
         return calendarAdapter
     }
 
-    /// Fetches events from now to seven days out for the Calendar tab.
     func loadUpcomingEvents() async {
         isCalendarLoading = true
         calendarError = nil
@@ -400,28 +293,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Links a calendar event to a session, copying the event's attendees into the
-    /// session's participants, and persists.
-    func linkEvent(_ event: CalendarEvent, to session: MeetingSession) {
-        var updated = session
-        updated.linkedEventID = event.id
-        updated.linkedEventTitle = event.title
-        updated.participants = event.attendees
-        persist(updated)
-        regenerateNote(for: updated)
-    }
-
-    /// Removes a previously-linked event from a session.
-    func unlinkEvent(from session: MeetingSession) {
-        var updated = session
-        updated.linkedEventID = nil
-        updated.linkedEventTitle = nil
-        updated.participants = []
-        persist(updated)
-        regenerateNote(for: updated)
-    }
-
-    /// Events near the session's date, for the link picker (±2 hours).
     func eventsNear(_ date: Date, window: TimeInterval = 2 * 3_600) -> [CalendarEvent] {
         upcomingEvents.filter { abs($0.startDate.timeIntervalSince(date)) <= window }
     }

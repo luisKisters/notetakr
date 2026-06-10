@@ -3,9 +3,8 @@ import SwiftUI
 import NoteTakrKit
 import NoteTakrCore
 
-/// Floating note panel (420×620). Owns the Kit NoteStore + NoteEditorBridge
-/// + FrontmatterPresenterBridge + NoteTabsBridge + SwitcherBridge + SettingsSheetViewModel.
-/// Menu bar "Open Note Panel" calls `show()`.
+/// Floating note panel (420×620). Owns the Kit NoteStore + all bridges.
+/// AppDelegate calls `show()`, `recordingStarted(sessionID:)`, `recordingStopped()`.
 @MainActor
 final class NotePanelController {
     private(set) var panel: NSPanel?
@@ -18,18 +17,24 @@ final class NotePanelController {
 
     private let sessionStore: SessionStore?
     private let calendarEventsProvider = CalendarEventsProvider()
+    private let appSettings: AppSettingsStore
+
+    // Recording wiring
+    private var recordingBridge: RecordingNoteBridge?
+    private var transcriptionAdapter: TranscriptionRequestingAdapter?
+    private var elapsedTimer: Timer?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
         bridge = NoteEditorBridge(store: store)
         frontmatterBridge = FrontmatterPresenterBridge(store: store)
 
-        // AppSettingsStore lives one level above the Sessions folder (in the NoteTakr folder)
         let settingsRoot = notesRoot.deletingLastPathComponent()
-        let appSettings = AppSettingsStore(root: settingsRoot)
+        let localAppSettings = AppSettingsStore(root: settingsRoot)
+        appSettings = localAppSettings
         settingsBridge = SettingsSheetViewModel(
             frontmatterBridge: frontmatterBridge,
-            appSettings: appSettings
+            appSettings: localAppSettings
         )
 
         let generator: (any SummaryGenerating)?
@@ -44,6 +49,7 @@ final class NotePanelController {
             )
             generator = adapter
             sessionStoreRef = appModel.store
+            transcriptionAdapter = TranscriptionRequestingAdapter(appModel: appModel)
         } else {
             generator = nil
             sessionStoreRef = nil
@@ -67,7 +73,6 @@ final class NotePanelController {
 
         tabsBridge = NoteTabsBridge(presenter: presenter)
 
-        // Build switcher
         let noteListProvider = NoteStoreListProvider(store: store)
         let switcherVM = SwitcherViewModel(
             noteListProvider: noteListProvider,
@@ -81,7 +86,7 @@ final class NotePanelController {
         wireSwitcher()
     }
 
-    /// Updates calendar events in the switcher from AppModel's current snapshot.
+    /// Updates calendar events in the switcher from an external snapshot.
     func refreshCalendarEvents(from events: [CalendarEvent]) {
         calendarEventsProvider.events = events.map { ce in
             UpcomingEvent(
@@ -96,19 +101,46 @@ final class NotePanelController {
         }
     }
 
-    private func wireSwitcher() {
-        switcherBridge.onOpenNote = { [weak self] noteID in
-            self?.loadNote(id: noteID)
+    // MARK: - Recording lifecycle
+
+    /// Called by AppDelegate when recording starts. Loads the note and starts the bridge.
+    func recordingStarted(sessionID: String) {
+        // Ensure note.md exists; synthesize from session.json if needed (migration path).
+        if (try? store.load(id: sessionID)) == nil,
+           let uuid = UUID(uuidString: sessionID),
+           let session = try? sessionStore?.load(id: uuid) {
+            let note = MeetingNote(id: sessionID, title: session.title, date: session.date)
+            try? store.save(note)
         }
-        switcherBridge.onEditorFocusRequest = { [weak self] in
-            self?.panel?.makeFirstResponder(self?.panel?.contentView)
+
+        loadNote(id: sessionID)
+
+        guard let presenter = frontmatterBridge.presenter else { return }
+
+        let settings = EffectiveMeetingSettings.resolve(note: presenter.note, defaults: appSettings)
+        let recBridge = RecordingNoteBridge(
+            frontmatterPresenter: presenter,
+            tabsPresenter: tabsBridge.presenter,
+            settings: settings,
+            transcriptionService: transcriptionAdapter,
+            now: { Date() }
+        )
+        recordingBridge = recBridge
+        recBridge.startRecording()
+
+        // Tick the elapsed REC chip every second
+        elapsedTimer?.invalidate()
+        elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.frontmatterBridge.refreshChips() }
         }
-        switcherBridge.onCreateBlankNote = { [weak self] in
-            guard let self else { return }
-            if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
-                self.loadNote(id: note.id)
-            }
-        }
+    }
+
+    /// Called by AppDelegate when recording stops. Stops the bridge (triggers transcription).
+    func recordingStopped() {
+        elapsedTimer?.invalidate()
+        elapsedTimer = nil
+        recordingBridge?.stopRecording()
+        recordingBridge = nil
     }
 
     func show() {
@@ -128,8 +160,6 @@ final class NotePanelController {
         )
         // IMPORTANT: set collectionBehavior BEFORE calling makeKeyAndOrderFront —
         // omitting this causes a launch-abort crash on macOS.
-        // .canJoinAllSpaces and .moveToActiveSpace are mutually exclusive; use canJoinAllSpaces
-        // so the panel is visible on every Space without moving.
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.level = .floating
         p.isFloatingPanel = true
@@ -138,7 +168,6 @@ final class NotePanelController {
         p.titleVisibility = .hidden
         p.titlebarAppearsTransparent = true
         p.isMovableByWindowBackground = true
-        // Always non-opaque: SwiftUI content handles all appearance including Glass blur.
         p.isOpaque = false
         p.backgroundColor = .clear
         p.minSize = NSSize(width: 300, height: 400)
@@ -169,6 +198,21 @@ final class NotePanelController {
         loadNote(id: note.id)
     }
 
+    private func wireSwitcher() {
+        switcherBridge.onOpenNote = { [weak self] noteID in
+            self?.loadNote(id: noteID)
+        }
+        switcherBridge.onEditorFocusRequest = { [weak self] in
+            self?.panel?.makeFirstResponder(self?.panel?.contentView)
+        }
+        switcherBridge.onCreateBlankNote = { [weak self] in
+            guard let self else { return }
+            if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
+                self.loadNote(id: note.id)
+            }
+        }
+    }
+
     /// Loads a note by ID into all bridges (editor, frontmatter, tabs).
     func loadNote(id: String) {
         guard let note = try? store.load(id: id) else { return }
@@ -192,7 +236,6 @@ final class NotePanelController {
 
 // MARK: -
 
-/// NSPanel subclass that closes on Escape.
 private final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 

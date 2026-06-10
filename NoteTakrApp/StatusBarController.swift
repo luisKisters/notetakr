@@ -1,10 +1,8 @@
 import AppKit
 import Combine
-import SwiftUI
 import NoteTakrCore
 
-/// Thin menu-bar controller. All state lives in `AppModel`; this just renders a
-/// status item + menu and forwards actions, surfacing the single main window.
+/// Menu-bar status item. Forwards actions to the panel and recording pipeline.
 @MainActor
 final class StatusBarController: NSObject {
     private let model: AppModel
@@ -43,18 +41,10 @@ final class StatusBarController: NSObject {
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
 
-        let open = NSMenuItem(title: "Open NoteTakr", action: #selector(openMain), keyEquivalent: "")
-        open.target = self
-        menu.addItem(open)
-
-        let notePanel = NSMenuItem(title: "Open Note Panel", action: #selector(openNotePanel), keyEquivalent: "")
+        let notePanel = NSMenuItem(title: "Toggle Note Panel", action: #selector(openNotePanel), keyEquivalent: "")
         notePanel.target = self
         menu.addItem(notePanel)
         menu.addItem(.separator())
-
-        let quick = NSMenuItem(title: "Quick Recording", action: #selector(quickRecording), keyEquivalent: "")
-        quick.target = self
-        menu.addItem(quick)
 
         let record = NSMenuItem(
             title: model.isRecording ? "Stop Recording" : "Start Recording",
@@ -66,7 +56,7 @@ final class StatusBarController: NSObject {
         menu.addItem(.separator())
 
         let folder = NSMenuItem(
-            title: "Open Recordings Folder", action: #selector(openRecordingsFolder), keyEquivalent: ""
+            title: "Open Notes Folder", action: #selector(openRecordingsFolder), keyEquivalent: ""
         )
         folder.target = self
         menu.addItem(folder)
@@ -82,10 +72,14 @@ final class StatusBarController: NSObject {
         return menu
     }
 
-    @objc private func openMain() { model.showWindow(tab: .sessions) }
-    @objc private func openNotePanel() { notePanelController?.show() }
-    @objc private func openSettings() { model.showWindow(tab: .settings) }
+    @objc private func openNotePanel() {
+        if notePanelController?.panel?.isVisible == true {
+            notePanelController?.panel?.orderOut(nil)
+        } else {
+            notePanelController?.show()
+        }
+    }
+    @objc private func openSettings() { notePanelController?.show() }
     @objc private func openRecordingsFolder() { model.openRecordingsFolder() }
-    @objc private func quickRecording() { Task { await model.quickRecording() } }
     @objc private func toggleRecording() { Task { await model.toggleRecording() } }
 }

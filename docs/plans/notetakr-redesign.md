@@ -298,22 +298,22 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 17: Recording wiring and legacy cutover (App — CI-validated)
 
-- [ ] Wire `RecordingNoteBridge` to the real pipeline: `RecordingManager`/
+- [x] Wire `RecordingNoteBridge` to the real pipeline: `RecordingManager`/
       `NativeAudioRecorder` events in, `TranscriptionService` (FluidAudio) as the
       `TranscriptionRequesting` impl, honoring per-meeting settings. REC chip ticks live;
       stopping populates the Transcript tab; auto-summary respects
       `SummarizationSettings.autoSummarize` as today.
-- [ ] Cutover: delete `MainWindowView`, `SessionsView` split, `SessionDetailPane`,
+- [x] Cutover: delete `MainWindowView`, `SessionsView` split, `SessionDetailPane`,
       `SessionDetailView`, `TodayView`, and the `Window` scene — the panel is the only UI.
       Slim the menu bar to: Toggle Note Panel, Start/Stop Recording, Open Notes Folder,
       Settings…, Quit. First-launch permission prompts route to the sheet's Permissions tab.
       Update or delete app tests referencing removed views; keep `AppModel` only as the
       shrunken pipeline owner.
-- [ ] App-target integration test with fakes: launch → exactly one panel, no legacy window;
+- [x] App-target integration test with fakes: launch → exactly one panel, no legacy window;
       mock-recorder full cycle ends with a populated Transcript tab and an updated `note.md`.
-- [ ] Update `README`/docs references to the removed UI; move this plan's learnings into
+- [x] Update `README`/docs references to the removed UI; move this plan's learnings into
       `docs/DESIGN.md` if any principle changed.
-- [ ] Validate: Kit loop + push + `gh run watch` green (all three CI jobs). Commit.
+- [x] Validate: Kit loop + push + `gh run watch` green (all three CI jobs). Commit.
 
 ## Success Criteria
 
