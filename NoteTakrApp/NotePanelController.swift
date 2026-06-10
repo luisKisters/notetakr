@@ -90,7 +90,7 @@ final class NotePanelController {
                 start: ce.startDate,
                 end: ce.endDate,
                 participants: ce.attendees.map { p in
-                    NoteTakrKit.Participant(name: p.name, email: p.email)
+                    .init(name: p.name, email: p.email)
                 }
             )
         }
