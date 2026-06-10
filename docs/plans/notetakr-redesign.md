@@ -201,17 +201,17 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 11: ⌘K switcher overlay (App — CI-validated)
 
-- [ ] In the panel, ⌘K toggles `SwitcherOverlayView`: a frost layer (ultraThinMaterial +
+- [x] In the panel, ⌘K toggles `SwitcherOverlayView`: a frost layer (ultraThinMaterial +
       dark scrim) over the editor, search field on top, day-grouped rows with the 1px
       timeline rail (fading at both ends via mask) and node dots per state, dashed ghost
       rows with "+ Create note", kbd hint footer ("↩ Open · ⌘N New · esc"), per
       `final-switcher.html`.
-- [ ] Keys: ⌘K toggle, esc closes and returns focus to the editor, ↩ opens selection,
+- [x] Keys: ⌘K toggle, esc closes and returns focus to the editor, ↩ opens selection,
       ⌘N creates a blank note. Events provider bridges `EventKitCalendarAdapter` results
       into Kit's `UpcomingEvent`.
-- [ ] App-target tests: ⌘K toggles overlay state; esc restores editor focus; selecting a
+- [x] App-target tests: ⌘K toggles overlay state; esc restores editor focus; selecting a
       ghost event calls `createNote(from:)` and the panel switches to the new note.
-- [ ] Validate: Kit loop + push + `gh run watch` green. Commit.
+- [x] Validate: Kit loop + push + `gh run watch` green. Commit.
 
 ### Task 12: AppSettingsStore and effective settings (Kit)
 
