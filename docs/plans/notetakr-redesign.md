@@ -104,20 +104,20 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 5: Floating panel with editor (App — CI-validated)
 
-- [ ] In NoteTakrApp, add `NotePanelController`: an NSPanel 420×620, corner radius 16,
+- [x] In NoteTakrApp, add `NotePanelController`: an NSPanel 420×620, corner radius 16,
       floating level, resizable within reason, closable with esc. Set `collectionBehavior`
       BEFORE showing the panel (a known launch-abort crash — see git history/memory note).
       Menu bar gains "Open Note Panel" which shows the panel with the most recent note (or
       creates "Untitled meeting" if none).
-- [ ] Add `EditorView` (SwiftUI, hosted in the panel): hidden chrome title, H1 title
+- [x] Add `EditorView` (SwiftUI, hosted in the panel): hidden chrome title, H1 title
       TextField, plain `TextEditor` body — bound to Kit's `NoteEditorViewModel` through a
       small `ObservableObject` bridge that forwards `onChange`. Per the mockups: dark
       default for now (appearance system arrives in Task 15), generous padding, no footer
       content yet.
-- [ ] App-target tests (`NoteTakrTests/`): panel creation does not crash and is key-able;
+- [x] App-target tests (`NoteTakrTests/`): panel creation does not crash and is key-able;
       the bridge forwards edits to the Kit view model (spy store); legacy main window still
       launches.
-- [ ] Validate: Kit loop locally, then push and gate on `gh run watch` (both macOS jobs
+- [x] Validate: Kit loop locally, then push and gate on `gh run watch` (both macOS jobs
       green). Commit message notes the panel feature.
 
 ### Task 6: FrontmatterPresenter — chips and properties (Kit)
