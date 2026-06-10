@@ -142,7 +142,7 @@ final class SwitcherOverlayTests: XCTestCase {
 
         provider.events = [
             UpcomingEvent(id: "ev1", title: "Standup", start: Date(), participants: [
-                NoteTakrKit.Participant(name: "Alice", email: "alice@example.com")
+                Participant(name: "Alice", email: "alice@example.com")
             ])
         ]
         let events = provider.listEvents()

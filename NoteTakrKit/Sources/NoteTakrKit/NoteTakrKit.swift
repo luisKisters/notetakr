@@ -1,6 +1,5 @@
 import Foundation
 
-/// Placeholder type — Kit types are added in subsequent tasks.
-public enum NoteTakrKit {
+public enum NoteTakrKitVersion {
     public static let version = "0.1.0"
 }
