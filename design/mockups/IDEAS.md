@@ -1,5 +1,33 @@
 # NoteTakr Redesign — Design Ideas & Open Questions
 
+> **STATUS: DECIDED.** The final locked design lives in `final-editor.html`,
+> `final-switcher.html`, `final-settings.html` (round 5). Everything below is the
+> exploration history. Locked spec summary:
+>
+> - **Window**: one floating panel, compact portrait ~420×620, radius 16, global hotkey toggle.
+> - **Identity**: monochrome + purple accent (#8B5CF6 / #A78BFA), red dot only for REC,
+>   green/orange only in permission rows. Inline SVG icons (SF-style, 1.5px stroke), no emojis,
+>   no badges, no word count. Subtle film grain. NOT a Raycast clone.
+> - **Appearance setting (3-way)**: Glass (blur 40px + saturate 1.5, hairline top highlight) /
+>   Dark (solid purple-tinted #151417) / Light (warm paper).
+> - **Editor**: no chrome title, dimmed traffic lights, hover-only gear top-right. H1 title,
+>   then frontmatter as a row of quiet chips (clock·time, camera·Zoom, people·avatar initials,
+>   REC·red dot + timer) that click-expands into a soft property panel (Date, Calendar event,
+>   Participants, Location, In-person toggle, Transcript). Footer = ONLY three bare text tabs:
+>   Private Notes · Summary · Transcript (active = purple, inactive 45%, no separators).
+> - **⌘K switcher**: "Timeline Lite" — palette rows (icon + title + right-aligned time) grouped
+>   by day, threaded by a barely-there 1px vertical line that fades at both ends; node dots on
+>   EVERY row (hollow purple = upcoming, filled purple glow = current, neutral 30% = past);
+>   ghost dashed "Create note" rows for upcoming calendar events; appears as a frost layer over
+>   the blurred note; footer kbd hints.
+> - **Settings**: bottom sheet (~85%, no grabber) over the blurred note with icon tabs:
+>   This Meeting · General · Recording · Vocabulary · Permissions. "This Meeting" shows a
+>   purple-tinted scope banner ("…applies only to this note") and per-meeting controls
+>   (transcribe toggle + live timer, language, in-person, linked event, per-meeting vocabulary).
+>   "General" = same options as defaults for new meetings (transcribe ON, language Auto-detect
+>   with a warning when a fixed language is chosen, in-person default) + app settings (hotkey,
+>   launch at login, Appearance trio, notes folder). Bottom row: quiet "Close" + esc kbd pill.
+
 Concept: **Raycast Notes, but built for meetings.** One floating window, toggled with a
 global hotkey (currently ⌥⌘N). Markdown notes with meeting *frontmatter* (metadata above
 the body). ⌘K switches between meeting notes. Settings live behind a gear at the

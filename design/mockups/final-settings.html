@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — Final · Settings</title>
+<style>
+  :root{
+    --bg:#0b0a0e;
+    --line:rgba(255,255,255,.07);
+    --ptx:#f0eff3;
+    --ptx2:#a5a3ad;
+    --ptx3:#73717c;
+    --pur:#8B5CF6;
+    --purl:#A78BFA;
+    --green:#32d74b;
+    --orange:#ff9f0a;
+    --red:#ff453a;
+    --grain:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--ptx);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro","Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    font-size:14px;
+  }
+  ::selection{background:rgba(139,92,246,.4)}
+
+  /* ============ page chrome ============ */
+  .topnav{
+    position:sticky;top:0;z-index:100;
+    display:flex;align-items:center;gap:4px;
+    padding:8px 20px;
+    background:rgba(11,10,14,.82);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--line);
+    font-size:12px;
+    overflow-x:auto;white-space:nowrap;
+  }
+  .topnav .brand{font-weight:600;color:var(--ptx2);margin-right:10px;letter-spacing:.01em}
+  .topnav a{color:var(--ptx2);text-decoration:none;padding:4px 10px;border-radius:999px}
+  .topnav a:hover{background:rgba(255,255,255,.08);color:var(--ptx)}
+  .topnav .here{color:var(--ptx);font-weight:600;padding:4px 10px;background:rgba(139,92,246,.22);border-radius:999px}
+  .topnav .div{width:1px;height:14px;background:rgba(255,255,255,.14);margin:0 8px;flex:none}
+
+  .pagehead{max-width:880px;margin:0 auto;padding:46px 24px 4px}
+  .pagehead h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .pagehead p{color:var(--ptx2);font-size:13px;margin-top:6px;max-width:660px;line-height:1.5}
+  .pagehead b{color:var(--purl)}
+
+  .vhead{max-width:880px;margin:0 auto;padding:54px 24px 18px}
+  .vhead .tag{
+    display:inline-grid;place-items:center;height:24px;padding:0 10px;border-radius:8px;
+    background:rgba(139,92,246,.2);color:var(--purl);font-size:11px;font-weight:700;
+    vertical-align:-5px;margin-right:9px;border:1px solid rgba(139,92,246,.35);
+    letter-spacing:.05em;text-transform:uppercase;
+  }
+  .vhead h2{font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .vhead .rationale{color:var(--ptx2);font-size:13px;line-height:1.55;margin-top:8px;max-width:680px}
+
+  .finalnote{
+    max-width:880px;margin:0 auto;padding:34px 24px 0;
+    font-size:12.5px;color:var(--ptx2);
+  }
+  .finalnote code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11.5px;color:var(--purl)}
+
+  /* ============ desktop backdrops (high contrast for glass) ============ */
+  .desktop{
+    position:relative;display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;
+    gap:48px;padding:48px 24px 76px;overflow:hidden;
+  }
+  .desktop::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:var(--grain);opacity:.05;
+  }
+  .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.65;pointer-events:none}
+  .bg1{background:linear-gradient(135deg,#5a2160 0%,#2c2356 50%,#11304d 100%)}
+  .bg2{background:linear-gradient(140deg,#173f5c 0%,#27265c 55%,#101020 100%)}
+
+  /* ============ stage = theme trio + window ============ */
+  .stage{display:flex;flex-direction:column;align-items:center;gap:12px;position:relative;z-index:1}
+  .modeseg{
+    display:flex;background:rgba(0,0,0,.38);border-radius:999px;padding:2px;gap:2px;
+    box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14);
+  }
+  .modeseg .mg{
+    font-size:11px;padding:3px 13px;border-radius:999px;color:rgba(255,255,255,.62);
+    cursor:pointer;user-select:none;
+  }
+  .modeseg .mg.active{background:rgba(255,255,255,.2);color:#fff;font-weight:600}
+
+  /* ============ window — themed via vars ============ */
+  .win{
+    position:relative;width:420px;height:620px;flex:none;
+    border-radius:16px;overflow:hidden;
+    display:flex;flex-direction:column;text-align:left;
+  }
+  /* glass (default look) */
+  .win.th-glass{
+    --tx:#f4f3f7;--tx2:#b6b3c0;--tx3:#86838f;
+    --hair:rgba(255,255,255,.09);
+    --ctl:rgba(255,255,255,.09);--ctlring:rgba(255,255,255,.15);
+    --inbg:rgba(0,0,0,.26);--inbr:rgba(255,255,255,.14);
+    --tgoff:rgba(120,118,132,.55);
+    --segbg:rgba(0,0,0,.3);--segon:rgba(255,255,255,.22);--segtx:#fff;
+    --scrim:rgba(8,6,16,.26);
+    background:rgba(26,23,33,.45);
+    backdrop-filter:blur(40px) saturate(1.5);
+    -webkit-backdrop-filter:blur(40px) saturate(1.5);
+    box-shadow:0 0 0 .5px rgba(255,255,255,.28),
+               inset 0 1px 0 rgba(255,255,255,.14),
+               0 30px 70px rgba(0,0,0,.55),0 10px 24px rgba(0,0,0,.4);
+  }
+  /* dark solid (purple-tinted) */
+  .win.th-dark{
+    --tx:#efedf3;--tx2:#a8a4b3;--tx3:#787384;
+    --hair:rgba(255,255,255,.08);
+    --ctl:rgba(255,255,255,.08);--ctlring:rgba(255,255,255,.13);
+    --inbg:rgba(0,0,0,.3);--inbr:rgba(255,255,255,.13);
+    --tgoff:#3c3944;
+    --segbg:rgba(0,0,0,.32);--segon:#4a4554;--segtx:#fff;
+    --scrim:rgba(0,0,0,.42);
+    background:#151417;
+    box-shadow:0 0 0 .5px rgba(255,255,255,.16),
+               0 30px 70px rgba(0,0,0,.55),0 10px 24px rgba(0,0,0,.4);
+  }
+  /* warm paper light */
+  .win.th-light{
+    --tx:#29241e;--tx2:#675f53;--tx3:#968d7e;
+    --hair:rgba(70,55,30,.12);
+    --ctl:rgba(60,45,20,.06);--ctlring:rgba(60,45,20,.14);
+    --inbg:rgba(255,255,255,.65);--inbr:rgba(70,55,30,.18);
+    --tgoff:#d6cec0;
+    --segbg:rgba(60,45,20,.08);--segon:#fffdf9;--segtx:#29241e;
+    --scrim:rgba(244,238,228,.4);
+    background:#f6f1e8;
+    box-shadow:0 0 0 .5px rgba(70,55,30,.22),
+               0 30px 70px rgba(0,0,0,.45),0 10px 24px rgba(0,0,0,.3);
+  }
+
+  .tbar{
+    height:38px;flex:none;position:relative;display:flex;align-items:center;
+    padding:0 13px;border-bottom:1px solid var(--hair);
+  }
+  .lights{display:flex;gap:8px;z-index:2}
+  .lt{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.22)}
+  .lt.r{background:#ff5f57}.lt.y{background:#febc2e}.lt.g{background:#28c840}
+  .ttitle{
+    position:absolute;left:0;right:0;text-align:center;
+    font-size:12.5px;font-weight:500;color:var(--tx2);pointer-events:none;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 70px;
+  }
+  .foot{
+    height:34px;flex:none;display:flex;align-items:center;gap:10px;
+    padding:0 7px 0 13px;border-top:1px solid var(--hair);
+    font-size:11px;color:var(--tx3);
+  }
+  .gearbtn{
+    margin-left:auto;width:25px;height:25px;border-radius:7px;flex:none;
+    display:grid;place-items:center;color:var(--tx2);cursor:pointer;
+  }
+  .gearbtn.active{background:var(--ctl);color:var(--tx);box-shadow:0 0 0 .5px var(--ctlring)}
+  .gearbtn svg{width:14px;height:14px}
+  .recpill{display:inline-flex;align-items:center;gap:5px;color:var(--tx2);font-variant-numeric:tabular-nums}
+  .recdot{color:var(--red);font-size:9px;animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* ============ note behind (kept high contrast so glass reads) ============ */
+  .note{flex:1;min-height:0;padding:18px 22px;overflow:hidden;color:var(--tx)}
+  .ntitle{font-size:18px;font-weight:680;letter-spacing:-.01em}
+  .nmeta{font-size:11.5px;color:var(--tx3);margin-top:4px}
+  .nsep{height:1px;background:var(--hair);margin:12px 0}
+  .nline{display:flex;align-items:flex-start;gap:8px;padding:3px 0;font-size:13px;line-height:1.45}
+  .nline.done{color:var(--tx3);text-decoration:line-through}
+  .cb{
+    width:14px;height:14px;border-radius:4.5px;flex:none;margin-top:2px;
+    border:1.5px solid var(--tx3);position:relative;
+  }
+  .cb.on{background:var(--pur);border-color:var(--pur)}
+  .cb.on::after{
+    content:"";position:absolute;left:3.5px;top:1px;width:4px;height:7px;
+    border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);
+  }
+  .nh2{font-size:13px;font-weight:650;margin-top:10px}
+  .npara{font-size:13px;line-height:1.5;color:var(--tx2);padding:4px 0 4px 22px}
+  .tcard{
+    margin:12px 0 0;padding:9px 12px;border-radius:9px;
+    background:var(--ctl);box-shadow:0 0 0 .5px var(--ctlring);
+  }
+  .tcard .th{font-size:10px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);display:flex;align-items:center;gap:6px}
+  .tcard .tl{font-size:12px;color:var(--tx2);margin-top:4px;font-style:italic;line-height:1.45}
+
+  /* dim the note while the sheet is up — light touch, the sheet does the frosting */
+  .scrim{position:absolute;inset:38px 0 0;z-index:4;background:var(--scrim)}
+
+  /* ============ the sheet — clean top edge, no grabber, no ✕ ============ */
+  .sheet{
+    position:absolute;left:0;right:0;bottom:0;z-index:5;height:85%;
+    display:flex;flex-direction:column;
+    border-radius:16px 16px 0 0;
+  }
+  /* liquid glass: lighter fill + heavy blur + hairline top highlight + grain */
+  .win.th-glass .sheet{
+    background:linear-gradient(rgba(255,255,255,.075),rgba(255,255,255,.025) 60px),rgba(34,30,44,.4);
+    backdrop-filter:blur(40px) saturate(1.5);
+    -webkit-backdrop-filter:blur(40px) saturate(1.5);
+    border-top:1px solid rgba(255,255,255,.18);
+    box-shadow:0 -18px 48px rgba(0,0,0,.45),0 -4px 14px rgba(0,0,0,.3);
+  }
+  .win.th-glass .sheet::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:30;
+    border-radius:inherit;background-image:var(--grain);opacity:.04;
+  }
+  .win.th-dark .sheet{
+    background:#1c1a21;
+    border-top:1px solid rgba(255,255,255,.1);
+    box-shadow:0 -18px 48px rgba(0,0,0,.5),0 -4px 14px rgba(0,0,0,.35);
+  }
+  .win.th-light .sheet{
+    background:#fcf9f3;
+    border-top:1px solid rgba(255,255,255,.9);
+    box-shadow:0 -18px 48px rgba(70,50,20,.18),0 -4px 14px rgba(70,50,20,.1);
+  }
+
+  /* icon tab row */
+  .ttabs{
+    display:flex;justify-content:center;gap:2px;flex:none;
+    padding:9px 10px 7px;border-bottom:1px solid var(--hair);
+  }
+  .ttab{
+    width:74px;display:flex;flex-direction:column;align-items:center;gap:3.5px;
+    padding:6px 2px 5px;border-radius:9px;font-size:10px;font-weight:500;color:var(--tx2);
+    cursor:pointer;user-select:none;white-space:nowrap;
+  }
+  .ttab:hover{background:var(--ctl)}
+  .ttab svg{width:18px;height:18px}
+  .ttab.active{color:var(--pur);background:rgba(139,92,246,.1);font-weight:600}
+  .win.th-glass .ttab.active{color:var(--purl);background:rgba(167,139,250,.13)}
+
+  /* scope banner — pinned under the tabs, This Meeting only */
+  .scopebanner{
+    flex:none;display:flex;align-items:center;gap:7px;
+    padding:6.5px 16px;border-bottom:1px solid var(--hair);
+    background:rgba(139,92,246,.04);
+    font-size:11px;color:var(--tx2);line-height:1.35;
+  }
+  .scopebanner svg{width:12px;height:12px;flex:none;color:var(--purl)}
+  .scopebanner b{font-weight:600;color:var(--tx)}
+  .win.th-light .scopebanner svg{color:#6d3fd8}
+
+  .sbody{flex:1;min-height:0;overflow-y:auto;padding:6px 18px 14px}
+  .sbody::-webkit-scrollbar{width:0}
+  .hidden{display:none!important}
+
+  /* bottom close row — the sheet's only dismiss affordance */
+  .sfoot{
+    flex:none;display:flex;align-items:center;justify-content:center;
+    padding:7px 16px 8px;border-top:1px solid var(--hair);
+  }
+  .closebtn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:3.5px 12px;border-radius:7px;
+    font-size:12px;color:var(--tx2);cursor:pointer;user-select:none;
+  }
+  .closebtn:hover{background:var(--ctl);color:var(--tx)}
+  .closebtn kbd{font-size:10px;color:var(--tx3);padding:1px 6px}
+
+  /* ============ de-cluttered rows ============ */
+  .slabel{
+    font-size:10.5px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--tx3);margin:16px 2px 2px;
+  }
+  .slabel:first-child{margin-top:6px}
+  .row{display:flex;align-items:center;gap:10px;padding:9.5px 2px;min-height:42px;font-size:13px;color:var(--tx)}
+  .row + .row{border-top:1px solid var(--hair)}
+  .row.col{flex-direction:column;align-items:stretch;gap:9px;padding-top:10px;padding-bottom:12px}
+  .rline{display:flex;align-items:center;gap:10px}
+  .rg{width:15px;height:15px;flex:none;color:var(--tx3)}
+  .rg svg{width:15px;height:15px;display:block}
+  .fl{flex:1;min-width:0}
+  .fl .t{color:var(--tx)}
+  .fl .sub{font-size:11px;color:var(--tx3);margin-top:1.5px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fl .sub.wrap{white-space:normal}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fnote{font-size:11px;color:var(--tx3);margin:12px 2px 0;line-height:1.5}
+
+  /* ============ controls ============ */
+  .tg{
+    --w:36px;--h:21px;
+    width:var(--w);height:var(--h);border-radius:999px;flex:none;
+    background:var(--tgoff);position:relative;cursor:pointer;transition:background .18s;
+    box-shadow:inset 0 0 0 .5px rgba(0,0,0,.1);
+  }
+  .tg::after{
+    content:"";position:absolute;top:1.5px;left:1.5px;
+    width:calc(var(--h) - 3px);height:calc(var(--h) - 3px);border-radius:50%;
+    background:#fff;box-shadow:0 1px 2.5px rgba(0,0,0,.4);transition:left .18s;
+  }
+  .tg.on{background:var(--pur)}
+  .tg.on::after{left:calc(var(--w) - var(--h) + 1.5px)}
+
+  .seg{display:flex;background:var(--segbg);border-radius:8px;padding:2px;gap:2px}
+  .seg .sg{
+    flex:1;text-align:center;font-size:11.5px;padding:3.5px 11px;border-radius:6px;
+    color:var(--tx2);cursor:pointer;user-select:none;white-space:nowrap;
+  }
+  .seg .sg.active{background:var(--segon);color:var(--segtx);font-weight:560;box-shadow:0 1px 3px rgba(0,0,0,.25),inset 0 0 0 .5px rgba(255,255,255,.12)}
+  .win.th-light .seg .sg.active{box-shadow:0 1px 3px rgba(70,50,20,.2),inset 0 0 0 .5px rgba(255,255,255,.9)}
+
+  .sel{
+    display:inline-flex;align-items:center;gap:7px;flex:none;
+    background:var(--ctl);border-radius:6.5px;padding:3.5px 8px 3.5px 10px;
+    font-size:12px;color:var(--tx);cursor:default;white-space:nowrap;
+    box-shadow:0 0 0 .5px var(--ctlring),0 1px 2px rgba(0,0,0,.18);
+  }
+  .sel svg{color:var(--tx3);flex:none}
+
+  /* real (functional) dropdown — same skin as .sel */
+  .selwrap{position:relative;display:inline-flex;align-items:center;flex:none}
+  .selwrap select{
+    appearance:none;-webkit-appearance:none;
+    background:var(--ctl);border:none;border-radius:6.5px;
+    padding:3.5px 23px 3.5px 10px;
+    font-size:12px;color:var(--tx);font-family:inherit;cursor:pointer;outline:none;
+    box-shadow:0 0 0 .5px var(--ctlring),0 1px 2px rgba(0,0,0,.18);
+    max-width:170px;text-overflow:ellipsis;
+  }
+  .selwrap select:focus{box-shadow:0 0 0 .5px var(--ctlring),0 0 0 3px rgba(139,92,246,.18)}
+  .selwrap select option{background:#1c1a21;color:#efedf3}
+  .win.th-light .selwrap select option{background:#fcf9f3;color:#29241e}
+  .selwrap > svg{position:absolute;right:8px;pointer-events:none;color:var(--tx3)}
+
+  /* fixed-language warning — under the language row */
+  .langwarn{
+    display:flex;align-items:flex-start;gap:6px;
+    padding-left:25px; /* icon 15 + gap 10 → aligns with the row label */
+    font-size:11px;line-height:1.45;
+    color:rgba(255,159,10,.78);
+  }
+  .langwarn svg{width:12px;height:12px;flex:none;margin-top:1px}
+  .win.th-light .langwarn{color:#a96a0e}
+
+  .btn{
+    display:inline-flex;align-items:center;flex:none;
+    background:var(--ctl);border-radius:6.5px;padding:3px 10px;
+    font-size:12px;color:var(--tx);cursor:pointer;white-space:nowrap;
+    box-shadow:0 0 0 .5px var(--ctlring),0 1px 2px rgba(0,0,0,.18);
+  }
+  .txtbtn{font-size:12px;color:var(--tx3);cursor:pointer;flex:none;padding:2px 4px}
+  .txtbtn:hover{color:var(--tx);text-decoration:underline}
+
+  kbd{
+    font-family:inherit;font-size:11px;color:var(--tx);
+    background:var(--ctl);border-radius:4.5px;padding:1px 5.5px;
+    box-shadow:0 0 0 .5px var(--ctlring),0 1.5px 0 rgba(0,0,0,.3);
+    display:inline-block;min-width:13px;text-align:center;
+  }
+  .keyrec{
+    display:inline-flex;align-items:center;gap:4px;flex:none;
+    background:var(--inbg);border:1px solid var(--inbr);
+    border-radius:7px;padding:3.5px 9px;cursor:pointer;
+  }
+  .keyrec:hover{border-color:rgba(139,92,246,.55)}
+  .keyrec .hint{font-size:10px;color:var(--tx3);margin-left:3px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .chip{
+    display:inline-flex;align-items:center;gap:5px;flex:none;
+    background:rgba(139,92,246,.13);border:1px solid rgba(139,92,246,.3);
+    color:var(--purl);border-radius:999px;padding:2px 9px;font-size:11.5px;
+  }
+  .win.th-light .chip{color:#6d3fd8;background:rgba(139,92,246,.1)}
+  .chip .x{opacity:.55;font-size:11px;cursor:pointer;line-height:1}
+  .chip .x:hover{opacity:1}
+  .vin{
+    flex:1;min-width:96px;background:var(--inbg);border:1px solid var(--inbr);
+    border-radius:999px;padding:3px 11px;font-size:11.5px;color:var(--tx);font-family:inherit;outline:none;
+  }
+  .vin::placeholder{color:var(--tx3)}
+  .vin:focus{border-color:rgba(139,92,246,.6);box-shadow:0 0 0 3px rgba(139,92,246,.16)}
+
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.g{background:var(--green);box-shadow:0 0 7px rgba(50,215,75,.6)}
+  .dot.o{background:var(--orange);box-shadow:0 0 7px rgba(255,159,10,.6)}
+  .stat-ok{font-size:12px;color:var(--green);white-space:nowrap}
+  .stat-warn{font-size:11px;color:var(--orange);white-space:nowrap}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="brand">NoteTakr · Final</span>
+  <a href="final-editor.html">Editor</a>
+  <a href="final-switcher.html">Switcher</a>
+  <span class="here">Settings (this page)</span>
+  <a href="v4-settings.html">v4</a>
+  <span class="div"></span>
+  <a href="#f1">Glass · This Meeting</a>
+  <a href="#f2">Dark · General</a>
+</nav>
+
+<header class="pagehead">
+  <h1>Settings — Final</h1>
+  <p>Round 4 locked: icon-tab bottom sheet with the <b>Scope Banner</b>, no grabber, and the quiet bottom <b>Close ⎋esc</b> row. The one change here is the <b>General</b> tab: it now mirrors This Meeting as <b>defaults for new meetings</b> (transcribe, language, in-person) plus an App section — and picking a fixed transcription language instead of Auto-detect surfaces an inline warning.</p>
+</header>
+
+<!-- ================================================================
+     FINAL 1 — GLASS, THIS MEETING
+================================================================= -->
+<section id="f1">
+  <div class="vhead">
+    <h2><span class="tag">Final</span>Glass, This Meeting</h2>
+    <p class="rationale">The default state, unchanged from round 4: liquid-glass sheet over the live note, This Meeting tab active with the purple scope banner, and the bottom Close row as the only dismiss affordance.</p>
+  </div>
+  <div class="desktop bg1">
+    <div class="blob" style="width:380px;height:380px;left:8%;top:-80px;background:#e0479e"></div>
+    <div class="blob" style="width:320px;height:320px;right:6%;bottom:-80px;background:#6d4ae0"></div>
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg active" data-win="w1" data-mode="glass">Glass</span>
+        <span class="mg" data-win="w1" data-mode="dark">Dark</span>
+        <span class="mg" data-win="w1" data-mode="light">Light</span>
+      </div>
+      <div class="win th-glass" id="w1">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Today · 14:00–14:30 · Linked event</div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+          <div class="nline"><span class="cb"></span><span>Confirm Berlin offsite dates</span></div>
+          <div class="nh2">Decisions</div>
+          <p class="npara">Rollout slips one week. Jonas benchmarks Parakeet v3 on the M1 fleet.</p>
+          <div class="tcard">
+            <div class="th"><span class="recdot">●</span> Live transcript · German (auto)</div>
+            <div class="tl">„…wir sollten das Update erst nächste Woche ausrollen…"</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg></div>
+        </div>
+
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="ttabs">
+            <div class="ttab active" data-pane="p-mtg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/><path d="m9.5 15 2 2 3.5-3.5"/></svg>This Meeting</div>
+            <div class="ttab" data-pane="p-gen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>General</div>
+            <div class="ttab" data-pane="p-rec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 7v10M10 3.5v17M14 8v8M18 5.5v13M22 10v4"/></svg>Recording</div>
+            <div class="ttab" data-pane="p-voc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Vocabulary</div>
+            <div class="ttab" data-pane="p-perm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>Permissions</div>
+          </div>
+          <div class="scopebanner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg>
+            <span><b>Weekly Sync — Acme GmbH</b> — these settings apply only to this note</span>
+          </div>
+          <div class="sbody">
+
+            <div class="pane" data-id="p-mtg">
+              <div class="slabel">Transcription</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 10v4M7.5 6v12M12 3v18M16.5 8v8M21 10v4"/></svg></span><div class="fl"><div class="t">Transcribe this meeting</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg on"></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18"/></svg></span><div class="fl"><div class="t">Transcription language</div></div><div class="sel">German (auto-detected) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20.5c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg></span><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+              <div class="slabel">Calendar</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a5 5 0 0 0 7.1.4l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"/><path d="M14 10.5a5 5 0 0 0-7.1-.4l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><div class="fl"><div class="t">Linked calendar event</div><div class="sub">Weekly Sync — Acme GmbH ✓</div></div><div class="txtbtn">Unlink</div></div>
+              <div class="slabel">Vocabulary for this meeting</div>
+              <div class="row col">
+                <div class="fl"><div class="sub wrap" style="margin-top:2px">Boosted in recognition for this note only — global terms still apply.</div></div>
+                <div class="chips">
+                  <span class="chip">Acme <span class="x">×</span></span>
+                  <span class="chip">Müller <span class="x">×</span></span>
+                  <span class="chip">FluidAudio <span class="x">×</span></span>
+                  <input class="vin" placeholder="Add phrase…">
+                </div>
+              </div>
+            </div>
+
+            <div class="pane hidden" data-id="p-gen">
+              <div class="slabel">Defaults for new meetings</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 10v4M7.5 6v12M12 3v18M16.5 8v8M21 10v4"/></svg></span><div class="fl"><div class="t">Transcribe meetings</div><div class="sub">Every new meeting starts transcribing</div></div><div class="tg on"></div></div>
+              <div class="row col" style="gap:7px;padding-bottom:11px">
+                <div class="rline">
+                  <span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18"/></svg></span>
+                  <div class="fl"><div class="t">Transcription language</div></div>
+                  <span class="selwrap">
+                    <select class="langsel">
+                      <option value="auto" selected>Auto-detect (recommended)</option>
+                      <option value="de">German</option>
+                      <option value="en">English</option>
+                      <option value="fr">French</option>
+                      <option value="es">Spanish</option>
+                    </select>
+                    <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                </div>
+                <div class="langwarn hidden">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18.6a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                  <span>Meetings in any other language will be transcribed incorrectly. Auto-detect is recommended.</span>
+                </div>
+              </div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20.5c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg></span><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+              <div class="slabel">App</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10.25 10h.01M14 10h.01M17.75 10h.01M7.5 14h9"/></svg></span><div class="fl"><div class="t">Global hotkey</div></div><div class="keyrec"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span class="hint">click to record</span></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v9"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></span><div class="fl"><div class="t">Launch at login</div></div><div class="tg on"></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg></span><div class="fl"><div class="t">Appearance</div></div><div class="seg" style="width:188px"><span class="sg" data-win="w1" data-mode="glass">Glass</span><span class="sg" data-win="w1" data-mode="dark">Dark</span><span class="sg" data-win="w1" data-mode="light">Light</span></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-7l-2-2.5h-4a2 2 0 0 0-2 2.5z"/></svg></span><div class="fl"><div class="t">Notes folder</div><div class="sub mono">~/Library/Application Support/NoteTakr</div></div><div class="btn">Change…</div></div>
+            </div>
+
+            <div class="pane hidden" data-id="p-rec">
+              <div class="slabel">Engine</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2.5"/><path d="M9 2.5V5M15 2.5V5M9 19v2.5M15 19v2.5M2.5 9H5M2.5 15H5M19 9h2.5M19 15h2.5"/></svg></span><div class="fl"><div class="t">Model</div><div class="sub">Runs fully on-device</div></div><div class="sel">Parakeet v3 (local) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              <div class="slabel">Sources</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5"/></svg></span><div class="fl"><div class="t">Microphone</div><div class="sub">Your voice</div></div><div class="tg on"></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5.5 6.5 9H3v6h3.5L11 18.5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9.2 9.2 0 0 1 0 13"/></svg></span><div class="fl"><div class="t">System audio</div><div class="sub">Other participants in calls</div></div><div class="tg on"></div></div>
+            </div>
+
+            <div class="pane hidden" data-id="p-voc">
+              <div class="slabel">Global vocabulary</div>
+              <div class="row col">
+                <div class="fl"><div class="sub wrap" style="margin-top:2px">Names &amp; jargon boosted in every meeting. Per-meeting terms live on the This Meeting tab.</div></div>
+                <div class="chips">
+                  <span class="chip">NoteTakr <span class="x">×</span></span>
+                  <span class="chip">Parakeet <span class="x">×</span></span>
+                  <span class="chip">Kisters <span class="x">×</span></span>
+                  <input class="vin" placeholder="Add phrase…">
+                </div>
+              </div>
+              <div class="row"><div class="fl"><div class="t">Boost weight</div><div class="sub">How strongly matches are favored</div></div><div class="sel">×2.0 <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+            </div>
+
+            <div class="pane hidden" data-id="p-perm">
+              <div class="slabel">Permissions</div>
+              <div class="row"><span class="dot g"></span><div class="fl"><div class="t">Microphone</div><div class="sub">Required for transcription</div></div><span class="stat-ok">Granted ✓</span></div>
+              <div class="row"><span class="dot g"></span><div class="fl"><div class="t">Calendar</div><div class="sub">Links notes to events</div></div><span class="stat-ok">Granted ✓</span></div>
+              <div class="row"><span class="dot o"></span><div class="fl"><div class="t">System Audio</div><div class="sub"><span class="stat-warn">Restart required</span></div></div><div class="txtbtn">Grant</div></div>
+              <p class="fnote">macOS may ask again after updates. NoteTakr never sends audio off this Mac.</p>
+            </div>
+
+          </div>
+          <div class="sfoot">
+            <div class="closebtn">Close <kbd>⎋ esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     FINAL 2 — DARK, GENERAL (fixed language → warning visible)
+================================================================= -->
+<section id="f2">
+  <div class="vhead">
+    <h2><span class="tag">Final</span>Dark, General</h2>
+    <p class="rationale">The restructured General tab on solid Dark: the same options as This Meeting but as defaults for new meetings, then the App section — here the language default is fixed to German, so the inline warning is showing (switch the dropdown back to Auto-detect to dismiss it).</p>
+  </div>
+  <div class="desktop bg2">
+    <div class="blob" style="width:380px;height:380px;left:8%;top:-80px;background:#2e90fa"></div>
+    <div class="blob" style="width:320px;height:320px;right:8%;bottom:-70px;background:#7048e8"></div>
+    <div class="stage">
+      <div class="modeseg">
+        <span class="mg" data-win="w2" data-mode="glass">Glass</span>
+        <span class="mg active" data-win="w2" data-mode="dark">Dark</span>
+        <span class="mg" data-win="w2" data-mode="light">Light</span>
+      </div>
+      <div class="win th-dark" id="w2">
+        <div class="tbar">
+          <div class="lights"><span class="lt r"></span><span class="lt y"></span><span class="lt g"></span></div>
+          <div class="ttitle">Weekly Sync — Acme GmbH</div>
+        </div>
+        <div class="note">
+          <div class="ntitle">Weekly Sync — Acme GmbH</div>
+          <div class="nmeta">Today · 14:00–14:30 · Linked event</div>
+          <div class="nsep"></div>
+          <div class="nline done"><span class="cb on"></span><span>Send Q3 budget draft to Müller</span></div>
+          <div class="nline"><span class="cb"></span><span>FluidAudio latency regression (0.15.2)</span></div>
+          <div class="nline"><span class="cb"></span><span>Confirm Berlin offsite dates</span></div>
+          <div class="nh2">Decisions</div>
+          <p class="npara">Rollout slips one week. Jonas benchmarks Parakeet v3 on the M1 fleet.</p>
+          <div class="tcard">
+            <div class="th"><span class="recdot">●</span> Live transcript · German (auto)</div>
+            <div class="tl">„…wir sollten das Update erst nächste Woche ausrollen…"</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="recpill"><span class="recdot">●</span> 12:34</span>
+          <span>German · Parakeet v3</span>
+          <div class="gearbtn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg></div>
+        </div>
+
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="ttabs">
+            <div class="ttab" data-pane="p-mtg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/><path d="m9.5 15 2 2 3.5-3.5"/></svg>This Meeting</div>
+            <div class="ttab active" data-pane="p-gen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>General</div>
+            <div class="ttab" data-pane="p-rec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 7v10M10 3.5v17M14 8v8M18 5.5v13M22 10v4"/></svg>Recording</div>
+            <div class="ttab" data-pane="p-voc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Vocabulary</div>
+            <div class="ttab" data-pane="p-perm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>Permissions</div>
+          </div>
+          <div class="scopebanner hidden">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg>
+            <span><b>Weekly Sync — Acme GmbH</b> — these settings apply only to this note</span>
+          </div>
+          <div class="sbody">
+
+            <div class="pane hidden" data-id="p-mtg">
+              <div class="slabel">Transcription</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 10v4M7.5 6v12M12 3v18M16.5 8v8M21 10v4"/></svg></span><div class="fl"><div class="t">Transcribe this meeting</div></div><span class="recpill"><span class="recdot">●</span> 12:34</span><div class="tg on"></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18"/></svg></span><div class="fl"><div class="t">Transcription language</div></div><div class="sel">German (auto-detected) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20.5c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg></span><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+              <div class="slabel">Calendar</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a5 5 0 0 0 7.1.4l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"/><path d="M14 10.5a5 5 0 0 0-7.1-.4l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg></span><div class="fl"><div class="t">Linked calendar event</div><div class="sub">Weekly Sync — Acme GmbH ✓</div></div><div class="txtbtn">Unlink</div></div>
+              <div class="slabel">Vocabulary for this meeting</div>
+              <div class="row col">
+                <div class="fl"><div class="sub wrap" style="margin-top:2px">Boosted in recognition for this note only — global terms still apply.</div></div>
+                <div class="chips">
+                  <span class="chip">Acme <span class="x">×</span></span>
+                  <span class="chip">Müller <span class="x">×</span></span>
+                  <span class="chip">FluidAudio <span class="x">×</span></span>
+                  <input class="vin" placeholder="Add phrase…">
+                </div>
+              </div>
+            </div>
+
+            <div class="pane" data-id="p-gen">
+              <div class="slabel">Defaults for new meetings</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 10v4M7.5 6v12M12 3v18M16.5 8v8M21 10v4"/></svg></span><div class="fl"><div class="t">Transcribe meetings</div><div class="sub">Every new meeting starts transcribing</div></div><div class="tg on"></div></div>
+              <div class="row col" style="gap:7px;padding-bottom:11px">
+                <div class="rline">
+                  <span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18"/></svg></span>
+                  <div class="fl"><div class="t">Transcription language</div></div>
+                  <span class="selwrap">
+                    <select class="langsel">
+                      <option value="auto">Auto-detect (recommended)</option>
+                      <option value="de" selected>German</option>
+                      <option value="en">English</option>
+                      <option value="fr">French</option>
+                      <option value="es">Spanish</option>
+                    </select>
+                    <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                </div>
+                <div class="langwarn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18.6a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                  <span>Meetings in any other language will be transcribed incorrectly. Auto-detect is recommended.</span>
+                </div>
+              </div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20.5c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg></span><div class="fl"><div class="t">In-person meeting</div><div class="sub">Mic only — skips system audio</div></div><div class="tg"></div></div>
+              <div class="slabel">App</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10.25 10h.01M14 10h.01M17.75 10h.01M7.5 14h9"/></svg></span><div class="fl"><div class="t">Global hotkey</div></div><div class="keyrec"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span class="hint">click to record</span></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v9"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></span><div class="fl"><div class="t">Launch at login</div></div><div class="tg on"></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg></span><div class="fl"><div class="t">Appearance</div></div><div class="seg" style="width:188px"><span class="sg" data-win="w2" data-mode="glass">Glass</span><span class="sg active" data-win="w2" data-mode="dark">Dark</span><span class="sg" data-win="w2" data-mode="light">Light</span></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-7l-2-2.5h-4a2 2 0 0 0-2 2.5z"/></svg></span><div class="fl"><div class="t">Notes folder</div><div class="sub mono">~/Library/Application Support/NoteTakr</div></div><div class="btn">Change…</div></div>
+            </div>
+
+            <div class="pane hidden" data-id="p-rec">
+              <div class="slabel">Engine</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2.5"/><path d="M9 2.5V5M15 2.5V5M9 19v2.5M15 19v2.5M2.5 9H5M2.5 15H5M19 9h2.5M19 15h2.5"/></svg></span><div class="fl"><div class="t">Model</div><div class="sub">Runs fully on-device</div></div><div class="sel">Parakeet v3 (local) <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+              <div class="slabel">Sources</div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5"/></svg></span><div class="fl"><div class="t">Microphone</div><div class="sub">Your voice</div></div><div class="tg on"></div></div>
+              <div class="row"><span class="rg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5.5 6.5 9H3v6h3.5L11 18.5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9.2 9.2 0 0 1 0 13"/></svg></span><div class="fl"><div class="t">System audio</div><div class="sub">Other participants in calls</div></div><div class="tg on"></div></div>
+            </div>
+
+            <div class="pane hidden" data-id="p-voc">
+              <div class="slabel">Global vocabulary</div>
+              <div class="row col">
+                <div class="fl"><div class="sub wrap" style="margin-top:2px">Names &amp; jargon boosted in every meeting. Per-meeting terms live on the This Meeting tab.</div></div>
+                <div class="chips">
+                  <span class="chip">NoteTakr <span class="x">×</span></span>
+                  <span class="chip">Parakeet <span class="x">×</span></span>
+                  <span class="chip">Kisters <span class="x">×</span></span>
+                  <input class="vin" placeholder="Add phrase…">
+                </div>
+              </div>
+              <div class="row"><div class="fl"><div class="t">Boost weight</div><div class="sub">How strongly matches are favored</div></div><div class="sel">×2.0 <svg width="8" height="8" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+            </div>
+
+            <div class="pane hidden" data-id="p-perm">
+              <div class="slabel">Permissions</div>
+              <div class="row"><span class="dot g"></span><div class="fl"><div class="t">Microphone</div><div class="sub">Required for transcription</div></div><span class="stat-ok">Granted ✓</span></div>
+              <div class="row"><span class="dot g"></span><div class="fl"><div class="t">Calendar</div><div class="sub">Links notes to events</div></div><span class="stat-ok">Granted ✓</span></div>
+              <div class="row"><span class="dot o"></span><div class="fl"><div class="t">System Audio</div><div class="sub"><span class="stat-warn">Restart required</span></div></div><div class="txtbtn">Grant</div></div>
+              <p class="fnote">macOS may ask again after updates. NoteTakr never sends audio off this Mac.</p>
+            </div>
+
+          </div>
+          <div class="sfoot">
+            <div class="closebtn">Close <kbd>⎋ esc</kbd></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<p class="finalnote">Final settings mockup — saved at <code>design/mockups/final-settings.html</code>.</p>
+
+<div style="height:60px"></div>
+
+<script>
+  // ---- 3-way theme: outer trio + in-pane Appearance segment stay in sync ----
+  function setTheme(winId, mode){
+    var win = document.getElementById(winId);
+    win.classList.remove('th-glass','th-dark','th-light');
+    win.classList.add('th-' + mode);
+    document.querySelectorAll('[data-win="' + winId + '"][data-mode]').forEach(function(el){
+      el.classList.toggle('active', el.dataset.mode === mode);
+    });
+  }
+  document.querySelectorAll('[data-win][data-mode]').forEach(function(el){
+    el.addEventListener('click', function(){ setTheme(el.dataset.win, el.dataset.mode); });
+  });
+
+  // ---- icon tabs swap panes; scope banner only on This Meeting (scoped per sheet) ----
+  document.querySelectorAll('.sheet').forEach(function(sheet){
+    sheet.querySelectorAll('.ttab').forEach(function(tab){
+      tab.addEventListener('click', function(){
+        sheet.querySelectorAll('.ttab').forEach(function(t){ t.classList.toggle('active', t === tab); });
+        sheet.querySelectorAll('.pane').forEach(function(p){ p.classList.toggle('hidden', p.dataset.id !== tab.dataset.pane); });
+        var banner = sheet.querySelector('.scopebanner');
+        if (banner) banner.classList.toggle('hidden', tab.dataset.pane !== 'p-mtg');
+      });
+    });
+  });
+
+  // ---- toggles flip ----
+  document.querySelectorAll('.tg').forEach(function(t){
+    t.addEventListener('click', function(){ t.classList.toggle('on'); });
+  });
+
+  // ---- default language dropdown: fixed language reveals the warning ----
+  document.querySelectorAll('.langsel').forEach(function(sel){
+    sel.addEventListener('change', function(){
+      var warn = sel.closest('.row').querySelector('.langwarn');
+      if (warn) warn.classList.toggle('hidden', sel.value === 'auto');
+    });
+  });
+
+  // ---- vocabulary chips: remove + add ----
+  function wireChipX(x){ x.addEventListener('click', function(){ x.closest('.chip').remove(); }); }
+  document.querySelectorAll('.chip .x').forEach(wireChipX);
+  document.querySelectorAll('.vin').forEach(function(inp){
+    inp.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' && inp.value.trim()){
+        var c = document.createElement('span');
+        c.className = 'chip';
+        c.textContent = inp.value.trim() + ' ';
+        var x = document.createElement('span');
+        x.className = 'x'; x.textContent = '×';
+        wireChipX(x);
+        c.appendChild(x);
+        inp.before(c);
+        inp.value = '';
+      }
+    });
+  });
+</script>
+</body>
+</html>
