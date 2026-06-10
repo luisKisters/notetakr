@@ -4,10 +4,17 @@ import SwiftUI
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
+    private(set) var notePanelController: NotePanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        statusBarController = StatusBarController(model: .shared)
+
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let notesRoot = base.appendingPathComponent("NoteTakr/Sessions")
+        notePanelController = NotePanelController(notesRoot: notesRoot)
+
+        statusBarController = StatusBarController(model: .shared, notePanelController: notePanelController)
         UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
         NSApp.activate(ignoringOtherApps: true)
     }

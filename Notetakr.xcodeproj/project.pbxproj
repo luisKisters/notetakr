@@ -37,6 +37,11 @@
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
 		AAFADE000000000000000560 /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000851 /* NoteTakrKit */; };
+		AAFADE000000000000000578 /* NotePanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000540 /* NotePanelController.swift */; };
+		AAFADE000000000000000579 /* NoteEditorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000541 /* NoteEditorBridge.swift */; };
+		AAFADE00000000000000057A /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000542 /* EditorView.swift */; };
+		AAFADE00000000000000057B /* NotePanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000543 /* NotePanelTests.swift */; };
+		AAFADE00000000000000057C /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000853 /* NoteTakrKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +78,10 @@
 		AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FluidAudioAdapterTests.swift; path = NoteTakrTests/FluidAudioAdapterTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeetingNotificationScheduler.swift; path = NoteTakrApp/Notifications/MeetingNotificationScheduler.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021B /* MVPPolishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MVPPolishTests.swift; path = NoteTakrTests/MVPPolishTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000540 /* NotePanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotePanelController.swift; path = NoteTakrApp/NotePanelController.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000541 /* NoteEditorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteEditorBridge.swift; path = NoteTakrApp/NoteEditorBridge.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000542 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditorView.swift; path = NoteTakrApp/Views/EditorView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000543 /* NotePanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotePanelTests.swift; path = NoteTakrTests/NotePanelTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021C /* TranscriptionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinator.swift; path = NoteTakrApp/Transcription/TranscriptionCoordinator.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021D /* TranscriptionModelSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionModelSettings.swift; path = NoteTakrApp/Transcription/TranscriptionModelSettings.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsStoreTests.swift; path = NoteTakrTests/TranscriptionSettingsStoreTests.swift; sourceTree = "<group>"; };
@@ -97,6 +106,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAFADE000000000000000511 /* NoteTakrCore in Frameworks */,
+				AAFADE00000000000000057C /* NoteTakrKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,6 +144,9 @@
 				AAFADE00000000000000021D /* TranscriptionModelSettings.swift */,
 				AAFADE00000000000000021C /* TranscriptionCoordinator.swift */,
 				AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */,
+				AAFADE000000000000000540 /* NotePanelController.swift */,
+				AAFADE000000000000000541 /* NoteEditorBridge.swift */,
+				AAFADE000000000000000542 /* EditorView.swift */,
 			);
 			name = NoteTakrApp;
 			sourceTree = "<group>";
@@ -149,6 +162,7 @@
 				AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */,
 				AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */,
 				AAFADE00000000000000021B /* MVPPolishTests.swift */,
+				AAFADE000000000000000543 /* NotePanelTests.swift */,
 			);
 			name = NoteTakrTests;
 			sourceTree = "<group>";
@@ -202,6 +216,7 @@
 			name = NoteTakrTests;
 			packageProductDependencies = (
 				AAFADE000000000000000802 /* NoteTakrCore */,
+				AAFADE000000000000000853 /* NoteTakrKit */,
 			);
 			productName = NoteTakrTests;
 			productReference = AAFADE000000000000000310 /* NoteTakrTests.xctest */;
@@ -283,6 +298,9 @@
 				AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */,
 				AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */,
 				AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */,
+				AAFADE000000000000000578 /* NotePanelController.swift in Sources */,
+				AAFADE000000000000000579 /* NoteEditorBridge.swift in Sources */,
+				AAFADE00000000000000057A /* EditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -298,6 +316,7 @@
 				AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */,
 				AAFADE000000000000000524 /* TranscriptionCoordinatorTests.swift in Sources */,
 				AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */,
+				AAFADE00000000000000057B /* NotePanelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -566,6 +585,11 @@
 			productName = FluidAudio;
 		};
 		AAFADE000000000000000851 /* NoteTakrKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */;
+			productName = NoteTakrKit;
+		};
+		AAFADE000000000000000853 /* NoteTakrKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */;
 			productName = NoteTakrKit;

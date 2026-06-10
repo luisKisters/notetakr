@@ -8,12 +8,14 @@ import NoteTakrCore
 @MainActor
 final class StatusBarController: NSObject {
     private let model: AppModel
+    private weak var notePanelController: NotePanelController?
     private let statusItem: NSStatusItem
     private var recordingMenuItem: NSMenuItem?
     private var cancellables: Set<AnyCancellable> = []
 
-    init(model: AppModel) {
+    init(model: AppModel, notePanelController: NotePanelController? = nil) {
         self.model = model
+        self.notePanelController = notePanelController
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -44,6 +46,10 @@ final class StatusBarController: NSObject {
         let open = NSMenuItem(title: "Open NoteTakr", action: #selector(openMain), keyEquivalent: "")
         open.target = self
         menu.addItem(open)
+
+        let notePanel = NSMenuItem(title: "Open Note Panel", action: #selector(openNotePanel), keyEquivalent: "")
+        notePanel.target = self
+        menu.addItem(notePanel)
         menu.addItem(.separator())
 
         let quick = NSMenuItem(title: "Quick Recording", action: #selector(quickRecording), keyEquivalent: "")
@@ -77,6 +83,7 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func openMain() { model.showWindow(tab: .sessions) }
+    @objc private func openNotePanel() { notePanelController?.show() }
     @objc private func openSettings() { model.showWindow(tab: .settings) }
     @objc private func openRecordingsFolder() { model.openRecordingsFolder() }
     @objc private func quickRecording() { Task { await model.quickRecording() } }
