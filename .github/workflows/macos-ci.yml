@@ -7,8 +7,19 @@ on:
     branches: ["**"]
 
 jobs:
+  kit-tests:
+    name: Kit Tests (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build and test NoteTakrKit
+        run: cd NoteTakrKit && swift test
+
   swift-package-tests:
     name: Swift Package Tests (macOS)
+    needs: kit-tests
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -52,6 +63,7 @@ jobs:
 
   xcode-build-and-test:
     name: Xcode Build & Test
+    needs: kit-tests
     runs-on: macos-15
     steps:
       - name: Checkout

@@ -36,6 +36,7 @@
 		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
+		AAFADE000000000000000560 /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000851 /* NoteTakrKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -87,6 +88,7 @@
 			files = (
 				AAFADE000000000000000503 /* NoteTakrCore in Frameworks */,
 				AAFADE000000000000000525 /* FluidAudio in Frameworks */,
+				AAFADE000000000000000560 /* NoteTakrKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,6 +181,7 @@
 			packageProductDependencies = (
 				AAFADE000000000000000801 /* NoteTakrCore */,
 				AAFADE000000000000000803 /* FluidAudio */,
+				AAFADE000000000000000851 /* NoteTakrKit */,
 			);
 			productName = NoteTakr;
 			productReference = AAFADE000000000000000300 /* NoteTakr.app */;
@@ -234,6 +237,7 @@
 			mainGroup = AAFADE000000000000000100;
 			packageReferences = (
 				AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */,
+				AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */,
 				AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 			);
 			productRefGroup = AAFADE000000000000000130 /* Products */;
@@ -528,6 +532,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = .;
 		};
+		AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = NoteTakrKit;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -556,6 +564,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
+		};
+		AAFADE000000000000000851 /* NoteTakrKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */;
+			productName = NoteTakrKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

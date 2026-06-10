@@ -12,10 +12,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
+        .package(path: "NoteTakrKit"),
     ],
     targets: [
         .target(
             name: "NoteTakrCore",
+            dependencies: [
+                .product(name: "NoteTakrKit", package: "NoteTakrKit"),
+            ],
             path: "Sources/NoteTakrCore"
         ),
         .testTarget(

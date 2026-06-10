@@ -44,17 +44,17 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 1: Scaffold NoteTakrKit package and layered CI
 
-- [ ] Create `NoteTakrKit/` as a standalone SPM package (swift-tools 5.9): library target
+- [x] Create `NoteTakrKit/` as a standalone SPM package (swift-tools 5.9): library target
       `NoteTakrKit` (Foundation only — no AppKit/Combine/FluidAudio) and test target
       `NoteTakrKitTests`, with a placeholder type + one passing test.
-- [ ] Add the local package to the root `Package.swift` (`.package(path: "NoteTakrKit")`) and
+- [x] Add the local package to the root `Package.swift` (`.package(path: "NoteTakrKit")`) and
       make `NoteTakrCore` depend on the `NoteTakrKit` product. Add the package reference to
       `Notetakr.xcodeproj` so the app target can import it (edit `project.pbxproj` carefully:
       XCLocalSwiftPackageReference + product dependency on the NoteTakr target).
-- [ ] Add an `ubuntu-latest` job `kit-tests` to `.github/workflows/macos-ci.yml` running
+- [x] Add an `ubuntu-latest` job `kit-tests` to `.github/workflows/macos-ci.yml` running
       `cd NoteTakrKit && swift test` (use `swift-actions/setup-swift` or the `swift:6.0`
       container); make both macOS jobs `needs: kit-tests`.
-- [ ] Validate: Kit tests pass locally; push and confirm the full workflow (ubuntu + both
+- [x] Validate: Kit tests pass locally; push and confirm the full workflow (ubuntu + both
       macOS jobs) is green via `gh run watch`.
 
 ### Task 2: Frontmatter model and serializer (Kit)
