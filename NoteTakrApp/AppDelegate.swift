@@ -12,7 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         let notesRoot = base.appendingPathComponent("NoteTakr/Sessions")
-        notePanelController = NotePanelController(notesRoot: notesRoot)
+        notePanelController = NotePanelController(notesRoot: notesRoot, appModel: AppModel.shared)
 
         statusBarController = StatusBarController(model: .shared, notePanelController: notePanelController)
         UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")

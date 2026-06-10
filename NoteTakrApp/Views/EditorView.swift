@@ -1,10 +1,12 @@
 import SwiftUI
+import NoteTakrKit
 
-/// Main note editor: H1 title, chips row, property panel, plain markdown body.
-/// Dark appearance by default; appearance system wired in Task 15.
+private let accentColor = Color(red: 0.545, green: 0.361, blue: 0.965)
+
 struct EditorView: View {
     @ObservedObject var bridge: NoteEditorBridge
     @ObservedObject var frontmatterBridge: FrontmatterPresenterBridge
+    @ObservedObject var tabsBridge: NoteTabsBridge
 
     var body: some View {
         ZStack {
@@ -32,17 +34,62 @@ struct EditorView: View {
                     .fill(Color.white.opacity(0.08))
                     .frame(height: 1)
 
-                TextEditor(text: Binding(
-                    get: { bridge.body },
-                    set: { bridge.setBody($0) }
-                ))
-                .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.85))
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                tabContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                footerTabs
             }
         }
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch tabsBridge.selectedTab {
+        case .privateNotes:
+            TextEditor(text: Binding(
+                get: { bridge.body },
+                set: { bridge.setBody($0) }
+            ))
+            .font(.system(size: 14))
+            .foregroundColor(.white.opacity(0.85))
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        case .summary:
+            SummaryView(
+                state: tabsBridge.summaryState,
+                onGenerate: { tabsBridge.generateSummary() }
+            )
+        case .transcript:
+            TranscriptView(state: tabsBridge.transcriptState)
+        }
+    }
+
+    private var footerTabs: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 1)
+
+            HStack(spacing: 34) {
+                tabButton("Private Notes", tab: .privateNotes)
+                tabButton("Summary", tab: .summary)
+                tabButton("Transcript", tab: .transcript)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 42)
+        }
+    }
+
+    private func tabButton(_ label: String, tab: NoteTab) -> some View {
+        let isActive = tabsBridge.selectedTab == tab
+        return Button(label) {
+            tabsBridge.selectTab(tab)
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 12, weight: isActive ? .medium : .regular))
+        .foregroundColor(isActive ? accentColor : .white.opacity(0.45))
+        .animation(.easeInOut(duration: 0.15), value: tabsBridge.selectedTab)
     }
 }

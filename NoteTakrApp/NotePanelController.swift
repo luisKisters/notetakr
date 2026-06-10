@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
 import NoteTakrKit
+import NoteTakrCore
 
 /// Floating note panel (420×620). Owns the Kit NoteStore + NoteEditorBridge
-/// + FrontmatterPresenterBridge.
+/// + FrontmatterPresenterBridge + NoteTabsBridge.
 /// Menu bar "Open Note Panel" calls `show()`.
 @MainActor
 final class NotePanelController {
@@ -11,11 +12,49 @@ final class NotePanelController {
     private let store: NoteStore
     let bridge: NoteEditorBridge
     let frontmatterBridge: FrontmatterPresenterBridge
+    let tabsBridge: NoteTabsBridge
 
-    init(notesRoot: URL) {
+    private let sessionStore: SessionStore?
+
+    init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
         bridge = NoteEditorBridge(store: store)
         frontmatterBridge = FrontmatterPresenterBridge(store: store)
+
+        let generator: (any SummaryGenerating)?
+        let sessionStoreRef: SessionStore?
+
+        if let appModel {
+            let adapter = SummaryGeneratingAdapter(
+                sessionStore: appModel.store,
+                settingsStore: appModel.summarizationSettingsStore,
+                templateStore: appModel.summaryTemplateStore,
+                keychainStore: appModel.keychainStore
+            )
+            generator = adapter
+            sessionStoreRef = appModel.store
+        } else {
+            generator = nil
+            sessionStoreRef = nil
+        }
+        sessionStore = sessionStoreRef
+
+        let editorViewModel = bridge.viewModel
+        let presenter = NoteTabsPresenter(
+            summaryGenerator: generator,
+            editorFlush: { try editorViewModel.flush() }
+        )
+
+        if let ss = sessionStoreRef {
+            presenter.onPersistSummary = { noteID, summary in
+                guard let uuid = UUID(uuidString: noteID),
+                      var session = try? ss.load(id: uuid) else { return }
+                session.summary = summary
+                try? ss.save(session)
+            }
+        }
+
+        tabsBridge = NoteTabsBridge(presenter: presenter)
         buildPanel()
     }
 
@@ -52,19 +91,39 @@ final class NotePanelController {
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.center()
         p.contentView = NSHostingView(
-            rootView: EditorView(bridge: bridge, frontmatterBridge: frontmatterBridge)
+            rootView: EditorView(
+                bridge: bridge,
+                frontmatterBridge: frontmatterBridge,
+                tabsBridge: tabsBridge
+            )
         )
         self.panel = p
     }
 
     private func loadCurrentNote() {
         let notes = (try? store.list()) ?? []
+        let note: MeetingNote?
         if let first = notes.first {
-            try? bridge.viewModel.load(noteID: first.id)
-            frontmatterBridge.load(note: first)
-        } else if let note = try? store.create(title: "Untitled meeting", date: Date()) {
-            try? bridge.viewModel.load(noteID: note.id)
-            frontmatterBridge.load(note: note)
+            note = first
+        } else {
+            note = try? store.create(title: "Untitled meeting", date: Date())
+        }
+        guard let note else { return }
+
+        try? bridge.viewModel.load(noteID: note.id)
+        frontmatterBridge.load(note: note)
+        tabsBridge.load(noteID: note.id)
+
+        if let ss = sessionStore,
+           let uuid = UUID(uuidString: note.id),
+           let session = try? ss.load(id: uuid) {
+            let rawSegments = session.transcriptSegments.map { seg in
+                RawSegment(speaker: seg.speaker, timestamp: seg.timestamp, text: seg.text)
+            }
+            tabsBridge.presenter.setSegments(rawSegments, for: note.id)
+            if let summary = session.summary, !summary.isEmpty {
+                tabsBridge.presenter.setSummary(summary, for: note.id)
+            }
         }
     }
 }
