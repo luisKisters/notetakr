@@ -284,17 +284,17 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 16: RecordingNoteBridge (Kit)
 
-- [ ] In NoteTakrKit, add `RecordingNoteBridge`: connects a recording lifecycle (injected
+- [x] In NoteTakrKit, add `RecordingNoteBridge`: connects a recording lifecycle (injected
       protocol: start/stop events + elapsed) to note state — start marks the note live
       (drives the REC chip), stop clears live state and requests transcription ONLY when
       `EffectiveMeetingSettings.transcribe` is true, passing the resolved language and the
       merged vocabulary to an injected `TranscriptionRequesting` protocol; completion flips
       the Transcript tab state via `NoteTabsPresenter`.
-- [ ] Tests: full transition fixture (idle → recording → transcribing → ready); failure
+- [x] Tests: full transition fixture (idle → recording → transcribing → ready); failure
       path surfaces and is retryable; `transcribe:false` short-circuits (spy never called);
       fixed language and merged vocabulary are passed through verbatim; elapsed string
       matches the chip formatting from Task 6.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 17: Recording wiring and legacy cutover (App — CI-validated)
 
