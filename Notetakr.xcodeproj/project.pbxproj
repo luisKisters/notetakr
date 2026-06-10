@@ -11,8 +11,8 @@
 		AAFADE000000000000000501 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000201 /* AppDelegate.swift */; };
 		AAFADE000000000000000502 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000202 /* StatusBarController.swift */; };
 		AAFADE000000000000000503 /* NoteTakrCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000801 /* NoteTakrCore */; };
-		AAFADE000000000000000504 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000204 /* TodayView.swift */; };
-		AAFADE000000000000000505 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000205 /* SessionDetailView.swift */; };
+		AAFADE000000000000000591 /* TranscriptionRequestingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000558 /* TranscriptionRequestingAdapter.swift */; };
+		AAFADE000000000000000592 /* RecordingBridgeIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000559 /* RecordingBridgeIntegrationTests.swift */; };
 		AAFADE000000000000000510 /* NoteTakrLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */; };
 		AAFADE000000000000000511 /* NoteTakrCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000802 /* NoteTakrCore */; };
 		AAFADE000000000000000512 /* SessionViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000211 /* SessionViewTests.swift */; };
@@ -25,17 +25,38 @@
 		AAFADE000000000000000518 /* NativeAudioRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000217 /* NativeAudioRecorderTests.swift */; };
 		AAFADE000000000000000519 /* FluidAudioAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000218 /* FluidAudioAdapter.swift */; };
 		AAFADE000000000000000530 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000230 /* AppModel.swift */; };
-		AAFADE000000000000000531 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000231 /* MainWindowView.swift */; };
-		AAFADE000000000000000532 /* SessionDetailPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000232 /* SessionDetailPane.swift */; };
-		AAFADE000000000000000533 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000233 /* CalendarView.swift */; };
 		AAFADE000000000000000520 /* FluidAudioAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */; };
-		AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021C /* TranscriptionCoordinator.swift */; };
 		AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021D /* TranscriptionModelSettings.swift */; };
 		AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */; };
-		AAFADE000000000000000524 /* TranscriptionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */; };
 		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
+		AAFADE000000000000000560 /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000851 /* NoteTakrKit */; };
+		AAFADE000000000000000578 /* NotePanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000540 /* NotePanelController.swift */; };
+		AAFADE000000000000000579 /* NoteEditorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000541 /* NoteEditorBridge.swift */; };
+		AAFADE00000000000000057A /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000542 /* EditorView.swift */; };
+		AAFADE00000000000000057B /* NotePanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000543 /* NotePanelTests.swift */; };
+		AAFADE00000000000000057C /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000853 /* NoteTakrKit */; };
+		AAFADE00000000000000057D /* FrontmatterPresenterBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000544 /* FrontmatterPresenterBridge.swift */; };
+		AAFADE00000000000000057E /* ChipsRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000545 /* ChipsRowView.swift */; };
+		AAFADE00000000000000057F /* PropertyPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000546 /* PropertyPanelView.swift */; };
+		AAFADE000000000000000580 /* FrontmatterPresenterBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000547 /* FrontmatterPresenterBridgeTests.swift */; };
+		AAFADE000000000000000581 /* NoteTabsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000548 /* NoteTabsBridge.swift */; };
+		AAFADE000000000000000582 /* SummaryGeneratingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000549 /* SummaryGeneratingAdapter.swift */; };
+		AAFADE000000000000000583 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054A /* SummaryView.swift */; };
+		AAFADE000000000000000584 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054B /* TranscriptView.swift */; };
+		AAFADE000000000000000585 /* NoteTabsBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054C /* NoteTabsBridgeTests.swift */; };
+		AAFADE000000000000000586 /* SwitcherBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054D /* SwitcherBridge.swift */; };
+		AAFADE000000000000000587 /* SwitcherOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054E /* SwitcherOverlayView.swift */; };
+		AAFADE000000000000000588 /* SwitcherOverlayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054F /* SwitcherOverlayTests.swift */; };
+		AAFADE000000000000000589 /* SettingsSheetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000550 /* SettingsSheetViewModel.swift */; };
+		AAFADE00000000000000058A /* SettingsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000551 /* SettingsSheetView.swift */; };
+		AAFADE00000000000000058B /* SettingsSheetViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000552 /* SettingsSheetViewModelTests.swift */; };
+		AAFADE00000000000000058C /* ThemeEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000553 /* ThemeEnvironment.swift */; };
+		AAFADE00000000000000058D /* VisualEffectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000554 /* VisualEffectView.swift */; };
+		AAFADE00000000000000058E /* PanelToggleCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000555 /* PanelToggleCoordinator.swift */; };
+		AAFADE00000000000000058F /* CarbonHotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000556 /* CarbonHotkeyRegistrar.swift */; };
+		AAFADE000000000000000590 /* PanelToggleCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000557 /* PanelToggleCoordinatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,8 +74,8 @@
 		AAFADE000000000000000201 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = NoteTakrApp/AppDelegate.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000202 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StatusBarController.swift; path = NoteTakrApp/StatusBarController.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000203 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = NoteTakrApp/Info.plist; sourceTree = "<group>"; };
-		AAFADE000000000000000204 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TodayView.swift; path = NoteTakrApp/Views/TodayView.swift; sourceTree = "<group>"; };
-		AAFADE000000000000000205 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionDetailView.swift; path = NoteTakrApp/Views/SessionDetailView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000558 /* TranscriptionRequestingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionRequestingAdapter.swift; path = NoteTakrApp/Transcription/TranscriptionRequestingAdapter.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000559 /* RecordingBridgeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecordingBridgeIntegrationTests.swift; path = NoteTakrTests/RecordingBridgeIntegrationTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitCalendarAdapter.swift; path = NoteTakrApp/Calendar/EventKitCalendarAdapter.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTakrLaunchTests.swift; path = NoteTakrTests/NoteTakrLaunchTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000211 /* SessionViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionViewTests.swift; path = NoteTakrTests/SessionViewTests.swift; sourceTree = "<group>"; };
@@ -66,16 +87,35 @@
 		AAFADE000000000000000217 /* NativeAudioRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeAudioRecorderTests.swift; path = NoteTakrTests/NativeAudioRecorderTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000218 /* FluidAudioAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FluidAudioAdapter.swift; path = NoteTakrApp/Transcription/FluidAudioAdapter.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000230 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppModel.swift; path = NoteTakrApp/AppModel.swift; sourceTree = "<group>"; };
-		AAFADE000000000000000231 /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MainWindowView.swift; path = NoteTakrApp/Views/MainWindowView.swift; sourceTree = "<group>"; };
-		AAFADE000000000000000232 /* SessionDetailPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionDetailPane.swift; path = NoteTakrApp/Views/SessionDetailPane.swift; sourceTree = "<group>"; };
-		AAFADE000000000000000233 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarView.swift; path = NoteTakrApp/Views/CalendarView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FluidAudioAdapterTests.swift; path = NoteTakrTests/FluidAudioAdapterTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeetingNotificationScheduler.swift; path = NoteTakrApp/Notifications/MeetingNotificationScheduler.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021B /* MVPPolishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MVPPolishTests.swift; path = NoteTakrTests/MVPPolishTests.swift; sourceTree = "<group>"; };
-		AAFADE00000000000000021C /* TranscriptionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinator.swift; path = NoteTakrApp/Transcription/TranscriptionCoordinator.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000540 /* NotePanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotePanelController.swift; path = NoteTakrApp/NotePanelController.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000541 /* NoteEditorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteEditorBridge.swift; path = NoteTakrApp/NoteEditorBridge.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000542 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditorView.swift; path = NoteTakrApp/Views/EditorView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000543 /* NotePanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotePanelTests.swift; path = NoteTakrTests/NotePanelTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000544 /* FrontmatterPresenterBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FrontmatterPresenterBridge.swift; path = NoteTakrApp/FrontmatterPresenterBridge.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000545 /* ChipsRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ChipsRowView.swift; path = NoteTakrApp/Views/ChipsRowView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000546 /* PropertyPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PropertyPanelView.swift; path = NoteTakrApp/Views/PropertyPanelView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000547 /* FrontmatterPresenterBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FrontmatterPresenterBridgeTests.swift; path = NoteTakrTests/FrontmatterPresenterBridgeTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000548 /* NoteTabsBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTabsBridge.swift; path = NoteTakrApp/NoteTabsBridge.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000549 /* SummaryGeneratingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SummaryGeneratingAdapter.swift; path = NoteTakrApp/SummaryGeneratingAdapter.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000054A /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SummaryView.swift; path = NoteTakrApp/Views/SummaryView.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000054B /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptView.swift; path = NoteTakrApp/Views/TranscriptView.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000054C /* NoteTabsBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTabsBridgeTests.swift; path = NoteTakrTests/NoteTabsBridgeTests.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000054D /* SwitcherBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwitcherBridge.swift; path = NoteTakrApp/SwitcherBridge.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000054E /* SwitcherOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwitcherOverlayView.swift; path = NoteTakrApp/Views/SwitcherOverlayView.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000054F /* SwitcherOverlayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwitcherOverlayTests.swift; path = NoteTakrTests/SwitcherOverlayTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000550 /* SettingsSheetViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsSheetViewModel.swift; path = NoteTakrApp/SettingsSheetViewModel.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000551 /* SettingsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsSheetView.swift; path = NoteTakrApp/Views/SettingsSheetView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000552 /* SettingsSheetViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsSheetViewModelTests.swift; path = NoteTakrTests/SettingsSheetViewModelTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000553 /* ThemeEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ThemeEnvironment.swift; path = NoteTakrApp/ThemeEnvironment.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000554 /* VisualEffectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VisualEffectView.swift; path = NoteTakrApp/Views/VisualEffectView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000555 /* PanelToggleCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PanelToggleCoordinator.swift; path = NoteTakrApp/PanelToggleCoordinator.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000556 /* CarbonHotkeyRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CarbonHotkeyRegistrar.swift; path = NoteTakrApp/CarbonHotkeyRegistrar.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000557 /* PanelToggleCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PanelToggleCoordinatorTests.swift; path = NoteTakrTests/PanelToggleCoordinatorTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021D /* TranscriptionModelSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionModelSettings.swift; path = NoteTakrApp/Transcription/TranscriptionModelSettings.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsStoreTests.swift; path = NoteTakrTests/TranscriptionSettingsStoreTests.swift; sourceTree = "<group>"; };
-		AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinatorTests.swift; path = NoteTakrTests/TranscriptionCoordinatorTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000300 /* NoteTakr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteTakr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAFADE000000000000000310 /* NoteTakrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteTakrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -87,6 +127,7 @@
 			files = (
 				AAFADE000000000000000503 /* NoteTakrCore in Frameworks */,
 				AAFADE000000000000000525 /* FluidAudio in Frameworks */,
+				AAFADE000000000000000560 /* NoteTakrKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -95,6 +136,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAFADE000000000000000511 /* NoteTakrCore in Frameworks */,
+				AAFADE00000000000000057C /* NoteTakrKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,8 +159,6 @@
 				AAFADE000000000000000201 /* AppDelegate.swift */,
 				AAFADE000000000000000202 /* StatusBarController.swift */,
 				AAFADE000000000000000203 /* Info.plist */,
-				AAFADE000000000000000204 /* TodayView.swift */,
-				AAFADE000000000000000205 /* SessionDetailView.swift */,
 				AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */,
 				AAFADE000000000000000213 /* NativeAudioRecorder.swift */,
 				AAFADE000000000000000214 /* SystemAudioCapturer.swift */,
@@ -126,12 +166,27 @@
 				AAFADE000000000000000216 /* SettingsView.swift */,
 				AAFADE000000000000000218 /* FluidAudioAdapter.swift */,
 				AAFADE000000000000000230 /* AppModel.swift */,
-				AAFADE000000000000000231 /* MainWindowView.swift */,
-				AAFADE000000000000000232 /* SessionDetailPane.swift */,
-				AAFADE000000000000000233 /* CalendarView.swift */,
 				AAFADE00000000000000021D /* TranscriptionModelSettings.swift */,
-				AAFADE00000000000000021C /* TranscriptionCoordinator.swift */,
+				AAFADE000000000000000558 /* TranscriptionRequestingAdapter.swift */,
 				AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */,
+				AAFADE000000000000000540 /* NotePanelController.swift */,
+				AAFADE000000000000000541 /* NoteEditorBridge.swift */,
+				AAFADE000000000000000544 /* FrontmatterPresenterBridge.swift */,
+				AAFADE000000000000000542 /* EditorView.swift */,
+				AAFADE000000000000000545 /* ChipsRowView.swift */,
+				AAFADE000000000000000546 /* PropertyPanelView.swift */,
+				AAFADE000000000000000548 /* NoteTabsBridge.swift */,
+				AAFADE000000000000000549 /* SummaryGeneratingAdapter.swift */,
+				AAFADE00000000000000054A /* SummaryView.swift */,
+				AAFADE00000000000000054B /* TranscriptView.swift */,
+				AAFADE00000000000000054D /* SwitcherBridge.swift */,
+				AAFADE00000000000000054E /* SwitcherOverlayView.swift */,
+				AAFADE000000000000000550 /* SettingsSheetViewModel.swift */,
+				AAFADE000000000000000551 /* SettingsSheetView.swift */,
+				AAFADE000000000000000553 /* ThemeEnvironment.swift */,
+				AAFADE000000000000000554 /* VisualEffectView.swift */,
+				AAFADE000000000000000555 /* PanelToggleCoordinator.swift */,
+				AAFADE000000000000000556 /* CarbonHotkeyRegistrar.swift */,
 			);
 			name = NoteTakrApp;
 			sourceTree = "<group>";
@@ -145,8 +200,14 @@
 				AAFADE000000000000000217 /* NativeAudioRecorderTests.swift */,
 				AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */,
 				AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */,
-				AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */,
 				AAFADE00000000000000021B /* MVPPolishTests.swift */,
+				AAFADE000000000000000559 /* RecordingBridgeIntegrationTests.swift */,
+				AAFADE000000000000000543 /* NotePanelTests.swift */,
+				AAFADE000000000000000547 /* FrontmatterPresenterBridgeTests.swift */,
+				AAFADE00000000000000054C /* NoteTabsBridgeTests.swift */,
+				AAFADE00000000000000054F /* SwitcherOverlayTests.swift */,
+				AAFADE000000000000000552 /* SettingsSheetViewModelTests.swift */,
+				AAFADE000000000000000557 /* PanelToggleCoordinatorTests.swift */,
 			);
 			name = NoteTakrTests;
 			sourceTree = "<group>";
@@ -179,6 +240,7 @@
 			packageProductDependencies = (
 				AAFADE000000000000000801 /* NoteTakrCore */,
 				AAFADE000000000000000803 /* FluidAudio */,
+				AAFADE000000000000000851 /* NoteTakrKit */,
 			);
 			productName = NoteTakr;
 			productReference = AAFADE000000000000000300 /* NoteTakr.app */;
@@ -199,6 +261,7 @@
 			name = NoteTakrTests;
 			packageProductDependencies = (
 				AAFADE000000000000000802 /* NoteTakrCore */,
+				AAFADE000000000000000853 /* NoteTakrKit */,
 			);
 			productName = NoteTakrTests;
 			productReference = AAFADE000000000000000310 /* NoteTakrTests.xctest */;
@@ -234,6 +297,7 @@
 			mainGroup = AAFADE000000000000000100;
 			packageReferences = (
 				AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */,
+				AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */,
 				AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 			);
 			productRefGroup = AAFADE000000000000000130 /* Products */;
@@ -264,8 +328,6 @@
 				AAFADE000000000000000500 /* NoteTakrApp.swift in Sources */,
 				AAFADE000000000000000501 /* AppDelegate.swift in Sources */,
 				AAFADE000000000000000502 /* StatusBarController.swift in Sources */,
-				AAFADE000000000000000504 /* TodayView.swift in Sources */,
-				AAFADE000000000000000505 /* SessionDetailView.swift in Sources */,
 				AAFADE000000000000000506 /* EventKitCalendarAdapter.swift in Sources */,
 				AAFADE000000000000000514 /* NativeAudioRecorder.swift in Sources */,
 				AAFADE000000000000000515 /* SystemAudioCapturer.swift in Sources */,
@@ -273,12 +335,27 @@
 				AAFADE000000000000000517 /* SettingsView.swift in Sources */,
 				AAFADE000000000000000519 /* FluidAudioAdapter.swift in Sources */,
 				AAFADE000000000000000530 /* AppModel.swift in Sources */,
-				AAFADE000000000000000531 /* MainWindowView.swift in Sources */,
-				AAFADE000000000000000532 /* SessionDetailPane.swift in Sources */,
-				AAFADE000000000000000533 /* CalendarView.swift in Sources */,
 				AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */,
-				AAFADE000000000000000521 /* TranscriptionCoordinator.swift in Sources */,
+				AAFADE000000000000000591 /* TranscriptionRequestingAdapter.swift in Sources */,
 				AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */,
+				AAFADE000000000000000578 /* NotePanelController.swift in Sources */,
+				AAFADE000000000000000579 /* NoteEditorBridge.swift in Sources */,
+				AAFADE00000000000000057D /* FrontmatterPresenterBridge.swift in Sources */,
+				AAFADE00000000000000057A /* EditorView.swift in Sources */,
+				AAFADE00000000000000057E /* ChipsRowView.swift in Sources */,
+				AAFADE00000000000000057F /* PropertyPanelView.swift in Sources */,
+				AAFADE000000000000000581 /* NoteTabsBridge.swift in Sources */,
+				AAFADE000000000000000582 /* SummaryGeneratingAdapter.swift in Sources */,
+				AAFADE000000000000000583 /* SummaryView.swift in Sources */,
+				AAFADE000000000000000584 /* TranscriptView.swift in Sources */,
+				AAFADE000000000000000586 /* SwitcherBridge.swift in Sources */,
+				AAFADE000000000000000587 /* SwitcherOverlayView.swift in Sources */,
+				AAFADE000000000000000589 /* SettingsSheetViewModel.swift in Sources */,
+				AAFADE00000000000000058A /* SettingsSheetView.swift in Sources */,
+				AAFADE00000000000000058C /* ThemeEnvironment.swift in Sources */,
+				AAFADE00000000000000058D /* VisualEffectView.swift in Sources */,
+				AAFADE00000000000000058E /* PanelToggleCoordinator.swift in Sources */,
+				AAFADE00000000000000058F /* CarbonHotkeyRegistrar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -292,8 +369,14 @@
 				AAFADE000000000000000518 /* NativeAudioRecorderTests.swift in Sources */,
 				AAFADE000000000000000520 /* FluidAudioAdapterTests.swift in Sources */,
 				AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */,
-				AAFADE000000000000000524 /* TranscriptionCoordinatorTests.swift in Sources */,
 				AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */,
+				AAFADE000000000000000592 /* RecordingBridgeIntegrationTests.swift in Sources */,
+				AAFADE00000000000000057B /* NotePanelTests.swift in Sources */,
+				AAFADE000000000000000580 /* FrontmatterPresenterBridgeTests.swift in Sources */,
+				AAFADE000000000000000585 /* NoteTabsBridgeTests.swift in Sources */,
+				AAFADE000000000000000588 /* SwitcherOverlayTests.swift in Sources */,
+				AAFADE00000000000000058B /* SettingsSheetViewModelTests.swift in Sources */,
+				AAFADE000000000000000590 /* PanelToggleCoordinatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -528,6 +611,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = .;
 		};
+		AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = NoteTakrKit;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -556,6 +643,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
+		};
+		AAFADE000000000000000851 /* NoteTakrKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */;
+			productName = NoteTakrKit;
+		};
+		AAFADE000000000000000853 /* NoteTakrKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */;
+			productName = NoteTakrKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
