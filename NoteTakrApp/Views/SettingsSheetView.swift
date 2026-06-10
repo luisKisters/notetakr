@@ -388,16 +388,11 @@ struct SettingsSheetView: View {
                     .iconStyle()
                 Text("Global hotkey").font(.system(size: 13)).foregroundColor(textPrimary)
                 Spacer()
-                // Display-only until Task 15
-                Text(viewModel.appSettings.hotkey)
-                    .font(.system(size: 12))
-                    .foregroundColor(textSecondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3)
-                    .background(controlBg)
-                    .cornerRadius(7)
-                    .overlay(RoundedRectangle(cornerRadius: 7)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                HotkeyRecorderView(
+                    combo: viewModel.appSettings.hotkey,
+                    onComboChange: { viewModel.setHotkey($0) }
+                )
+                .frame(width: 110, height: 26)
             }
 
             settingsRow {
@@ -419,10 +414,9 @@ struct SettingsSheetView: View {
                     .iconStyle()
                 Text("Appearance").font(.system(size: 13)).foregroundColor(textPrimary)
                 Spacer()
-                // Display-only segmented until Task 15
                 Picker("", selection: Binding(
-                    get: { viewModel.appSettings.appearance },
-                    set: { _ in }
+                    get: { viewModel.currentAppearance },
+                    set: { viewModel.setAppearance($0) }
                 )) {
                     Text("Glass").tag(Appearance.glass)
                     Text("Dark").tag(Appearance.dark)
@@ -430,7 +424,6 @@ struct SettingsSheetView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 152)
-                .disabled(true)
             }
 
             settingsRow {
@@ -812,5 +805,120 @@ private extension Image {
         self.font(.system(size: 14, weight: .light))
             .frame(width: 15, height: 15)
             .foregroundColor(Color.white.opacity(0.4))
+    }
+}
+
+// MARK: - HotkeyRecorderView
+
+/// Editable hotkey recorder backed by a custom NSControl.
+/// Shows the current combo; click to enter recording mode; press modifier+key to save.
+private struct HotkeyRecorderView: NSViewRepresentable {
+    let combo: HotkeyCombo
+    let onComboChange: (HotkeyCombo) -> Void
+
+    func makeNSView(context: Context) -> HotkeyRecorderControl {
+        let control = HotkeyRecorderControl()
+        control.displayCombo = combo
+        control.onComboChange = onComboChange
+        return control
+    }
+
+    func updateNSView(_ control: HotkeyRecorderControl, context: Context) {
+        if !control.isRecording {
+            control.displayCombo = combo
+        }
+    }
+}
+
+/// NSControl that renders a hotkey pill and captures key events when focused.
+final class HotkeyRecorderControl: NSControl {
+    var displayCombo: HotkeyCombo? {
+        didSet { if !isRecording { refreshLabel() } }
+    }
+    var onComboChange: ((HotkeyCombo) -> Void)?
+    private(set) var isRecording = false
+
+    private let label = NSTextField(labelWithString: "")
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        configure()
+    }
+    required init?(coder: NSCoder) { nil }
+
+    override var acceptsFirstResponder: Bool { true }
+    override var canBecomeKeyView: Bool { true }
+
+    private func configure() {
+        wantsLayer = true
+        layer?.cornerRadius = 7
+        layer?.borderWidth = 0.5
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.09).cgColor
+
+        label.isBezeled = false
+        label.isEditable = false
+        label.drawsBackground = false
+        label.alignment = .center
+        label.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        label.textColor = NSColor.labelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+
+        addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(clicked)))
+        refreshLabel()
+    }
+
+    @objc private func clicked() {
+        window?.makeFirstResponder(self)
+        startRecording()
+    }
+
+    private func startRecording() {
+        isRecording = true
+        label.stringValue = "Press shortcut\u{2026}"
+        label.textColor = NSColor.secondaryLabelColor
+        layer?.borderColor = NSColor.controlAccentColor.cgColor
+    }
+
+    private func stopRecording() {
+        isRecording = false
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        refreshLabel()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard isRecording else { super.keyDown(with: event); return }
+
+        var mods = HotkeyCombo.Modifiers()
+        let flags = event.modifierFlags
+        if flags.contains(.command) { mods.insert(.command) }
+        if flags.contains(.option)  { mods.insert(.option) }
+        if flags.contains(.shift)   { mods.insert(.shift) }
+        if flags.contains(.control) { mods.insert(.control) }
+
+        let chars = (event.charactersIgnoringModifiers ?? "").uppercased()
+        guard let keyChar = chars.first,
+              let combo = try? HotkeyCombo(modifiers: mods, key: keyChar) else {
+            return
+        }
+
+        onComboChange?(combo)
+        stopRecording()
+    }
+
+    override func resignFirstResponder() -> Bool {
+        if isRecording { stopRecording() }
+        return super.resignFirstResponder()
+    }
+
+    private func refreshLabel() {
+        label.stringValue = displayCombo?.displayString ?? "None"
+        label.textColor = NSColor.labelColor
     }
 }

@@ -268,19 +268,19 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 15: Appearance system and global hotkey (App — CI-validated)
 
-- [ ] Apply Kit `Theme` tokens through SwiftUI environment: Glass = NSVisualEffectView
+- [x] Apply Kit `Theme` tokens through SwiftUI environment: Glass = NSVisualEffectView
       behind the content (`.hudWindow`-style material) + subtle grain overlay; Dark/Light =
       solid token backgrounds. The Appearance control in General re-skins the open panel
       live; persists via `AppSettingsStore`.
-- [ ] Global hotkey: `HotkeyRegistering` protocol + Carbon `RegisterEventHotKey`
+- [x] Global hotkey: `HotkeyRegistering` protocol + Carbon `RegisterEventHotKey`
       implementation; register from `AppSettingsStore.hotkey` at launch, re-register on
       change via the (now editable) recorder field in General. Hotkey toggles the panel:
       hidden → show + focus editor; visible → hide (flushing pending saves). Keep the panel
       toggle logic in a plain `PanelToggleCoordinator` class for testability.
-- [ ] App-target tests: `PanelToggleCoordinator` state machine with a fake registrar
+- [x] App-target tests: `PanelToggleCoordinator` state machine with a fake registrar
       (toggle/show/hide/flush-called); appearance change applies exactly one re-skin;
       hotkey re-registration on settings change.
-- [ ] Validate: Kit loop + push + `gh run watch` green. Commit.
+- [x] Validate: Kit loop + push + `gh run watch` green. Commit.
 
 ### Task 16: RecordingNoteBridge (Kit)
 

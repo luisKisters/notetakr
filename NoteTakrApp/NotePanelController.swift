@@ -138,7 +138,9 @@ final class NotePanelController {
         p.titleVisibility = .hidden
         p.titlebarAppearsTransparent = true
         p.isMovableByWindowBackground = true
-        p.backgroundColor = NSColor(red: 0.082, green: 0.078, blue: 0.090, alpha: 1)
+        // Always non-opaque: SwiftUI content handles all appearance including Glass blur.
+        p.isOpaque = false
+        p.backgroundColor = .clear
         p.minSize = NSSize(width: 300, height: 400)
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true

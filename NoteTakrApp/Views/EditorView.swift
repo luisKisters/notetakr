@@ -12,9 +12,14 @@ struct EditorView: View {
 
     @State private var isHoveringPanel: Bool = false
 
+    private var themeColors: ThemeColors {
+        Theme.colors(for: settingsBridge.currentAppearance)
+    }
+
     var body: some View {
         ZStack {
-            Color(red: 0.082, green: 0.078, blue: 0.090)
+            // Appearance-aware background
+            panelBackground
                 .ignoresSafeArea()
 
             // ⌘K switcher overlay (sits over the entire editor when visible)
@@ -103,6 +108,21 @@ struct EditorView: View {
                 .keyboardShortcut("k", modifiers: .command)
                 .hidden()
         )
+    }
+
+    @ViewBuilder
+    private var panelBackground: some View {
+        switch settingsBridge.currentAppearance {
+        case .glass:
+            ZStack {
+                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                Color.white.opacity(0.02) // subtle grain tint
+            }
+        case .dark:
+            Theme.dark.background.swiftUIColor
+        case .light:
+            Theme.light.background.swiftUIColor
+        }
     }
 
     @ViewBuilder

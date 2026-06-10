@@ -19,13 +19,18 @@ enum SettingsTab: CaseIterable, Equatable {
 final class SettingsSheetViewModel: ObservableObject {
     @Published var selectedTab: SettingsTab = .thisMeeting
     @Published var isVisible: Bool = false
+    @Published var currentAppearance: Appearance
 
     let frontmatterBridge: FrontmatterPresenterBridge
     let appSettings: AppSettingsStore
 
+    /// Called when the user records a new hotkey so the coordinator can re-register.
+    var onHotkeyChange: ((HotkeyCombo) -> Void)?
+
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
         self.appSettings = appSettings
+        self.currentAppearance = appSettings.appearance
     }
 
     // MARK: - Derived state
@@ -79,6 +84,16 @@ final class SettingsSheetViewModel: ObservableObject {
 
     func setLaunchAtLogin(_ value: Bool) {
         appSettings.launchAtLogin = value
+    }
+
+    func setAppearance(_ appearance: Appearance) {
+        appSettings.appearance = appearance
+        currentAppearance = appearance
+    }
+
+    func setHotkey(_ combo: HotkeyCombo) {
+        appSettings.hotkey = combo
+        onHotkeyChange?(combo)
     }
 
     // MARK: - Sheet lifecycle

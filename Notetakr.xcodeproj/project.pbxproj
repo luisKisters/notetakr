@@ -57,6 +57,11 @@
 		AAFADE000000000000000589 /* SettingsSheetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000550 /* SettingsSheetViewModel.swift */; };
 		AAFADE00000000000000058A /* SettingsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000551 /* SettingsSheetView.swift */; };
 		AAFADE00000000000000058B /* SettingsSheetViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000552 /* SettingsSheetViewModelTests.swift */; };
+		AAFADE00000000000000058C /* ThemeEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000553 /* ThemeEnvironment.swift */; };
+		AAFADE00000000000000058D /* VisualEffectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000554 /* VisualEffectView.swift */; };
+		AAFADE00000000000000058E /* PanelToggleCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000555 /* PanelToggleCoordinator.swift */; };
+		AAFADE00000000000000058F /* CarbonHotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000556 /* CarbonHotkeyRegistrar.swift */; };
+		AAFADE000000000000000590 /* PanelToggleCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000557 /* PanelToggleCoordinatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -112,6 +117,11 @@
 		AAFADE000000000000000550 /* SettingsSheetViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsSheetViewModel.swift; path = NoteTakrApp/SettingsSheetViewModel.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000551 /* SettingsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsSheetView.swift; path = NoteTakrApp/Views/SettingsSheetView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000552 /* SettingsSheetViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsSheetViewModelTests.swift; path = NoteTakrTests/SettingsSheetViewModelTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000553 /* ThemeEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ThemeEnvironment.swift; path = NoteTakrApp/ThemeEnvironment.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000554 /* VisualEffectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VisualEffectView.swift; path = NoteTakrApp/Views/VisualEffectView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000555 /* PanelToggleCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PanelToggleCoordinator.swift; path = NoteTakrApp/PanelToggleCoordinator.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000556 /* CarbonHotkeyRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CarbonHotkeyRegistrar.swift; path = NoteTakrApp/CarbonHotkeyRegistrar.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000557 /* PanelToggleCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PanelToggleCoordinatorTests.swift; path = NoteTakrTests/PanelToggleCoordinatorTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021C /* TranscriptionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinator.swift; path = NoteTakrApp/Transcription/TranscriptionCoordinator.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021D /* TranscriptionModelSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionModelSettings.swift; path = NoteTakrApp/Transcription/TranscriptionModelSettings.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsStoreTests.swift; path = NoteTakrTests/TranscriptionSettingsStoreTests.swift; sourceTree = "<group>"; };
@@ -188,6 +198,10 @@
 				AAFADE00000000000000054E /* SwitcherOverlayView.swift */,
 				AAFADE000000000000000550 /* SettingsSheetViewModel.swift */,
 				AAFADE000000000000000551 /* SettingsSheetView.swift */,
+				AAFADE000000000000000553 /* ThemeEnvironment.swift */,
+				AAFADE000000000000000554 /* VisualEffectView.swift */,
+				AAFADE000000000000000555 /* PanelToggleCoordinator.swift */,
+				AAFADE000000000000000556 /* CarbonHotkeyRegistrar.swift */,
 			);
 			name = NoteTakrApp;
 			sourceTree = "<group>";
@@ -208,6 +222,7 @@
 				AAFADE00000000000000054C /* NoteTabsBridgeTests.swift */,
 				AAFADE00000000000000054F /* SwitcherOverlayTests.swift */,
 				AAFADE000000000000000552 /* SettingsSheetViewModelTests.swift */,
+				AAFADE000000000000000557 /* PanelToggleCoordinatorTests.swift */,
 			);
 			name = NoteTakrTests;
 			sourceTree = "<group>";
@@ -357,6 +372,10 @@
 				AAFADE000000000000000587 /* SwitcherOverlayView.swift in Sources */,
 				AAFADE000000000000000589 /* SettingsSheetViewModel.swift in Sources */,
 				AAFADE00000000000000058A /* SettingsSheetView.swift in Sources */,
+				AAFADE00000000000000058C /* ThemeEnvironment.swift in Sources */,
+				AAFADE00000000000000058D /* VisualEffectView.swift in Sources */,
+				AAFADE00000000000000058E /* PanelToggleCoordinator.swift in Sources */,
+				AAFADE00000000000000058F /* CarbonHotkeyRegistrar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -377,6 +396,7 @@
 				AAFADE000000000000000585 /* NoteTabsBridgeTests.swift in Sources */,
 				AAFADE000000000000000588 /* SwitcherOverlayTests.swift in Sources */,
 				AAFADE00000000000000058B /* SettingsSheetViewModelTests.swift in Sources */,
+				AAFADE000000000000000590 /* PanelToggleCoordinatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
