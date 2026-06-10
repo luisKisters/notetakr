@@ -61,8 +61,8 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 - [ ] In NoteTakrKit, add `MeetingNote`: the frontmatter fields from the schema in
       `docs/DESIGN.md` §3 (id, title, date, end, calendar_event, participants
-      [name + optional email], location enum zoom|meet|teams|in-person|none, in_person,
-      transcribe, language auto|code, vocabulary) plus `body: String`.
+      [name + optional email], location — free-text physical location, absent means online —,
+      meeting_link URL, transcribe, language auto|code, vocabulary) plus `body: String`.
 - [ ] Add `FrontmatterSerializer` with `parse(fileText:) -> MeetingNote` and
       `render(note:) -> String`. Hand-rolled YAML subset: lenient parse (flow `[a, b]` and
       block `- item` lists, quoted/unquoted scalars, `Name <email>` participant form,
@@ -123,16 +123,23 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 ### Task 6: FrontmatterPresenter — chips and properties (Kit)
 
 - [ ] In NoteTakrKit, add `FrontmatterPresenter` (injected `now: () -> Date`): exposes
-      `chips: [Chip]` (time range "14:00–14:45"; location label — "Zoom"/"In person"/…;
-      "N people" only when participants exist; REC chip with elapsed "12:34" only while
-      recording) and `propertyRows: [PropertyRow]` (Date, Calendar event, Participants,
-      Location, In-person, Transcript) for the expanded panel; `isExpanded` toggle state.
-- [ ] Mutations persisting through `NoteStore`: `setInPerson(_:)`,
-      `linkEvent(_ event: LinkedEventInfo)` (sets calendar_event + title + merges
-      participants), `unlinkEvent()`, `addParticipant(_:)` / `removeParticipant(_:)`.
-- [ ] Tests: chip matrix (full/partial/empty metadata, in-person, cross-midnight range);
+      `chips: [Chip]` (time range "14:00–14:45"; location chip — the physical location when
+      set, otherwise "Online", with a provider glyph kind (zoom/meet/teams/generic) derived
+      from the meeting_link host; "N people" only when participants exist; REC chip with
+      elapsed "12:34" only while recording) and `propertyRows: [PropertyRow]` (Date,
+      Calendar event, Participants, Location, Meeting link — openable URL, Transcript) for
+      the expanded panel; `isExpanded` toggle state.
+- [ ] Mutations persisting through `NoteStore`: `setLocation(_:)` (empty clears → Online),
+      `setMeetingLink(_:)`, `linkEvent(_ event: LinkedEventInfo)` (sets calendar_event +
+      title + physical location + meeting link + merges participants; `LinkedEventInfo` is a
+      Kit struct — the App layer fills location from `EKEvent.location` and the link via the
+      existing `MeetingDetector` URL patterns), `unlinkEvent()`, `addParticipant(_:)` /
+      `removeParticipant(_:)`.
+- [ ] Tests: chip matrix (full/partial/empty metadata; physical location vs "Online";
+      provider glyph per link host incl. unknown host → generic; cross-midnight range);
       elapsed formatting (0:09 / 12:34 / 1:02:03); each mutation reflected in the rendered
-      `note.md` (temp-dir store); unlink clears event but keeps manually added participants.
+      `note.md` (temp-dir store); unlink clears event but keeps manually added participants
+      and a manually set location.
 - [ ] Validate (Kit loop), commit, push.
 
 ### Task 7: Chips row and property panel UI (App — CI-validated)
@@ -140,8 +147,9 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 - [ ] Add `ChipsRowView` under the title in `EditorView`: quiet chips per the final mockup
       (SF Symbols ~1.5pt stroke: clock, video, person.2; avatar-initial circles for up to 3
       participants; pulsing red REC dot), faint chevron, whole row toggles expansion.
-- [ ] Add `PropertyPanelView`: hairline rows (icon + muted label left, value right), purple
-      toggle for In-person, quiet Unlink text button. Animate expand/collapse.
+- [ ] Add `PropertyPanelView`: hairline rows (icon + muted label left, value right), a
+      location text field (placeholder "Online"), a clickable meeting-link row with the
+      provider icon, quiet Unlink text button. Animate expand/collapse.
 - [ ] Both views bind to `FrontmatterPresenter` via the ObservableObject bridge; calendar
       linking UI reuses `AppModel.eventsNear(_:)` for candidates.
 - [ ] App-target tests: bridge round-trip (toggle in-person from the view model → file
@@ -192,8 +200,9 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 - [ ] Search: case- and diacritic-insensitive over title + participant names ("muller"
       matches "Müller"). Keyboard model: up/down moves selection across groups (skipping
       headers) with wrap; `open()` returns the selected note id; `createNote(from: event)`
-      builds a note with title/date/end/calendar_event/participants prefilled and general
-      defaults materialized (defaults provider injected; until Task 12 use a stub protocol).
+      builds a note with title/date/end/calendar_event/participants plus physical location
+      and meeting link from the event prefilled, and general defaults materialized
+      (defaults provider injected; until Task 12 use a stub protocol).
 - [ ] Tests: grouping/order fixtures; ghost de-duplication; search matrix incl. diacritics;
       selection wrap; create-from-event frontmatter exact-match and the new note appearing
       as `current`.
@@ -208,7 +217,8 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
       `final-switcher.html`.
 - [ ] Keys: ⌘K toggle, esc closes and returns focus to the editor, ↩ opens selection,
       ⌘N creates a blank note. Events provider bridges `EventKitCalendarAdapter` results
-      into Kit's `UpcomingEvent`.
+      into Kit's `UpcomingEvent` (physical location from `EKEvent.location`, meeting link
+      extracted with the existing `MeetingDetector` URL patterns).
 - [ ] App-target tests: ⌘K toggles overlay state; esc restores editor focus; selecting a
       ghost event calls `createNote(from:)` and the panel switches to the new note.
 - [ ] Validate: Kit loop + push + `gh run watch` green. Commit.
@@ -217,7 +227,7 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 - [ ] In NoteTakrKit, add `AppSettingsStore` (JSON file `settings.json` in the injected
       root): `transcribeByDefault` (default true), `defaultLanguage` (`auto` |
-      fixed ISO code, default auto), `inPersonByDefault` (false), `appearance`
+      fixed ISO code, default auto), `defaultLocation` (string, empty = online), `appearance`
       (`glass|dark|light`, default glass), `hotkey` (string combo, default "⌃⌥⌘N"),
       `launchAtLogin` (false), `notesFolderPath` (optional override).
 - [ ] Add `EffectiveMeetingSettings.resolve(note:defaults:)` — note frontmatter values win
@@ -238,11 +248,11 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
       per `final-settings.html`.
 - [ ] This Meeting tab: purple scope banner ("<title> — these settings apply only to this
       note"), Transcribe-this-meeting toggle (live ● timer while recording), language picker,
-      In-person toggle, linked event row + Unlink, per-meeting vocabulary editor — all
-      writing to the note's frontmatter via Kit presenters.
+      location field + meeting-link row, linked event row + Unlink, per-meeting vocabulary
+      editor — all writing to the note's frontmatter via Kit presenters.
 - [ ] General tab: "Defaults for new meetings" section (transcribe toggle, language picker
-      defaulting to Auto-detect with the warning from Kit's rule when fixed, in-person
-      toggle) + "App" section (hotkey field — display-only until Task 15, launch at login,
+      defaulting to Auto-detect with the warning from Kit's rule when fixed, default-location
+      field with "Online" placeholder) + "App" section (hotkey field — display-only until Task 15, launch at login,
       Appearance segmented control — display-only until Task 15, notes folder + Change…).
       Recording/Vocabulary/Permissions tabs: rehost the existing SettingsView sections
       (`TranscriptionModelSettings` picker, `VocabularyViewModel` list,

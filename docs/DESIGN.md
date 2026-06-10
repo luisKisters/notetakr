@@ -34,7 +34,9 @@ the execution plan lives in `docs/plans/`.
   highlight) · **Dark** (solid purple-tinted `#151417`) · **Light** (warm paper).
 - **Editor**: H1 title, then a frontmatter chips row (time, location, participant avatar
   initials, REC timer) that click-expands into a hairline property panel (Date, Calendar
-  event, Participants, Location, In-person toggle, Transcript). Markdown body below. Footer
+  event, Participants, Location, Meeting link, Transcript). Location is the *physical*
+  location; when empty the chip/row reads "Online", and the provider glyph (Zoom/Meet/Teams)
+  is derived from the meeting link's host. Markdown body below. Footer
   contains ONLY three bare text tabs — `Private Notes · Summary · Transcript` — active =
   purple, inactive ≈45% opacity, no separators.
 - **⌘K switcher ("Timeline Lite")**: frost layer over the blurred note; search on top;
@@ -46,7 +48,7 @@ the execution plan lives in `docs/plans/`.
   `This Meeting · General · Recording · Vocabulary · Permissions`. This Meeting shows a
   purple-tinted scope banner ("…applies only to this note") and per-meeting controls.
   General = defaults for new meetings (transcribe ON, language auto-detect — selecting a
-  fixed language reveals a warning — in-person default) + app settings (hotkey, launch at
+  fixed language reveals a warning — default location, empty = Online) + app settings (hotkey, launch at
   login, Appearance trio, notes folder). Footer: quiet "Close" + `esc` kbd pill.
 
 ## 3. Architecture principles
@@ -93,8 +95,8 @@ date: 2026-06-10T14:00:00+02:00
 end: 2026-06-10T14:45:00+02:00
 calendar_event: ABC123@1718020800
 participants: [Luis Kisters <luis@example.com>, Sarah Chen]
-location: zoom            # zoom | meet | teams | in-person | none
-in_person: false
+location: Acme HQ, Bahnhofstr. 12, München   # physical location; absent ⇒ displayed as "Online"
+meeting_link: https://zoom.us/j/123456789    # video-call URL (from the calendar event or manual)
 transcribe: true          # per-meeting override of the general default
 language: auto            # auto | ISO 639-1 code
 vocabulary: [Acme, Müller]
