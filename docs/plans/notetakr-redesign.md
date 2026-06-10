@@ -168,19 +168,19 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 9: Footer tabs, Summary and Transcript views (App — CI-validated)
 
-- [ ] Add the footer to `EditorView` per the final mockup: ONLY three bare text tabs
+- [x] Add the footer to `EditorView` per the final mockup: ONLY three bare text tabs
       `Private Notes · Summary · Transcript`, centered, generous spacing, active purple /
       inactive 45% opacity, no separators, no word count.
-- [ ] Add `SummaryView` (markdown text; when `missing`: quiet "Generate summary" button;
+- [x] Add `SummaryView` (markdown text; when `missing`: quiet "Generate summary" button;
       `generating`: spinner; `failed`: message + retry) and `TranscriptView` (quiet rows:
       speaker name, mm:ss muted, text) bound to `NoteTabsPresenter`.
-- [ ] Wire `SummaryGenerating` to the existing `SummarizationService`/`OpenRouterClient`
+- [x] Wire `SummaryGenerating` to the existing `SummarizationService`/`OpenRouterClient`
       (key from `KeychainStore`, settings from `SummarizationSettingsStore`), persisting the
       result into the session's `session.json` and re-rendering `note.md` as today. Wire
       transcript input from the session's `transcriptSegments`.
-- [ ] App-target tests: presenter wiring with a fake `SummaryGenerating`; transcript mapping
+- [x] App-target tests: presenter wiring with a fake `SummaryGenerating`; transcript mapping
       from a fixture `MeetingSession` into display segments; tab switch flushes editor.
-- [ ] Validate: Kit loop + push + `gh run watch` green. Commit.
+- [x] Validate: Kit loop + push + `gh run watch` green. Commit.
 
 ### Task 10: SwitcherViewModel — Timeline Lite (Kit)
 
