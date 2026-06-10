@@ -42,6 +42,10 @@
 		AAFADE00000000000000057A /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000542 /* EditorView.swift */; };
 		AAFADE00000000000000057B /* NotePanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000543 /* NotePanelTests.swift */; };
 		AAFADE00000000000000057C /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000853 /* NoteTakrKit */; };
+		AAFADE00000000000000057D /* FrontmatterPresenterBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000544 /* FrontmatterPresenterBridge.swift */; };
+		AAFADE00000000000000057E /* ChipsRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000545 /* ChipsRowView.swift */; };
+		AAFADE00000000000000057F /* PropertyPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000546 /* PropertyPanelView.swift */; };
+		AAFADE000000000000000580 /* FrontmatterPresenterBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000547 /* FrontmatterPresenterBridgeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +86,10 @@
 		AAFADE000000000000000541 /* NoteEditorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteEditorBridge.swift; path = NoteTakrApp/NoteEditorBridge.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000542 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditorView.swift; path = NoteTakrApp/Views/EditorView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000543 /* NotePanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotePanelTests.swift; path = NoteTakrTests/NotePanelTests.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000544 /* FrontmatterPresenterBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FrontmatterPresenterBridge.swift; path = NoteTakrApp/FrontmatterPresenterBridge.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000545 /* ChipsRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ChipsRowView.swift; path = NoteTakrApp/Views/ChipsRowView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000546 /* PropertyPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PropertyPanelView.swift; path = NoteTakrApp/Views/PropertyPanelView.swift; sourceTree = "<group>"; };
+		AAFADE000000000000000547 /* FrontmatterPresenterBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FrontmatterPresenterBridgeTests.swift; path = NoteTakrTests/FrontmatterPresenterBridgeTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021C /* TranscriptionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionCoordinator.swift; path = NoteTakrApp/Transcription/TranscriptionCoordinator.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000021D /* TranscriptionModelSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionModelSettings.swift; path = NoteTakrApp/Transcription/TranscriptionModelSettings.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsStoreTests.swift; path = NoteTakrTests/TranscriptionSettingsStoreTests.swift; sourceTree = "<group>"; };
@@ -146,7 +154,10 @@
 				AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */,
 				AAFADE000000000000000540 /* NotePanelController.swift */,
 				AAFADE000000000000000541 /* NoteEditorBridge.swift */,
+				AAFADE000000000000000544 /* FrontmatterPresenterBridge.swift */,
 				AAFADE000000000000000542 /* EditorView.swift */,
+				AAFADE000000000000000545 /* ChipsRowView.swift */,
+				AAFADE000000000000000546 /* PropertyPanelView.swift */,
 			);
 			name = NoteTakrApp;
 			sourceTree = "<group>";
@@ -163,6 +174,7 @@
 				AAFADE000000000000000221 /* TranscriptionCoordinatorTests.swift */,
 				AAFADE00000000000000021B /* MVPPolishTests.swift */,
 				AAFADE000000000000000543 /* NotePanelTests.swift */,
+				AAFADE000000000000000547 /* FrontmatterPresenterBridgeTests.swift */,
 			);
 			name = NoteTakrTests;
 			sourceTree = "<group>";
@@ -300,7 +312,10 @@
 				AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */,
 				AAFADE000000000000000578 /* NotePanelController.swift in Sources */,
 				AAFADE000000000000000579 /* NoteEditorBridge.swift in Sources */,
+				AAFADE00000000000000057D /* FrontmatterPresenterBridge.swift in Sources */,
 				AAFADE00000000000000057A /* EditorView.swift in Sources */,
+				AAFADE00000000000000057E /* ChipsRowView.swift in Sources */,
+				AAFADE00000000000000057F /* PropertyPanelView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,6 +332,7 @@
 				AAFADE000000000000000524 /* TranscriptionCoordinatorTests.swift in Sources */,
 				AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */,
 				AAFADE00000000000000057B /* NotePanelTests.swift in Sources */,
+				AAFADE000000000000000580 /* FrontmatterPresenterBridgeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

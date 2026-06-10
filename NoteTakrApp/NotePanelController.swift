@@ -2,17 +2,20 @@ import AppKit
 import SwiftUI
 import NoteTakrKit
 
-/// Floating note panel (420×620). Owns the Kit NoteStore + NoteEditorBridge.
+/// Floating note panel (420×620). Owns the Kit NoteStore + NoteEditorBridge
+/// + FrontmatterPresenterBridge.
 /// Menu bar "Open Note Panel" calls `show()`.
 @MainActor
 final class NotePanelController {
     private(set) var panel: NSPanel?
     private let store: NoteStore
     let bridge: NoteEditorBridge
+    let frontmatterBridge: FrontmatterPresenterBridge
 
     init(notesRoot: URL) {
         store = NoteStore(root: notesRoot)
         bridge = NoteEditorBridge(store: store)
+        frontmatterBridge = FrontmatterPresenterBridge(store: store)
         buildPanel()
     }
 
@@ -48,7 +51,9 @@ final class NotePanelController {
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.center()
-        p.contentView = NSHostingView(rootView: EditorView(bridge: bridge))
+        p.contentView = NSHostingView(
+            rootView: EditorView(bridge: bridge, frontmatterBridge: frontmatterBridge)
+        )
         self.panel = p
     }
 
@@ -56,8 +61,10 @@ final class NotePanelController {
         let notes = (try? store.list()) ?? []
         if let first = notes.first {
             try? bridge.viewModel.load(noteID: first.id)
+            frontmatterBridge.load(note: first)
         } else if let note = try? store.create(title: "Untitled meeting", date: Date()) {
             try? bridge.viewModel.load(noteID: note.id)
+            frontmatterBridge.load(note: note)
         }
     }
 }

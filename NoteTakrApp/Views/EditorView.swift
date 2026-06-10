@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Main note editor: H1 title field + plain markdown body.
+/// Main note editor: H1 title, chips row, property panel, plain markdown body.
 /// Dark appearance by default; appearance system wired in Task 15.
 struct EditorView: View {
     @ObservedObject var bridge: NoteEditorBridge
+    @ObservedObject var frontmatterBridge: FrontmatterPresenterBridge
 
     var body: some View {
         ZStack {
@@ -21,6 +22,11 @@ struct EditorView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
                 .padding(.bottom, 12)
+
+                ChipsRowView(bridge: frontmatterBridge)
+
+                PropertyPanelView(bridge: frontmatterBridge)
+                    .animation(.easeInOut(duration: 0.2), value: frontmatterBridge.isExpanded)
 
                 Rectangle()
                     .fill(Color.white.opacity(0.08))
