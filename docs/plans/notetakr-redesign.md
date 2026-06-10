@@ -59,19 +59,19 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 2: Frontmatter model and serializer (Kit)
 
-- [ ] In NoteTakrKit, add `MeetingNote`: the frontmatter fields from the schema in
+- [x] In NoteTakrKit, add `MeetingNote`: the frontmatter fields from the schema in
       `docs/DESIGN.md` §3 (id, title, date, end, calendar_event, participants
       [name + optional email], location enum zoom|meet|teams|in-person|none, in_person,
       transcribe, language auto|code, vocabulary) plus `body: String`.
-- [ ] Add `FrontmatterSerializer` with `parse(fileText:) -> MeetingNote` and
+- [x] Add `FrontmatterSerializer` with `parse(fileText:) -> MeetingNote` and
       `render(note:) -> String`. Hand-rolled YAML subset: lenient parse (flow `[a, b]` and
       block `- item` lists, quoted/unquoted scalars, `Name <email>` participant form,
       unknown keys preserved verbatim on re-render), canonical emit (fixed key order,
       ISO8601 dates with timezone). Files without frontmatter parse as body-only notes.
-- [ ] Tests: round-trip every field; umlauts/em-dashes/quotes/colons in titles; unknown-key
+- [x] Tests: round-trip every field; umlauts/em-dashes/quotes/colons in titles; unknown-key
       preservation; body containing `---` lines; empty body; missing optional keys;
       body-only file; malformed frontmatter degrades to body-only without throwing.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 3: NoteStore with legacy migration (Kit)
 
