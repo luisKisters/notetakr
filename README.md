@@ -21,14 +21,48 @@ generates structured notes — no cloud, no account required.
 - Xcode 16 or later for local app builds, previews, archives, and XCTest
 - Swift 5.9 or later
 
-## GitHub-built DMG
+## GitHub release DMG
 
-The canonical unsigned app bundle and DMG are built by GitHub Actions on macOS
-runners. Push a branch, wait for the `Build DMG` workflow, then download the
-`NoteTakr-dmg` artifact.
+The canonical app bundle and DMG are built by GitHub Actions on macOS runners.
+Every push to `main` runs the `Release DMG` workflow, signs and notarizes the
+DMG, uploads it as a workflow artifact, and publishes it to a GitHub Release.
+
+The release workflow requires these repository secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `BUILD_CERTIFICATE_BASE64` | Base64-encoded Developer ID Application `.p12` certificate |
+| `P12_PASSWORD` | Password for the exported `.p12` certificate |
+| `KEYCHAIN_PASSWORD` | Temporary CI keychain password |
+| `APPLE_ID` | Apple ID used for notarization |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password for the Apple ID |
+| `APPLE_TEAM_ID` | Apple Developer Team ID |
+| `SPARKLE_PRIVATE_ED_KEY` | Private EdDSA key used by Sparkle's `generate_appcast` tool |
+| `SPARKLE_PUBLIC_ED_KEY` | Public EdDSA key embedded in the app for Sparkle update verification |
+| `APPLE_DEVELOPER_ID_APPLICATION` | Optional exact signing identity name, e.g. `Developer ID Application: Name (TEAMID)` |
 
 The DMG does not bundle FluidAudio model files. Configure the model in Settings
 after installing the app.
+
+Sparkle automatic updates are enabled in release builds. Each published release
+generates a signed `appcast.xml` that points at the GitHub Release DMG, then
+publishes that feed to:
+
+```
+https://raw.githubusercontent.com/luiskisters/notetakr/gh-pages/appcast.xml
+```
+
+Generate the Sparkle key pair once with Sparkle's `generate_keys` tool, store
+the private key in `SPARKLE_PRIVATE_ED_KEY`, and store the matching public key
+in `SPARKLE_PUBLIC_ED_KEY`. Local builds without a public key skip starting the
+updater so development launches still work.
+
+GitHub-hosted macOS runners consume Actions minutes. Public repositories are
+generally free for standard GitHub-hosted runners; private repositories use the
+included quota for your plan and then bill for extra minutes, with macOS minutes
+charged at a higher multiplier than Linux minutes. If frequent `main` pushes
+become expensive, keep the test workflow on all branches and reserve signed DMG
+releases for tags or manual dispatch.
 
 ## Building from source
 

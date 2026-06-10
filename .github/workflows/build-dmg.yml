@@ -1,13 +1,29 @@
-name: Build DMG
+name: Release DMG
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish a GitHub Release for this run"
+        required: false
+        type: boolean
+        default: false
   push:
-    branches: ["**"]
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: NoteTakr
+  BUNDLE_ID: com.notetakr.app
+  SCHEME: NoteTakr
+  SPARKLE_VERSION: 2.9.3
+  XCODEPROJ: Notetakr.xcodeproj
 
 jobs:
   dmg:
-    name: Build unsigned .dmg
+    name: Build, sign, notarize, and release .dmg
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -40,44 +56,238 @@ jobs:
             ~/Library/Caches/org.swift.swiftpm
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
 
+      - name: Validate signing secrets
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in \
+            BUILD_CERTIFICATE_BASE64 \
+            P12_PASSWORD \
+            KEYCHAIN_PASSWORD \
+            APPLE_ID \
+            APPLE_APP_SPECIFIC_PASSWORD \
+            APPLE_TEAM_ID \
+            SPARKLE_PRIVATE_ED_KEY \
+            SPARKLE_PUBLIC_ED_KEY
+          do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            printf 'Missing required signing/notarization secrets:\n'
+            printf '  - %s\n' "${missing[@]}"
+            exit 1
+          fi
+
+      - name: Import Developer ID certificate
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id-application.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
       - name: Resolve package dependencies
         run: |
           xcodebuild -resolvePackageDependencies \
-            -project Notetakr.xcodeproj \
-            -scheme NoteTakr
+            -project "$XCODEPROJ" \
+            -scheme "$SCHEME"
 
-      - name: Archive (Release, unsigned)
+      - name: Compute release version
         run: |
+          set -euo pipefail
+          MARKETING_VERSION="$(xcodebuild -project "$XCODEPROJ" -scheme "$SCHEME" -configuration Release -showBuildSettings 2>/dev/null | awk -F= '/ MARKETING_VERSION / {gsub(/[[:space:]]/, "", $2); print $2; exit}')"
+          if [[ -z "$MARKETING_VERSION" ]]; then
+            echo "Could not determine MARKETING_VERSION from Xcode build settings."
+            exit 1
+          fi
+
+          BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          RELEASE_TAG="v${MARKETING_VERSION}-${BUILD_NUMBER}"
+          DMG_NAME="${APP_NAME}-${MARKETING_VERSION}-${BUILD_NUMBER}.dmg"
+          SPARKLE_FEED_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/gh-pages/appcast.xml"
+
+          {
+            echo "MARKETING_VERSION=$MARKETING_VERSION"
+            echo "BUILD_NUMBER=$BUILD_NUMBER"
+            echo "RELEASE_TAG=$RELEASE_TAG"
+            echo "DMG_NAME=$DMG_NAME"
+            echo "SPARKLE_FEED_URL=$SPARKLE_FEED_URL"
+          } >> "$GITHUB_ENV"
+
+          echo "Release: $RELEASE_TAG"
+          echo "Sparkle feed: $SPARKLE_FEED_URL"
+
+      - name: Archive (Release, signed)
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
+        run: |
+          set -euo pipefail
           set -o pipefail
+          SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
           xcodebuild archive \
-            -project Notetakr.xcodeproj \
-            -scheme NoteTakr \
+            -project "$XCODEPROJ" \
+            -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath "$PWD/build/NoteTakr.xcarchive" \
+            -archivePath "$PWD/build/$APP_NAME.xcarchive" \
             -destination 'generic/platform=macOS' \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="$SIGNING_IDENTITY" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            SPARKLE_FEED_URL="$SPARKLE_FEED_URL" \
+            SPARKLE_PUBLIC_ED_KEY="$SPARKLE_PUBLIC_ED_KEY" \
             MACOSX_DEPLOYMENT_TARGET=14.0 \
+            OTHER_CODE_SIGN_FLAGS="--timestamp" \
             | tee /tmp/archive.log
 
-      - name: Stage .app and create .dmg
+      - name: Create signed .dmg
+        env:
+          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
         run: |
-          APP=$(find "$PWD/build/NoteTakr.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)
+          set -euo pipefail
+          SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
+          APP=$(find "$PWD/build/$APP_NAME.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)
           echo "App bundle: $APP"
           test -n "$APP"
+
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
           rm -rf dmg-staging && mkdir -p dmg-staging
           cp -R "$APP" dmg-staging/
           ln -s /Applications dmg-staging/Applications
-          hdiutil create -volname "NoteTakr" -srcfolder dmg-staging -ov -format UDZO NoteTakr.dmg
-          ls -lh NoteTakr.dmg
+          hdiutil create -volname "$APP_NAME" -srcfolder dmg-staging -ov -format UDZO "$DMG_NAME"
+          codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$DMG_NAME"
+          codesign --verify --verbose=2 "$DMG_NAME"
+          ls -lh "$DMG_NAME"
+
+      - name: Notarize and staple .dmg
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool submit "$DMG_NAME" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --wait
+          xcrun stapler staple "$DMG_NAME"
+          spctl --assess --type open --context context:primary-signature --verbose "$DMG_NAME"
 
       - name: Upload .dmg artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NoteTakr-dmg
-          path: NoteTakr.dmg
+          name: NoteTakr-signed-dmg
+          path: ${{ env.DMG_NAME }}
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" "$DMG_NAME" \
+            --target "$GITHUB_SHA" \
+            --title "$APP_NAME $MARKETING_VERSION ($BUILD_NUMBER)" \
+            --notes "Signed and notarized macOS DMG built from $GITHUB_SHA."
+
+      - name: Download Sparkle tools
+        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
+            -o "$RUNNER_TEMP/Sparkle.tar.xz"
+          mkdir -p "$RUNNER_TEMP/Sparkle"
+          tar -xJf "$RUNNER_TEMP/Sparkle.tar.xz" -C "$RUNNER_TEMP/Sparkle" --strip-components 1
+          test -x "$RUNNER_TEMP/Sparkle/bin/generate_appcast"
+          echo "SPARKLE_TOOLS_DIR=$RUNNER_TEMP/Sparkle" >> "$GITHUB_ENV"
+
+      - name: Generate Sparkle appcast
+        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        env:
+          SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
+        run: |
+          set -euo pipefail
+          rm -rf appcast-staging
+          mkdir -p appcast-staging
+          cp "$DMG_NAME" appcast-staging/
+
+          DOWNLOAD_URL_PREFIX="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/"
+          printf '%s' "$SPARKLE_PRIVATE_ED_KEY" | \
+            "$SPARKLE_TOOLS_DIR/bin/generate_appcast" \
+              --ed-key-file - \
+              --download-url-prefix "$DOWNLOAD_URL_PREFIX" \
+              --maximum-versions 1 \
+              -o appcast.xml \
+              appcast-staging
+
+          test -s appcast.xml
+
+      - name: Publish Sparkle appcast
+        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages:refs/remotes/origin/gh-pages || true
+          rm -rf appcast-publish
+
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git worktree add appcast-publish origin/gh-pages
+          else
+            git worktree add --detach appcast-publish
+            cd appcast-publish
+            git switch --orphan gh-pages
+            git rm -rf . >/dev/null 2>&1 || true
+            cd ..
+          fi
+
+          cp appcast.xml appcast-publish/appcast.xml
+          cd appcast-publish
+          git add appcast.xml
+          git commit -m "Update Sparkle appcast for $RELEASE_TAG" || exit 0
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+
+      - name: Delete temporary keychain
+        if: always()
+        run: |
+          if [[ -n "${KEYCHAIN_PATH:-}" ]]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
 
       - name: Upload archive log on failure
         if: failure()

@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 @MainActor
@@ -6,6 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private(set) var notePanelController: NotePanelController?
     private var panelCoordinator: PanelToggleCoordinator?
+    private var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -38,11 +40,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusBarController = StatusBarController(model: .shared, notePanelController: npc)
+        startUpdaterIfConfigured()
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         notePanelController?.show()
         return true
+    }
+
+    private func startUpdaterIfConfigured() {
+        guard hasSparkleConfiguration else {
+            NSLog("Sparkle updater is not configured for this build.")
+            return
+        }
+
+        let controller = SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        updaterController = controller
+        controller.startUpdater()
+        controller.updater.automaticallyChecksForUpdates = true
+        controller.updater.automaticallyDownloadsUpdates = true
+        controller.updater.checkForUpdatesInBackground()
+    }
+
+    private var hasSparkleConfiguration: Bool {
+        guard
+            let feedURL = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String,
+            let publicKey = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String
+        else {
+            return false
+        }
+
+        return isConfigured(feedURL) && isConfigured(publicKey)
+    }
+
+    private func isConfigured(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && !trimmed.hasPrefix("$(")
     }
 }

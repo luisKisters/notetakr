@@ -29,6 +29,7 @@
 		AAFADE000000000000000522 /* TranscriptionModelSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021D /* TranscriptionModelSettings.swift */; };
 		AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */; };
 		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
+		AAFADE000000000000000526 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000804 /* Sparkle */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
 		AAFADE000000000000000560 /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000851 /* NoteTakrKit */; };
@@ -127,6 +128,7 @@
 			files = (
 				AAFADE000000000000000503 /* NoteTakrCore in Frameworks */,
 				AAFADE000000000000000525 /* FluidAudio in Frameworks */,
+				AAFADE000000000000000526 /* Sparkle in Frameworks */,
 				AAFADE000000000000000560 /* NoteTakrKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -240,6 +242,7 @@
 			packageProductDependencies = (
 				AAFADE000000000000000801 /* NoteTakrCore */,
 				AAFADE000000000000000803 /* FluidAudio */,
+				AAFADE000000000000000804 /* Sparkle */,
 				AAFADE000000000000000851 /* NoteTakrKit */,
 			);
 			productName = NoteTakr;
@@ -299,6 +302,7 @@
 				AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */,
 				AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */,
 				AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				AAFADE000000000000000901 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = AAFADE000000000000000130 /* Products */;
 			projectDirPath = "";
@@ -504,6 +508,8 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notetakr.app";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SPARKLE_FEED_URL = "https://raw.githubusercontent.com/luiskisters/notetakr/gh-pages/appcast.xml";
+				SPARKLE_PUBLIC_ED_KEY = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -527,6 +533,8 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notetakr.app";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SPARKLE_FEED_URL = "https://raw.githubusercontent.com/luiskisters/notetakr/gh-pages/appcast.xml";
+				SPARKLE_PUBLIC_ED_KEY = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -626,6 +634,14 @@
 				minimumVersion = 0.12.4;
 			};
 		};
+		AAFADE000000000000000901 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -643,6 +659,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
+		};
+		AAFADE000000000000000804 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000901 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 		AAFADE000000000000000851 /* NoteTakrKit */ = {
 			isa = XCSwiftPackageProductDependency;

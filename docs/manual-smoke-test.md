@@ -6,8 +6,8 @@ Run these steps after every significant change to audio capture or transcription
 ## Prerequisites
 
 - macOS 14 (Sonoma) or later
-- Downloaded `NoteTakr-dmg` artifact from a successful `Build DMG` workflow run,
-  or Xcode 16 or later installed for local app builds
+- Downloaded `NoteTakr-signed-dmg` artifact from a successful `Release DMG`
+  workflow run, or Xcode 16 or later installed for local app builds
 - A calendar account configured in System Settings > Internet Accounts
 - A browser open with a tab that plays audio (e.g. YouTube)
 
@@ -15,14 +15,27 @@ Run these steps after every significant change to audio capture or transcription
 
 For release-style manual testing, use the GitHub-built DMG:
 
-1. Open the successful GitHub Actions `Build DMG` run.
-2. Download the `NoteTakr-dmg` artifact.
-3. Mount `NoteTakr.dmg`.
+1. Open the successful GitHub Actions `Release DMG` run.
+2. Download the `NoteTakr-signed-dmg` artifact.
+3. Mount the `NoteTakr-<version>-<build>.dmg` file.
 4. Drag `NoteTakr.app` into `/Applications`.
 5. Open `/Applications/NoteTakr.app`.
 
-The DMG is unsigned for now. Gatekeeper behavior on unsigned builds must be
-verified manually.
+The CI DMG is Developer ID signed, notarized, and stapled. Gatekeeper should
+allow it to open normally after download.
+
+## Sparkle Update Check
+
+Release builds check this Sparkle feed automatically:
+
+```
+https://raw.githubusercontent.com/luiskisters/notetakr/gh-pages/appcast.xml
+```
+
+After installing a GitHub Release DMG, launch the app and leave it running long
+enough for the background update check to complete. To test an actual update,
+install an older release build, publish a newer GitHub Release from `main`, and
+verify that Sparkle downloads and replaces `/Applications/NoteTakr.app`.
 
 ## Optional Xcode Installation
 
