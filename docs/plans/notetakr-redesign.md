@@ -150,21 +150,21 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 8: NoteTabsPresenter — Private Notes / Summary / Transcript (Kit)
 
-- [ ] In NoteTakrKit, add `NoteTabsPresenter`: `selectedTab` (persists per note id in-memory),
+- [x] In NoteTakrKit, add `NoteTabsPresenter`: `selectedTab` (persists per note id in-memory),
       tab content states — `privateNotes` (editor passthrough), `summary(SummaryState)`
       (`missing | generating | ready(String) | failed(String)`), `transcript(TranscriptState)`
       (`empty | segments([DisplaySegment])`).
-- [ ] `DisplaySegment` grouping: consecutive same-speaker raw segments (speaker?, timestamp,
+- [x] `DisplaySegment` grouping: consecutive same-speaker raw segments (speaker?, timestamp,
       text — generic input structs, not Core types) merge into one display segment with
       `mm:ss` start stamp.
-- [ ] Summary generation drives an injected `SummaryGenerating` protocol (async, returns
+- [x] Summary generation drives an injected `SummaryGenerating` protocol (async, returns
       String or throws) with state transitions missing → generating → ready/failed; a
       `onPersist(String)` hook lets Core write it to `session.json` later.
-- [ ] Tests: state matrices for notes with/without transcript and summary; grouping fixtures
+- [x] Tests: state matrices for notes with/without transcript and summary; grouping fixtures
       (speaker changes, nil speakers, out-of-order timestamps sorted); generate happy path +
       failure surfaces message and allows retry; switching tabs calls editor `flush()`
       (injected hook) exactly once.
-- [ ] Validate (Kit loop), commit, push.
+- [x] Validate (Kit loop), commit, push.
 
 ### Task 9: Footer tabs, Summary and Transcript views (App — CI-validated)
 
