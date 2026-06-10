@@ -232,25 +232,25 @@ gh run watch "$RUN_ID" --exit-status   # on failure: gh run view "$RUN_ID" --log
 
 ### Task 13: Settings sheet UI (App — CI-validated)
 
-- [ ] Hovering the panel shows a gear top-right; clicking opens `SettingsSheetView`: bottom
+- [x] Hovering the panel shows a gear top-right; clicking opens `SettingsSheetView`: bottom
       sheet ~85% height over the dimmed note, NO grabber, icon tabs `This Meeting · General ·
       Recording · Vocabulary · Permissions`, footer row with quiet "Close" + `esc` kbd pill,
       per `final-settings.html`.
-- [ ] This Meeting tab: purple scope banner ("<title> — these settings apply only to this
+- [x] This Meeting tab: purple scope banner ("<title> — these settings apply only to this
       note"), Transcribe-this-meeting toggle (live ● timer while recording), language picker,
       In-person toggle, linked event row + Unlink, per-meeting vocabulary editor — all
       writing to the note's frontmatter via Kit presenters.
-- [ ] General tab: "Defaults for new meetings" section (transcribe toggle, language picker
+- [x] General tab: "Defaults for new meetings" section (transcribe toggle, language picker
       defaulting to Auto-detect with the warning from Kit's rule when fixed, in-person
       toggle) + "App" section (hotkey field — display-only until Task 15, launch at login,
       Appearance segmented control — display-only until Task 15, notes folder + Change…).
       Recording/Vocabulary/Permissions tabs: rehost the existing SettingsView sections
       (`TranscriptionModelSettings` picker, `VocabularyViewModel` list,
       `AudioPermissionManager` rows).
-- [ ] App-target tests: sheet view model — banner only on This Meeting; This-Meeting edits
+- [x] App-target tests: sheet view model — banner only on This Meeting; This-Meeting edits
       write frontmatter (spy) and never touch `settings.json`; General edits write
       `settings.json` and never touch the open note; warning visibility matches Kit rule.
-- [ ] Validate: Kit loop + push + `gh run watch` green. Commit.
+- [x] Validate: Kit loop + push + `gh run watch` green. Commit.
 
 ### Task 14: Theme tokens and HotkeyCombo (Kit)
 

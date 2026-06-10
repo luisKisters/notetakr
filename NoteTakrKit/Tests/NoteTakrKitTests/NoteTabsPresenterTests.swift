@@ -186,20 +186,27 @@ final class NoteTabsPresenterTests: XCTestCase {
     // MARK: - Summary: guard against double-generate
 
     func testGenerateWhileGeneratingIsNoop() {
+        // Use a suspending generator so we can guarantee the second call happens
+        // while the first Task is blocked — eliminating the race on Linux.
+        let canProceed = DispatchSemaphore(value: 0)
+        let started = DispatchSemaphore(value: 0)
         let readyExp = expectation(description: "generation done")
         var generateCallCount = 0
 
-        let generator = CallCountingGenerator(onGenerate: {
-            generateCallCount += 1
-            return "result"
-        })
+        let generator = SuspendingCallCountingGenerator(
+            onGenerate: { generateCallCount += 1; return "result" },
+            started: started,
+            canProceed: canProceed
+        )
         let p = NoteTabsPresenter(summaryGenerator: generator)
         p.onChange = {
             if case .ready = p.summaryState(for: "n1") { readyExp.fulfill() }
         }
 
-        p.generateSummary(for: "n1")  // starts generation, state = .generating
-        p.generateSummary(for: "n1")  // must be ignored by guard
+        p.generateSummary(for: "n1")        // starts generation, state = .generating
+        started.wait()                      // wait until Task is suspended inside generator
+        p.generateSummary(for: "n1")       // must be ignored by guard — state IS .generating
+        canProceed.signal()                 // let generator finish
 
         waitForExpectations(timeout: 2)
         XCTAssertEqual(generateCallCount, 1, "Second call while generating must not invoke generate")
@@ -396,6 +403,32 @@ private final class CallCountingGenerator: SummaryGenerating {
 
     func generate(for noteID: String) async throws -> String {
         return onGenerate()
+    }
+}
+
+// Suspends until canProceed is signaled — guarantees the caller sees .generating state
+// before the generator returns, eliminating the Linux race in testGenerateWhileGeneratingIsNoop.
+private final class SuspendingCallCountingGenerator: SummaryGenerating, @unchecked Sendable {
+    private let onGenerate: () -> String
+    private let started: DispatchSemaphore
+    private let canProceed: DispatchSemaphore
+
+    init(onGenerate: @escaping () -> String,
+         started: DispatchSemaphore,
+         canProceed: DispatchSemaphore) {
+        self.onGenerate = onGenerate
+        self.started = started
+        self.canProceed = canProceed
+    }
+
+    func generate(for noteID: String) async throws -> String {
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global().async {
+                self.started.signal()       // tell test we're running
+                self.canProceed.wait()      // block until test proceeds
+                cont.resume(returning: self.onGenerate())
+            }
+        }
     }
 }
 
