@@ -9,6 +9,7 @@ struct TranscriptView: View {
     @State private var collapsedIndices: Set<Int> = []
     @State private var nameOverrides: [String: String] = [:]
     @State private var showCopyToast = false
+    @State private var copyToastTask: Task<Void, Never>?
 
     private var segments: [DisplaySegment] {
         if case .segments(let segs) = state { return segs }
@@ -139,7 +140,10 @@ struct TranscriptView: View {
 
     private func showCopyToastBriefly() {
         showCopyToast = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+        copyToastTask?.cancel()
+        copyToastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
+            guard !Task.isCancelled else { return }
             showCopyToast = false
         }
     }

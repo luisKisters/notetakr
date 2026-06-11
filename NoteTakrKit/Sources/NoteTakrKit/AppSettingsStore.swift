@@ -25,7 +25,6 @@ public final class AppSettingsStore {
     private var _inferNamesFromCalendar: Bool = true
     private var _micEnabled: Bool = true
     private var _systemAudioEnabled: Bool = true
-    private var _selectedSummaryModelSlug: String = ""
     private var _autoCheckForUpdates: Bool = true
     private var _autoDownloadUpdates: Bool = false
 
@@ -91,11 +90,6 @@ public final class AppSettingsStore {
         set { _systemAudioEnabled = newValue; saveToDisk() }
     }
 
-    public var selectedSummaryModelSlug: String {
-        get { _selectedSummaryModelSlug }
-        set { _selectedSummaryModelSlug = newValue; saveToDisk() }
-    }
-
     public var autoCheckForUpdates: Bool {
         get { _autoCheckForUpdates }
         set { _autoCheckForUpdates = newValue; saveToDisk() }
@@ -120,7 +114,6 @@ public final class AppSettingsStore {
         var inferNamesFromCalendar: Bool?
         var micEnabled: Bool?
         var systemAudioEnabled: Bool?
-        var selectedSummaryModelSlug: String?
         var autoCheckForUpdates: Bool?
         var autoDownloadUpdates: Bool?
     }
@@ -140,7 +133,6 @@ public final class AppSettingsStore {
         if let v = payload.inferNamesFromCalendar { _inferNamesFromCalendar = v }
         if let v = payload.micEnabled            { _micEnabled = v }
         if let v = payload.systemAudioEnabled    { _systemAudioEnabled = v }
-        if let v = payload.selectedSummaryModelSlug { _selectedSummaryModelSlug = v }
         if let v = payload.autoCheckForUpdates   { _autoCheckForUpdates = v }
         if let v = payload.autoDownloadUpdates   { _autoDownloadUpdates = v }
     }
@@ -158,7 +150,6 @@ public final class AppSettingsStore {
             inferNamesFromCalendar: _inferNamesFromCalendar,
             micEnabled: _micEnabled,
             systemAudioEnabled: _systemAudioEnabled,
-            selectedSummaryModelSlug: _selectedSummaryModelSlug,
             autoCheckForUpdates: _autoCheckForUpdates,
             autoDownloadUpdates: _autoDownloadUpdates
         )

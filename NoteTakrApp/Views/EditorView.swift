@@ -9,6 +9,7 @@ struct EditorView: View {
     @ObservedObject var settingsBridge: SettingsSheetViewModel
     let recordPillMachine: RecordPillStateMachine
     @State private var pillState: RecordPillState = .idle
+    @State private var parsedBody = ParsedMarkdownBody(rawSource: "", blocks: [])
     @FocusState private var isBodyFocused: Bool
 
     private var themeColors: ThemeColors {
@@ -61,6 +62,7 @@ struct EditorView: View {
                 ChipsRowView(bridge: frontmatterBridge, machine: recordPillMachine, pillState: pillState)
                     .environment(\.themeColors, themeColors)
                     .onAppear {
+                        pillState = recordPillMachine.state
                         recordPillMachine.onStateChanged = { newState in
                             DispatchQueue.main.async { self.pillState = newState }
                         }
@@ -131,14 +133,16 @@ struct EditorView: View {
                 ))
                 .font(.system(size: 13.5))
                 .foregroundColor(themeColors.primaryText.swiftUIColor)
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 16)
                 .focused($isBodyFocused)
             } else {
-                MarkdownBodyView(
-                    parsed: MarkdownBodyParser.parse(bridge.body)
-                )
-                .environment(\.themeColors, themeColors)
-                .contentShape(Rectangle())
-                .onTapGesture { isBodyFocused = true }
+                MarkdownBodyView(parsed: parsedBody)
+                    .environment(\.themeColors, themeColors)
+                    .contentShape(Rectangle())
+                    .onTapGesture { isBodyFocused = true }
+                    .onAppear { parsedBody = MarkdownBodyParser.parse(bridge.body) }
+                    .onChange(of: bridge.body) { parsedBody = MarkdownBodyParser.parse($0) }
             }
         case .summary:
             SummaryView(

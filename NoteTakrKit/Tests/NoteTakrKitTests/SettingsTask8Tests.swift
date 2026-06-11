@@ -153,7 +153,6 @@ final class AppSettingsStoreTask8Tests: XCTestCase {
         XCTAssertTrue(store.inferNamesFromCalendar)
         XCTAssertTrue(store.micEnabled)
         XCTAssertTrue(store.systemAudioEnabled)
-        XCTAssertEqual(store.selectedSummaryModelSlug, "")
         XCTAssertTrue(store.autoCheckForUpdates)
         XCTAssertFalse(store.autoDownloadUpdates)
     }
@@ -184,13 +183,6 @@ final class AppSettingsStoreTask8Tests: XCTestCase {
         let s = AppSettingsStore(root: root)
         s.systemAudioEnabled = false
         XCTAssertFalse(AppSettingsStore(root: root).systemAudioEnabled)
-    }
-
-    func testSelectedSummaryModelSlugRoundTrip() {
-        let root = makeTempDir()
-        let s = AppSettingsStore(root: root)
-        s.selectedSummaryModelSlug = "anthropic/claude-opus-4.7"
-        XCTAssertEqual(AppSettingsStore(root: root).selectedSummaryModelSlug, "anthropic/claude-opus-4.7")
     }
 
     func testAutoCheckForUpdatesRoundTrip() {

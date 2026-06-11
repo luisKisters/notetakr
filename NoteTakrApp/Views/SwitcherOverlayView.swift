@@ -522,8 +522,8 @@ struct SwitcherOverlayView: View {
         case .event(let ev):
             var parts: [String] = []
             let count = ev.participants.count
-            if count == 1 { parts.append("2 people") }
-            else if count > 1 { parts.append("\(count + 1) people") }
+            if count == 1 { parts.append("1 person") }
+            else if count > 1 { parts.append("\(count) people") }
             if let link = ev.meetingLink {
                 if link.contains("zoom") { parts.append("Zoom") }
                 else if link.contains("meet.google") { parts.append("Meet") }
