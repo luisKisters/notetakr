@@ -182,16 +182,16 @@ Reproduce `design/mockups/v5/recording-final.html` exactly. `NoteTakrApp/Views/R
 ### Task 8: Transcript & Summary tabs — centered Generate buttons + states
 `NoteTakrApp/Views/SummaryView.swift`, `NoteTakrApp/Views/TranscriptView.swift`,
 `NoteTakrApp/NoteTabsBridge.swift`, `NoteTakrKit/Sources/NoteTakrKit/NoteTabsPresenter.swift`.
-- [ ] Each tab's empty state is a **single centered button** ("Generate summary" / "Generate
+- [x] Each tab's empty state is a **single centered button** ("Generate summary" / "Generate
       transcript"), nothing else cluttering it; a centered spinner while generating.
-- [ ] Add a real **Generate transcript** action + a `.generating` state to the Transcript tab,
+- [x] Add a real **Generate transcript** action + a `.generating` state to the Transcript tab,
       mirroring the existing Summary generate flow.
-- [ ] Summary tab with **no transcript**: a clear centered CTA that conveys you must transcribe
+- [x] Summary tab with **no transcript**: a clear centered CTA that conveys you must transcribe
       first (e.g. "Transcribe & summarize"), not an empty/confusing state.
-- [ ] Reflect an in-progress transcription in the recording badge (green "Transcribing…/Summarizing…")
+- [x] Reflect an in-progress transcription in the recording badge (green "Transcribing…/Summarizing…")
       per Task 6.
-- [ ] Linux tests: tab-presenter states (empty / generating / ready) for both transcript and summary.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Linux tests: tab-presenter states (empty / generating / ready) for both transcript and summary.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 9: Calendar — show real upcoming events
 `NoteTakrApp/AppModel.swift`, `NoteTakrApp/NotePanelController.swift`,

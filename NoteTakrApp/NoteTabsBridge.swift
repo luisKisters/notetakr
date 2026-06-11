@@ -38,6 +38,16 @@ final class NoteTabsBridge: ObservableObject {
         presenter.generateSummary(for: id)
     }
 
+    func generateTranscript() {
+        guard let id = currentNoteID else { return }
+        presenter.generateTranscript(for: id)
+    }
+
+    func transcribeAndSummarize() {
+        guard let id = currentNoteID else { return }
+        presenter.transcribeAndSummarize(for: id)
+    }
+
     private func refresh() {
         guard let id = currentNoteID else { return }
         selectedTab = presenter.selectedTab(for: id)

@@ -4,6 +4,7 @@ import NoteTakrKit
 struct TranscriptView: View {
     let state: TranscriptState
     var speakerResolutions: [String: SpeakerResolution] = [:]
+    var onGenerate: (() -> Void)? = nil
 
     @Environment(\.themeColors) private var theme
     @State private var collapsedIndices: Set<Int> = []
@@ -18,9 +19,12 @@ struct TranscriptView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if segments.isEmpty {
+            switch state {
+            case .empty:
                 emptyView
-            } else {
+            case .generating:
+                generatingView
+            case .segments:
                 toolbar
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -63,14 +67,48 @@ struct TranscriptView: View {
         .animation(.easeInOut(duration: 0.2), value: showCopyToast)
     }
 
-    // MARK: - Empty state
+    // MARK: - Empty / generating states
 
     private var emptyView: some View {
-        Text("No transcript yet.")
-            .font(.system(size: 14))
-            .foregroundStyle(theme.tertiaryText.swiftUIColor)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 40)
+        VStack {
+            generateButton(label: "Generate transcript", isDisabled: false, spinning: false)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 40)
+        .padding(.horizontal, 20)
+    }
+
+    private var generatingView: some View {
+        VStack {
+            generateButton(label: "Generating…", isDisabled: true, spinning: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 40)
+        .padding(.horizontal, 20)
+    }
+
+    private func generateButton(label: String, isDisabled: Bool, spinning: Bool) -> some View {
+        Button(action: { if !isDisabled { onGenerate?() } }) {
+            HStack(spacing: 7) {
+                if spinning {
+                    TranscriptSpinnerIcon()
+                } else {
+                    TranscriptSparkleIcon()
+                }
+                Text(label)
+                    .font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(Color.white)
+            .padding(.vertical, 9)
+            .padding(.horizontal, 16)
+            .background(isDisabled
+                        ? theme.accent.swiftUIColor.opacity(0.6)
+                        : theme.accent.swiftUIColor)
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .shadow(color: theme.accent.swiftUIColor.opacity(0.4), radius: 5, y: 2)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
     }
 
     // MARK: - Toolbar
@@ -354,6 +392,51 @@ private struct SpeakerNameCell: View {
         let trimmed = renameText.trimmingCharacters(in: .whitespaces)
         if keep, !trimmed.isEmpty {
             onRename(trimmed)
+        }
+    }
+}
+
+// MARK: - Icons (matches kit.css .spark / spinner)
+
+private struct TranscriptSparkleIcon: View {
+    var body: some View {
+        Canvas { ctx, _ in
+            var path = Path()
+            path.move(to: CGPoint(x: 8, y: 2.2))
+            path.addLine(to: CGPoint(x: 9.5, y: 5.3))
+            path.addLine(to: CGPoint(x: 12.9, y: 5.8))
+            path.addLine(to: CGPoint(x: 10.45, y: 8.2))
+            path.addLine(to: CGPoint(x: 11.03, y: 11.6))
+            path.addLine(to: CGPoint(x: 8, y: 10.0))
+            path.addLine(to: CGPoint(x: 4.97, y: 11.6))
+            path.addLine(to: CGPoint(x: 5.55, y: 8.2))
+            path.addLine(to: CGPoint(x: 3.1, y: 5.8))
+            path.addLine(to: CGPoint(x: 6.5, y: 5.3))
+            path.closeSubpath()
+            ctx.stroke(path, with: .foreground,
+                       style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: 14, height: 14)
+    }
+}
+
+private struct TranscriptSpinnerIcon: View {
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        Canvas { ctx, _ in
+            var path = Path()
+            path.addArc(center: CGPoint(x: 8, y: 8), radius: 6,
+                        startAngle: .degrees(-90), endAngle: .degrees(180), clockwise: false)
+            ctx.stroke(path, with: .foreground,
+                       style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+        }
+        .frame(width: 14, height: 14)
+        .rotationEffect(.degrees(rotation))
+        .onAppear {
+            withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
+                rotation = 360
+            }
         }
     }
 }

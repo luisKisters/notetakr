@@ -10,8 +10,15 @@ final class NoteTabsPresenterTests: XCTestCase {
         XCTAssertEqual(p.selectedTab(for: "n1"), .privateNotes)
     }
 
-    func testDefaultSummaryIsMissing() {
+    func testDefaultSummaryIsNeedsTranscript() {
         let p = NoteTabsPresenter()
+        // No transcript → CTA should be "Transcribe & summarize"
+        XCTAssertEqual(p.summaryState(for: "n1"), .needsTranscript)
+    }
+
+    func testSummaryWithTranscriptIsMissing() {
+        let p = NoteTabsPresenter()
+        p.setSegments([RawSegment(speaker: "A", timestamp: 0, text: "Hi")], for: "n1")
         XCTAssertEqual(p.summaryState(for: "n1"), .missing)
     }
 
@@ -210,10 +217,11 @@ final class NoteTabsPresenterTests: XCTestCase {
         XCTAssertEqual(generateCallCount, 1, "Second call while generating must not invoke generate")
     }
 
-    func testNoGeneratorLeavesStateMissing() {
+    func testNoGeneratorLeavesStateUnchanged() {
         let p = NoteTabsPresenter(summaryGenerator: nil)
         p.generateSummary(for: "n1")
-        XCTAssertEqual(p.summaryState(for: "n1"), .missing)
+        // No generator and no transcript: state stays needsTranscript
+        XCTAssertEqual(p.summaryState(for: "n1"), .needsTranscript)
     }
 
     // MARK: - Transcript: empty and segments
@@ -355,8 +363,126 @@ final class NoteTabsPresenterTests: XCTestCase {
         XCTAssertEqual(p.summaryState(for: "n1"), .ready("Existing summary"))
     }
 
-    func testNoteWithoutSummaryIsMissing() {
-        XCTAssertEqual(NoteTabsPresenter().summaryState(for: "nonexistent"), .missing)
+    func testNoteWithoutSummaryOrTranscriptIsNeedsTranscript() {
+        XCTAssertEqual(NoteTabsPresenter().summaryState(for: "nonexistent"), .needsTranscript)
+    }
+
+    // MARK: - Transcript: generateTranscript happy path
+
+    func testGenerateTranscriptHappyPath() {
+        let generateExp = expectation(description: "transcript generating")
+        let segmentsExp = expectation(description: "transcript segments")
+        let seg = RawSegment(speaker: "Alice", timestamp: 0, text: "Hello")
+        let generator = ImmediateTranscriptGenerator(result: .success([seg]))
+        let p = NoteTabsPresenter(transcriptGenerator: generator)
+
+        p.onChange = {
+            switch p.transcriptState(for: "n1") {
+            case .generating:  generateExp.fulfill()
+            case .segments:    segmentsExp.fulfill()
+            default:           break
+            }
+        }
+
+        p.generateTranscript(for: "n1")
+        wait(for: [generateExp, segmentsExp], timeout: 2, enforceOrder: true)
+        if case .segments(let segs) = p.transcriptState(for: "n1") {
+            XCTAssertEqual(segs.count, 1)
+            XCTAssertEqual(segs[0].text, "Hello")
+        } else {
+            XCTFail("Expected .segments state")
+        }
+    }
+
+    func testGenerateTranscriptFailure() {
+        let failedExp = expectation(description: "transcript generation failed")
+        let generator = ImmediateTranscriptGenerator(result: .failure(TestGeneratorError.network("error")))
+        let p = NoteTabsPresenter(transcriptGenerator: generator)
+
+        p.onChange = {
+            if case .empty = p.transcriptState(for: "n1") { failedExp.fulfill() }
+        }
+        p.generateTranscript(for: "n1")
+        waitForExpectations(timeout: 2)
+        XCTAssertEqual(p.transcriptState(for: "n1"), .empty)
+    }
+
+    func testGenerateTranscriptWhileGeneratingIsNoop() {
+        let canProceed = DispatchSemaphore(value: 0)
+        let started = DispatchSemaphore(value: 0)
+        let doneExp = expectation(description: "generation done")
+        var callCount = 0
+
+        let generator = SuspendingTranscriptGenerator(
+            onGenerate: { callCount += 1; return [] },
+            started: started,
+            canProceed: canProceed
+        )
+        let p = NoteTabsPresenter(transcriptGenerator: generator)
+        p.onChange = {
+            if case .empty = p.transcriptState(for: "n1") { doneExp.fulfill() }
+        }
+
+        p.generateTranscript(for: "n1")
+        started.wait()
+        p.generateTranscript(for: "n1")  // must be ignored
+        canProceed.signal()
+
+        waitForExpectations(timeout: 2)
+        XCTAssertEqual(callCount, 1, "Second call while generating must not invoke generate")
+    }
+
+    func testNoTranscriptGeneratorLeavesStateEmpty() {
+        let p = NoteTabsPresenter(transcriptGenerator: nil)
+        p.generateTranscript(for: "n1")
+        XCTAssertEqual(p.transcriptState(for: "n1"), .empty)
+    }
+
+    // MARK: - transcribeAndSummarize
+
+    func testTranscribeAndSummarizeChainsSummaryGeneration() {
+        let transcriptExp = expectation(description: "transcript segments")
+        let summaryExp = expectation(description: "summary ready")
+
+        let transcriptGen = ImmediateTranscriptGenerator(
+            result: .success([RawSegment(speaker: "A", timestamp: 0, text: "Hello")])
+        )
+        let summaryGen = ImmediateMockGenerator(result: .success("Nice summary"))
+        let p = NoteTabsPresenter(summaryGenerator: summaryGen, transcriptGenerator: transcriptGen)
+
+        p.onChange = {
+            if case .segments = p.transcriptState(for: "n1") { transcriptExp.fulfill() }
+            if case .ready = p.summaryState(for: "n1") { summaryExp.fulfill() }
+        }
+
+        p.transcribeAndSummarize(for: "n1")
+        wait(for: [transcriptExp, summaryExp], timeout: 4, enforceOrder: true)
+        XCTAssertEqual(p.summaryState(for: "n1"), .ready("Nice summary"))
+    }
+
+    func testTranscribeAndSummarizeWithNoGeneratorIsNoop() {
+        let p = NoteTabsPresenter(transcriptGenerator: nil)
+        p.transcribeAndSummarize(for: "n1")
+        XCTAssertEqual(p.transcriptState(for: "n1"), .empty)
+    }
+
+    // MARK: - SummaryState.needsTranscript vs .missing
+
+    func testSummaryStateNeedsTranscriptWhenGenerating() {
+        // Transcript in .generating state still counts as "no transcript yet"
+        let canProceed = DispatchSemaphore(value: 0)
+        let started = DispatchSemaphore(value: 0)
+        let generator = SuspendingTranscriptGenerator(
+            onGenerate: { [] },
+            started: started,
+            canProceed: canProceed
+        )
+        let p = NoteTabsPresenter(transcriptGenerator: generator)
+        p.generateTranscript(for: "n1")
+        started.wait()
+        // Summary state while transcript is generating: should still show needsTranscript
+        XCTAssertEqual(p.summaryState(for: "n1"), .needsTranscript)
+        canProceed.signal()
     }
 }
 
@@ -439,5 +565,44 @@ private enum TestGeneratorError: Error, LocalizedError {
     var errorDescription: String? {
         if case .network(let msg) = self { return msg }
         return nil
+    }
+}
+
+// MARK: - Transcript test doubles
+
+private final class ImmediateTranscriptGenerator: TranscriptGenerating {
+    let result: Result<[RawSegment], Error>
+    init(result: Result<[RawSegment], Error>) { self.result = result }
+
+    func generate(for noteID: String) async throws -> [RawSegment] {
+        await Task.yield()
+        switch result {
+        case .success(let s): return s
+        case .failure(let e): throw e
+        }
+    }
+}
+
+private final class SuspendingTranscriptGenerator: TranscriptGenerating, @unchecked Sendable {
+    private let onGenerate: () -> [RawSegment]
+    private let started: DispatchSemaphore
+    private let canProceed: DispatchSemaphore
+
+    init(onGenerate: @escaping () -> [RawSegment],
+         started: DispatchSemaphore,
+         canProceed: DispatchSemaphore) {
+        self.onGenerate = onGenerate
+        self.started = started
+        self.canProceed = canProceed
+    }
+
+    func generate(for noteID: String) async throws -> [RawSegment] {
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global().async {
+                self.started.signal()
+                self.canProceed.wait()
+                cont.resume(returning: self.onGenerate())
+            }
+        }
     }
 }

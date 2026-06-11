@@ -4,72 +4,63 @@ import NoteTakrKit
 struct SummaryView: View {
     let state: SummaryState
     let onGenerate: () -> Void
+    var onTranscribeAndSummarize: (() -> Void)? = nil
     @Environment(\.themeColors) private var theme
 
     var body: some View {
         switch state {
+        case .needsTranscript:
+            centeredContent {
+                generateButton(label: "Transcribe & summarize", isDisabled: false, spinning: false) {
+                    onTranscribeAndSummarize?()
+                }
+            }
         case .missing:
-            ScrollView {
-                emptyStateContent
+            centeredContent {
+                generateButton(label: "Generate summary", isDisabled: false, spinning: false) {
+                    onGenerate()
+                }
             }
         case .generating:
-            ScrollView {
-                generatingContent
+            centeredContent {
+                generateButton(label: "Generating…", isDisabled: true, spinning: true) {}
             }
         case .ready(let text):
             MarkdownBodyView(parsed: MarkdownBodyParser.parse(text))
                 .environment(\.themeColors, theme)
         case .failed(let message):
-            ScrollView {
-                failedContent(message)
+            centeredContent {
+                VStack(spacing: 12) {
+                    Text(message)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(theme.destructive.swiftUIColor)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 240)
+                    generateButton(label: "Retry", isDisabled: false, spinning: false) {
+                        onGenerate()
+                    }
+                }
             }
         }
     }
 
-    // MARK: - States
+    // MARK: - Layout helper
 
-    private var emptyStateContent: some View {
-        VStack(spacing: 12) {
-            Text("No summary yet. Generate one from the notes & transcript.")
-                .font(.system(size: 12.5))
-                .foregroundStyle(theme.secondaryText.swiftUIColor)
-                .multilineTextAlignment(.center)
-                .lineSpacing(3)
-                .frame(maxWidth: 240)
-            generateButton(label: "Generate summary", isDisabled: false, spinning: false)
+    private func centeredContent<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView {
+            VStack {
+                content()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 40)
+            .padding(.horizontal, 20)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-        .padding(.horizontal, 20)
-    }
-
-    private var generatingContent: some View {
-        VStack {
-            generateButton(label: "Generating…", isDisabled: true, spinning: true)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-        .padding(.horizontal, 20)
-    }
-
-    private func failedContent(_ message: String) -> some View {
-        VStack(spacing: 12) {
-            Text(message)
-                .font(.system(size: 12.5))
-                .foregroundStyle(theme.destructive.swiftUIColor)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 240)
-            generateButton(label: "Retry", isDisabled: false, spinning: false)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-        .padding(.horizontal, 20)
     }
 
     // MARK: - Generate button (matches .genbtn in kit.css)
 
-    private func generateButton(label: String, isDisabled: Bool, spinning: Bool) -> some View {
-        Button(action: { if !isDisabled { onGenerate() } }) {
+    private func generateButton(label: String, isDisabled: Bool, spinning: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: { if !isDisabled { action() } }) {
             HStack(spacing: 7) {
                 if spinning {
                     SpinnerIcon()

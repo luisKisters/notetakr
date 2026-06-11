@@ -11,7 +11,8 @@ public enum NoteTab: Equatable {
 // MARK: - Summary State
 
 public enum SummaryState: Equatable {
-    case missing
+    case needsTranscript    // no transcript yet — CTA is "Transcribe & summarize"
+    case missing            // transcript exists but no summary — CTA is "Generate summary"
     case generating
     case ready(String)
     case failed(String)
@@ -21,6 +22,7 @@ public enum SummaryState: Equatable {
 
 public enum TranscriptState: Equatable {
     case empty
+    case generating
     case segments([DisplaySegment])
 }
 
@@ -60,6 +62,12 @@ public protocol SummaryGenerating {
     func generate(for noteID: String) async throws -> String
 }
 
+// MARK: - TranscriptGenerating
+
+public protocol TranscriptGenerating {
+    func generate(for noteID: String) async throws -> [RawSegment]
+}
+
 // MARK: - NoteTabsPresenter
 
 public final class NoteTabsPresenter {
@@ -69,16 +77,20 @@ public final class NoteTabsPresenter {
     private var speakerResolutionsByNoteID: [String: [String: SpeakerResolution]] = [:]
 
     private let summaryGenerator: (any SummaryGenerating)?
+    private let transcriptGenerator: (any TranscriptGenerating)?
     private let editorFlush: () throws -> Void
 
     public var onPersistSummary: ((String, String) -> Void)?
+    public var onPersistTranscript: ((String, [RawSegment]) -> Void)?
     public var onChange: (() -> Void)?
 
     public init(
         summaryGenerator: (any SummaryGenerating)? = nil,
+        transcriptGenerator: (any TranscriptGenerating)? = nil,
         editorFlush: @escaping () throws -> Void = {}
     ) {
         self.summaryGenerator = summaryGenerator
+        self.transcriptGenerator = transcriptGenerator
         self.editorFlush = editorFlush
     }
 
@@ -98,7 +110,14 @@ public final class NoteTabsPresenter {
     // MARK: - Summary
 
     public func summaryState(for noteID: String) -> SummaryState {
-        summaryByNoteID[noteID] ?? .missing
+        if let s = summaryByNoteID[noteID] { return s }
+        // No summary yet — determine CTA based on whether a transcript exists
+        switch transcriptByNoteID[noteID] {
+        case .some(.segments(let segs)) where !segs.isEmpty:
+            return .missing
+        default:
+            return .needsTranscript
+        }
     }
 
     public func setSummary(_ text: String, for noteID: String) {
@@ -130,6 +149,45 @@ public final class NoteTabsPresenter {
 
     public func transcriptState(for noteID: String) -> TranscriptState {
         transcriptByNoteID[noteID] ?? .empty
+    }
+
+    public func generateTranscript(for noteID: String) {
+        guard let generator = transcriptGenerator else { return }
+        guard transcriptByNoteID[noteID] != .generating else { return }
+        transcriptByNoteID[noteID] = .generating
+        onChange?()
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let rawSegments = try await generator.generate(for: noteID)
+                self.onPersistTranscript?(noteID, rawSegments)
+                self.setSegments(rawSegments, for: noteID)
+            } catch {
+                self.transcriptByNoteID[noteID] = .empty
+                self.onChange?()
+            }
+        }
+    }
+
+    public func transcribeAndSummarize(for noteID: String) {
+        guard let generator = transcriptGenerator else { return }
+        guard transcriptByNoteID[noteID] != .generating else { return }
+        transcriptByNoteID[noteID] = .generating
+        onChange?()
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let rawSegments = try await generator.generate(for: noteID)
+                self.onPersistTranscript?(noteID, rawSegments)
+                self.setSegments(rawSegments, for: noteID)
+                self.generateSummary(for: noteID)
+            } catch {
+                self.transcriptByNoteID[noteID] = .empty
+                self.onChange?()
+            }
+        }
     }
 
     public func setSegments(_ rawSegments: [RawSegment], for noteID: String) {
