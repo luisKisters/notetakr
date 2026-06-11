@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import NoteTakrKit
 import NoteTakrCore
@@ -26,6 +27,7 @@ final class NotePanelController {
     private var transcriptionAdapter: TranscriptionRequestingAdapter?
     private var elapsedTimer: Timer?
     private var pillTickTimer: Timer?
+    private var pillPipelineCancellables = Set<AnyCancellable>()
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
@@ -231,25 +233,89 @@ final class NotePanelController {
             guard let appModel else { return }
             Task { @MainActor in
                 await appModel.startRecording(title: nil)
-                // Start pill tick timer
                 self?.startPillTickTimer()
             }
         }
 
         machine.onStopped = { [weak self, weak appModel] intent in
-            guard let appModel else { return }
-            let stoppedNoteID = self?.frontmatterBridge.noteID ?? ""
+            guard let self, let appModel else { return }
+            let stoppedNoteID = self.frontmatterBridge.noteID
             Task { @MainActor in
-                self?.stopPillTickTimer()
+                self.stopPillTickTimer()
+                self.recordPillMachine.beginTranscribing()
                 await appModel.stopRecording()
-                guard let self, !stoppedNoteID.isEmpty,
+                guard !stoppedNoteID.isEmpty,
                       self.frontmatterBridge.noteID == stoppedNoteID else { return }
                 self.frontmatterBridge.hasCompletedRecording = true
-                if intent == .summarize, !stoppedNoteID.isEmpty {
-                    try? self.tabsBridge.presenter.selectTab(.summary, for: stoppedNoteID)
-                    self.tabsBridge.generateSummary()
-                }
+                self.drivePostStopPipeline(noteID: stoppedNoteID, intent: intent)
             }
+        }
+
+        machine.onDiscarded = { [weak self, weak appModel] in
+            guard let appModel else { return }
+            Task { @MainActor in
+                self?.stopPillTickTimer()
+                self?.pillPipelineCancellables.removeAll()
+                await appModel.stopRecording()
+            }
+        }
+
+        machine.onViewSummary = { [weak self] in
+            self?.tabsBridge.selectTab(.summary)
+        }
+
+        machine.onViewTranscript = { [weak self] in
+            self?.tabsBridge.selectTab(.transcript)
+        }
+    }
+
+    // Drive the pill state machine through transcribing → summarizing → done
+    // after audio stops. Uses Combine to watch NoteTabsBridge's published states.
+    private func drivePostStopPipeline(noteID: String, intent: StopIntent) {
+        pillPipelineCancellables.removeAll()
+
+        // If transcription already completed (e.g. no transcription service → empty), handle now
+        if case .segments(let segs) = tabsBridge.presenter.transcriptState(for: noteID), !segs.isEmpty {
+            handleTranscriptComplete(noteID: noteID, intent: intent)
+            return
+        }
+
+        // If there's no transcription adapter, no segments will ever arrive — go idle
+        guard transcriptionAdapter != nil else {
+            recordPillMachine.finishAsDoneTranscript()
+            return
+        }
+
+        tabsBridge.$transcriptState
+            .receive(on: DispatchQueue.main)
+            .compactMap { state -> [DisplaySegment]? in
+                if case .segments(let segs) = state, !segs.isEmpty { return segs }
+                return nil
+            }
+            .first()
+            .sink { [weak self] _ in
+                self?.handleTranscriptComplete(noteID: noteID, intent: intent)
+            }
+            .store(in: &pillPipelineCancellables)
+    }
+
+    private func handleTranscriptComplete(noteID: String, intent: StopIntent) {
+        if intent == .transcribe {
+            recordPillMachine.finishAsDoneTranscript()
+            tabsBridge.selectTab(.transcript)
+        } else {
+            recordPillMachine.beginSummarizing()
+            tabsBridge.selectTab(.summary)
+            tabsBridge.generateSummary()
+
+            tabsBridge.$summaryState
+                .receive(on: DispatchQueue.main)
+                .filter { if case .ready = $0 { return true }; return false }
+                .first()
+                .sink { [weak self] _ in
+                    self?.recordPillMachine.finishAsDone()
+                }
+                .store(in: &pillPipelineCancellables)
         }
     }
 

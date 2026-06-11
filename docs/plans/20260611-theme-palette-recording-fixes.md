@@ -147,24 +147,24 @@ Reproduce `design/mockups/v5/switcher-final.html` exactly. `NoteTakrApp/Views/Sw
 ### Task 6: Recording control — final split badge (state machine + view)
 Reproduce `design/mockups/v5/recording-final.html` exactly. `NoteTakrApp/Views/RecordPillView.swift`
 + `NoteTakrKit/Sources/NoteTakrKit/RecordPillStateMachine.swift` + `NoteTakrApp/NotePanelController.swift`.
-- [ ] States: `idle · recording · paused · transcribing · summarizing · done(summarized) ·
+- [x] States: `idle · recording · paused · transcribing · summarizing · done(summarized) ·
       doneTranscript(stop-only)`. ONE neutral pill, **white text in every state, ONLY the dot is
       colored** (red recording / amber paused / green transcribing+summarizing / green done). No
       colored background or ring per state.
-- [ ] **Main tap = Stop & summarize** while recording (auto: transcribe → summarize, no manual
+- [x] **Main tap = Stop & summarize** while recording (auto: transcribe → summarize, no manual
       step); paused tap = Resume; done tap = open the Summary tab; transcribed-only tap = open the
       Transcript tab. Transcribing/summarizing are NOT tappable.
-- [ ] **Caret menu only while recording/paused:** recording → Pause · Stop without summarizing ·
+- [x] **Caret menu only while recording/paused:** recording → Pause · Stop without summarizing ·
       Restart recording · Discard; paused → Stop & summarize · Stop without summarizing · Restart
       recording · Discard.
-- [ ] **No caret on the done states** — they show "Summarized →" / "Transcribed →" with a small
+- [x] **No caret on the done states** — they show "Summarized →" / "Transcribed →" with a small
       right arrow and the whole badge is the tap target.
-- [ ] Wire the pipeline so a stop ACTUALLY runs transcription then summarization (the old
+- [x] Wire the pipeline so a stop ACTUALLY runs transcription then summarization (the old
       `.transcribe` intent is currently dropped in `NotePanelController.swift` — only `.summarize` is
       handled; fix it).
-- [ ] Linux tests: every transition; the main-tap action per state; auto transcribe→summarize; the
+- [x] Linux tests: every transition; the main-tap action per state; auto transcribe→summarize; the
       stop-only path → doneTranscript; menu contents per state.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 7: Recording frontmatter bugs (hover bleed, chip jump, menu, people)
 `NoteTakrApp/Views/RecordPillView.swift`, `NoteTakrApp/Views/PropertyPanelView.swift`,
