@@ -7,10 +7,10 @@ final class Task9PolishTests: XCTestCase {
 
     func testDarkThemeBackgroundIsExpectedHex() {
         let t = Theme.dark
-        // kit.css: --bg: #151417 = rgb(21, 20, 23)
-        XCTAssertEqual(Int(t.background.r * 255), 21)
-        XCTAssertEqual(Int(t.background.g * 255), 20)
-        XCTAssertEqual(Int(t.background.b * 255), 23)
+        // Neutralized: #0D0D0F = rgb(13, 13, 15) — no purple tint
+        XCTAssertEqual(Int(t.background.r * 255), 13)
+        XCTAssertEqual(Int(t.background.g * 255), 13)
+        XCTAssertEqual(Int(t.background.b * 255), 15)
         XCTAssertEqual(t.background.a, 1.0)
     }
 
@@ -24,12 +24,12 @@ final class Task9PolishTests: XCTestCase {
 
     // MARK: - Theme spot-checks (Light)
 
-    func testLightThemeBackgroundIsWarmPaper() {
+    func testLightThemeBackgroundIsNeutralWhite() {
         let t = Theme.light
-        // kit.css: --bg: #FAF8F4 = rgb(250, 248, 244)
-        XCTAssertEqual(Int(t.background.r * 255), 250)
-        XCTAssertEqual(Int(t.background.g * 255), 248)
-        XCTAssertEqual(Int(t.background.b * 255), 244)
+        // Neutralized: #F7F7F8 = rgb(247, 247, 248) — no warm paper tint
+        XCTAssertEqual(Int(t.background.r * 255), 247)
+        XCTAssertEqual(Int(t.background.g * 255), 247)
+        XCTAssertEqual(Int(t.background.b * 255), 248)
         XCTAssertEqual(t.background.a, 1.0)
     }
 

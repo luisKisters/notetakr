@@ -107,19 +107,8 @@ struct EditorView: View {
         )
     }
 
-    @ViewBuilder
     private var panelBackground: some View {
-        switch settingsBridge.currentAppearance {
-        case .glass:
-            ZStack {
-                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                Color.white.opacity(0.02)
-            }
-        case .dark:
-            Theme.dark.background.swiftUIColor
-        case .light:
-            Theme.light.background.swiftUIColor
-        }
+        ThemedSurface(appearance: settingsBridge.currentAppearance)
     }
 
     @ViewBuilder

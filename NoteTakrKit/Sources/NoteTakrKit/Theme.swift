@@ -90,9 +90,9 @@ public enum DesignConstants {
 /// App layer maps these RGBA values to SwiftUI Color / NSColor as needed.
 public enum Theme {
 
-    /// Glass: semi-transparent dark tint + blur (rgba(46,44,54,0.44) overlay).
+    /// Glass: nearly transparent — VisualEffectView provides the blur; only a faint white lift.
     public static let glass = ThemeColors(
-        background:      RGBA(red: 46, green: 44, blue: 54, alpha: 0.44),
+        background:      RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.015),
         elevatedFill:    RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.055),
         primaryText:     RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.92),
         secondaryText:   RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.60),
@@ -116,9 +116,9 @@ public enum Theme {
         trafficLightDot: RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.18)
     )
 
-    /// Dark: solid purple-tinted near-black (#151417).
+    /// Dark: solid neutral near-black (#0D0D0F).
     public static let dark = ThemeColors(
-        background:      RGBA(red: 21, green: 20, blue: 23),         // #151417
+        background:      RGBA(red: 13, green: 13, blue: 15),         // #0D0D0F
         elevatedFill:    RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.05),
         primaryText:     RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.92),
         secondaryText:   RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.60),
@@ -138,19 +138,19 @@ public enum Theme {
         kbdBackground:   RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.10),
         kbdBorder:       RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.18),
         avatarFill:      RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.10),
-        avatarRing:      RGBA(red: 21, green: 20, blue: 23),         // matches background
+        avatarRing:      RGBA(red: 13, green: 13, blue: 15),          // matches background
         trafficLightDot: RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.18)
     )
 
-    /// Light: warm paper (#FAF8F4).
+    /// Light: clean near-white (#F7F7F8).
     public static let light = ThemeColors(
-        background:      RGBA(red: 250, green: 248, blue: 244),      // #FAF8F4
+        background:      RGBA(red: 247, green: 247, blue: 248),      // #F7F7F8
         elevatedFill:    RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.04),
-        primaryText:     RGBA(r: 30.0/255, g: 27.0/255, b: 36.0/255, a: 0.92),
-        secondaryText:   RGBA(r: 30.0/255, g: 27.0/255, b: 36.0/255, a: 0.56),
-        tertiaryText:    RGBA(r: 30.0/255, g: 27.0/255, b: 36.0/255, a: 0.40),
+        primaryText:     RGBA(red: 22, green: 22, blue: 24, alpha: 0.92),   // #161618
+        secondaryText:   RGBA(red: 22, green: 22, blue: 24, alpha: 0.56),   // #161618
+        tertiaryText:    RGBA(red: 22, green: 22, blue: 24, alpha: 0.40),   // #161618
         hairline:        RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.10),
-        hoverFill:       RGBA(r: 40.0/255, g: 30.0/255, b: 50.0/255, a: 0.05),
+        hoverFill:       RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.05),
         accent:          RGBA(red: 139, green:  92, blue: 246),      // #8B5CF6
         destructive:     RGBA(red: 255, green:  69, blue:  58),      // #FF453A
         codeBg:          RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.055),
@@ -164,7 +164,7 @@ public enum Theme {
         kbdBackground:   RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.06),
         kbdBorder:       RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.14),
         avatarFill:      RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.07),
-        avatarRing:      RGBA(red: 250, green: 248, blue: 244),      // matches background
+        avatarRing:      RGBA(red: 247, green: 247, blue: 248),       // matches background
         trafficLightDot: RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.14)
     )
 

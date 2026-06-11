@@ -65,24 +65,24 @@ Do not proceed to the next task until:
 ---
 
 ### Task 1: Theme tokens + unified glass surface (no purple tint, blur-not-whiten)
-- [ ] Neutralize the three themes in `NoteTakrKit/Sources/NoteTakrKit/Theme.swift`: Glass
+- [x] Neutralize the three themes in `NoteTakrKit/Sources/NoteTakrKit/Theme.swift`: Glass
       `background` → ~transparent (the material provides the glass, a faint neutral white@~0.015
       lift only), Dark `background` `#151417`→`#0D0D0F`, Light `background` `#FAF8F4`→`#F7F7F8`.
       Recolor the purple-leaning Light ink `(30,27,36)`→neutral `#161618`, Light `hoverFill`
       `(40,30,50,.05)`→black@0.05, and `avatarRing`s to match. Keep `accent` purple (the only purple).
-- [ ] Add ONE reusable themed surface (e.g. `NoteTakrApp/Views/ThemedSurface.swift`) wrapping
+- [x] Add ONE reusable themed surface (e.g. `NoteTakrApp/Views/ThemedSurface.swift`) wrapping
       `VisualEffectView` for Glass and a solid `themeColors.background` fill for Dark/Light. Reuse it
       for the window body, the ⌘K palette, settings, and any menu/popover so the blur is identical
       everywhere. The glass material must **blur WITHOUT whitening** — pick a material/blending that
       does not add a white/light tint or scrim.
-- [ ] Wire the window body (`EditorView.swift` `panelBackground`, ~110-123) to the shared surface;
+- [x] Wire the window body (`EditorView.swift` `panelBackground`, ~110-123) to the shared surface;
       drop the inline `Color.white.opacity(0.02)` lift and the per-theme solid-color branches.
-- [ ] Encode the purple/hover rules as shared style helpers: a `selected` style (purple tint +
+- [x] Encode the purple/hover rules as shared style helpers: a `selected` style (purple tint +
       hairline) and a `hover` style (neutral gray by default). Purple hover only for elements with
       NO purple selected state.
-- [ ] Linux tests: each theme resolves the expected neutral tokens; `accent` is purple; the
+- [x] Linux tests: each theme resolves the expected neutral tokens; `accent` is purple; the
       Appearance setting persists and reloads.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 2: ⌘K command palette — final (floating rows over a pure blur)
 Reproduce `design/mockups/v5/switcher-final.html` exactly. `NoteTakrApp/Views/SwitcherOverlayView.swift`
