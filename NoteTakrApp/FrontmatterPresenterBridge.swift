@@ -10,6 +10,8 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published var isExpanded: Bool = false
     /// Set by the recording pipeline when a recording completes and audio is available.
     @Published var hasCompletedRecording: Bool = false
+    /// Calendar events available for the event picker; updated live by NotePanelController.
+    @Published var availableEvents: [UpcomingEvent] = []
 
     private(set) var presenter: FrontmatterPresenter?
     private let store: any NoteStoring

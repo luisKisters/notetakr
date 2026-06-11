@@ -322,7 +322,9 @@ private struct DateTimeValue: View {
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showDatePicker, arrowEdge: .bottom) {
-                DatePickerPopover(date: date, end: end, bridge: bridge)
+                DatePickerPopover(date: date, end: end, bridge: bridge) {
+                    showDatePicker = false
+                }
             }
 
             Text("·")
@@ -340,12 +342,14 @@ private struct DatePickerPopover: View {
     let date: Date
     let end: Date?
     @ObservedObject var bridge: FrontmatterPresenterBridge
+    let dismiss: () -> Void
     @State private var selectedDate: Date
 
-    init(date: Date, end: Date?, bridge: FrontmatterPresenterBridge) {
+    init(date: Date, end: Date?, bridge: FrontmatterPresenterBridge, dismiss: @escaping () -> Void) {
         self.date = date
         self.end = end
         self.bridge = bridge
+        self.dismiss = dismiss
         self._selectedDate = State(initialValue: date)
     }
 
@@ -362,6 +366,7 @@ private struct DatePickerPopover: View {
 
             Button("Done") {
                 bridge.setDate(selectedDate, end: end)
+                dismiss()
             }
             .buttonStyle(.borderedProminent)
             .tint(.accentColor)

@@ -8,7 +8,6 @@ struct EditorView: View {
     @ObservedObject var switcherBridge: SwitcherBridge
     @ObservedObject var settingsBridge: SettingsSheetViewModel
     let recordPillMachine: RecordPillStateMachine
-    var availableEvents: [UpcomingEvent] = []
     @State private var pillState: RecordPillState = .idle
 
     private var themeColors: ThemeColors {
@@ -70,7 +69,7 @@ struct EditorView: View {
                     bridge: frontmatterBridge,
                     recordPillMachine: recordPillMachine,
                     pillState: pillState,
-                    availableEvents: availableEvents
+                    availableEvents: frontmatterBridge.availableEvents
                 )
                 .environment(\.themeColors, themeColors)
                 .animation(.easeInOut(duration: 0.2), value: frontmatterBridge.isExpanded)

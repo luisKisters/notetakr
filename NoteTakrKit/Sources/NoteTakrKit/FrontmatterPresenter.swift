@@ -148,6 +148,7 @@ public final class FrontmatterPresenter {
     }
 
     public func addParticipant(_ participant: Participant) throws {
+        guard !note.participants.contains(participant) else { return }
         note.participants.append(participant)
         try store.save(note)
         onChange?()

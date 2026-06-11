@@ -93,7 +93,7 @@ final class NotePanelController {
 
     /// Updates calendar events in the switcher from an external snapshot.
     func refreshCalendarEvents(from events: [CalendarEvent]) {
-        calendarEventsProvider.events = events.map { ce in
+        let upcoming = events.map { ce in
             UpcomingEvent(
                 id: ce.id,
                 title: ce.title,
@@ -106,6 +106,8 @@ final class NotePanelController {
                 meetingLink: ce.url?.absoluteString
             )
         }
+        calendarEventsProvider.events = upcoming
+        frontmatterBridge.availableEvents = upcoming
     }
 
     /// Returns currently available upcoming events for the property panel event chip.
@@ -191,8 +193,7 @@ final class NotePanelController {
                 tabsBridge: tabsBridge,
                 switcherBridge: switcherBridge,
                 settingsBridge: settingsBridge,
-                recordPillMachine: recordPillMachine,
-                availableEvents: calendarEventsProvider.events
+                recordPillMachine: recordPillMachine
             )
         )
         self.panel = p

@@ -9,8 +9,20 @@ private func carbonHotkeyCallback(
     _ event: EventRef?,
     _ userData: UnsafeMutableRawPointer?
 ) -> OSStatus {
-    guard let userData else { return OSStatus(eventNotHandledErr) }
+    guard let userData, let event else { return OSStatus(eventNotHandledErr) }
+    var pressedID = EventHotKeyID()
+    let status = GetEventParameter(
+        event,
+        EventParamName(kEventParamDirectObject),
+        EventParamType(typeEventHotKeyID),
+        nil,
+        MemoryLayout<EventHotKeyID>.size,
+        nil,
+        &pressedID
+    )
+    guard status == noErr else { return OSStatus(eventNotHandledErr) }
     let obj = Unmanaged<CarbonHotkeyRegistrar>.fromOpaque(userData).takeUnretainedValue()
+    guard pressedID.id == obj.hotkeyID else { return OSStatus(eventNotHandledErr) }
     DispatchQueue.main.async { [weak obj] in obj?.fireAction() }
     return noErr
 }
