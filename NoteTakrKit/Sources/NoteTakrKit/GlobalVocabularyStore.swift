@@ -41,7 +41,7 @@ public final class GlobalVocabularyStore: @unchecked Sendable {
 
     public func remove(_ term: String) throws {
         var terms = load()
-        terms.removeAll { $0 == term }
+        terms.removeAll { $0.caseInsensitiveCompare(term) == .orderedSame }
         try save(terms)
     }
 }

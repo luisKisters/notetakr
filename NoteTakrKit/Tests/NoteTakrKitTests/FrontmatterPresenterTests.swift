@@ -398,6 +398,36 @@ final class FrontmatterPresenterTests: XCTestCase {
         XCTAssertNil(saved.locationText)
     }
 
+    func testSetTranscribe_persists() throws {
+        let (presenter, store) = try makeTempPresenter(note: baseNote())
+        try presenter.setTranscribe(false)
+        let saved = try XCTUnwrap(try store.load(id: "test-id"))
+        XCTAssertEqual(saved.transcribe, false)
+    }
+
+    func testSetTranscribe_firesOnChange() throws {
+        let (presenter, _) = try makeTempPresenter(note: baseNote())
+        var count = 0
+        presenter.onChange = { count += 1 }
+        try presenter.setTranscribe(false)
+        XCTAssertEqual(count, 1)
+    }
+
+    func testSetLanguage_persists() throws {
+        let (presenter, store) = try makeTempPresenter(note: baseNote())
+        try presenter.setLanguage(.code("fr"))
+        let saved = try XCTUnwrap(try store.load(id: "test-id"))
+        XCTAssertEqual(saved.language, .code("fr"))
+    }
+
+    func testSetLanguage_firesOnChange() throws {
+        let (presenter, _) = try makeTempPresenter(note: baseNote())
+        var count = 0
+        presenter.onChange = { count += 1 }
+        try presenter.setLanguage(.code("de"))
+        XCTAssertEqual(count, 1)
+    }
+
     func testSetMeetingLink_persists() throws {
         let (presenter, store) = try makeTempPresenter(note: baseNote())
         try presenter.setMeetingLink("https://zoom.us/j/8421337")
@@ -473,6 +503,10 @@ final class FrontmatterPresenterTests: XCTestCase {
         XCTAssertEqual(count, 5)
         try presenter.setMeetingLink("https://zoom.us/j/1")
         XCTAssertEqual(count, 6)
+        try presenter.setTranscribe(false)
+        XCTAssertEqual(count, 7)
+        try presenter.setLanguage(.code("es"))
+        XCTAssertEqual(count, 8)
     }
 
     func testNoteReflectsInMemoryMutations() throws {
@@ -498,6 +532,12 @@ final class FrontmatterPresenterTests: XCTestCase {
         c.hour = hour; c.minute = minute; c.second = 0
         c.timeZone = TimeZone(secondsFromGMT: 0)
         return Calendar(identifier: .gregorian).date(from: c)!
+    }
+
+    private class StoreSpy: NoteStoring {
+        private var notes: [String: MeetingNote] = [:]
+        func load(id: String) throws -> MeetingNote? { notes[id] }
+        func save(_ note: MeetingNote) throws { notes[note.id] = note }
     }
 
     private func makePresenter(note: MeetingNote) -> FrontmatterPresenter {

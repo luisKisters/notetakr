@@ -151,7 +151,7 @@ public final class NoteTabsPresenter {
         for noteID: String
     ) {
         let merged = TranscriptMerger.merge(mic: mic, systemAudio: systemAudio, inPerson: inPerson)
-        let micForNaming = inPerson ? mic : mic
+        let micForNaming = mic
         let sysForNaming = inPerson ? [] : systemAudio
         let resolutions = TranscriptMerger.inferSpeakerNames(
             micSegments: micForNaming,

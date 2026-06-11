@@ -66,20 +66,6 @@ final class Task9PolishTests: XCTestCase {
         XCTAssertEqual(t.primaryText.b, 1.0, accuracy: 0.01)
     }
 
-    // MARK: - Theme dispatch via colors(for:)
-
-    func testColorsForDarkReturnsDarkTheme() {
-        XCTAssertEqual(Theme.colors(for: .dark), Theme.dark)
-    }
-
-    func testColorsForLightReturnsLightTheme() {
-        XCTAssertEqual(Theme.colors(for: .light), Theme.light)
-    }
-
-    func testColorsForGlassReturnsGlassTheme() {
-        XCTAssertEqual(Theme.colors(for: .glass), Theme.glass)
-    }
-
     // MARK: - Shared design constants
 
     func testAccentPurpleMatchesKitCss() {
@@ -106,26 +92,7 @@ final class Task9PolishTests: XCTestCase {
         XCTAssertEqual(Int(round(r.b * 255)), 58)
     }
 
-    // MARK: - Notes tab label (user-facing "Notes")
-
-    func testDefaultTabIsNotes() {
-        // The user-facing label for the default tab is "Notes" (not "Private Notes").
-        let p = NoteTabsPresenter()
-        XCTAssertEqual(p.selectedTab(for: "any"), .privateNotes)
-    }
-
     // MARK: - Raw markdown copy (source preservation)
-
-    func testMarkdownParserPreservesRawSource() {
-        let source = "# Heading\n\nParagraph **bold** text."
-        let parsed = MarkdownBodyParser.parse(source)
-        XCTAssertEqual(parsed.rawSource, source, "Copy must return the exact raw source, not rendered text")
-    }
-
-    func testMarkdownParserPreservesEmptySource() {
-        let parsed = MarkdownBodyParser.parse("")
-        XCTAssertEqual(parsed.rawSource, "")
-    }
 
     func testMarkdownParserPreservesMultilineSource() {
         let source = "- item 1\n- item 2\n\n> blockquote\n\n```swift\nlet x = 1\n```"

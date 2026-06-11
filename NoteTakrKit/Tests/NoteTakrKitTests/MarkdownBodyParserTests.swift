@@ -55,6 +55,10 @@ final class MarkdownBodyParserTests: XCTestCase {
         assertBlocks("* Second", expected: [.bulletItem(text: "Second")])
     }
 
+    func testBulletPlus() {
+        assertBlocks("+ Third", expected: [.bulletItem(text: "Third")])
+    }
+
     func testBulletWithInlineCode() {
         assertBlocks("- Onboarding blocked on `auth-service v2`",
                      expected: [.bulletItem(text: "Onboarding blocked on `auth-service v2`")])
@@ -78,6 +82,10 @@ final class MarkdownBodyParserTests: XCTestCase {
 
     func testOrderedItemHighIndex() {
         assertBlocks("42. Some step", expected: [.orderedItem(index: 42, text: "Some step")])
+    }
+
+    func testOrderedItemParen() {
+        assertBlocks("1) First step", expected: [.orderedItem(index: 1, text: "First step")])
     }
 
     func testMultipleOrderedItems() {

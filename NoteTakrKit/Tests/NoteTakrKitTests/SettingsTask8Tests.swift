@@ -51,6 +51,13 @@ final class GlobalVocabularyStoreTests: XCTestCase {
         XCTAssertTrue(terms.contains("FluidAudio"))
     }
 
+    func testRemoveCaseInsensitive() throws {
+        let s = makeStore()
+        try s.add("Acme")
+        try s.remove("acme")
+        XCTAssertTrue(makeStore().load().isEmpty, "remove should be case-insensitive to match add")
+    }
+
     func testRemoveNonExistentTermIsNoOp() throws {
         let s = makeStore()
         try s.add("Acme")
@@ -215,39 +222,30 @@ final class AppSettingsStoreTask8Tests: XCTestCase {
 // MARK: - SettingsTab selection model
 
 final class SettingsTabSelectionTests: XCTestCase {
-    func testAllExpectedCasesExist() {
-        // Verify the SettingsTab enum in the app contains all expected tabs.
-        // We do this via an exhaustive switch so adding a case without updating
-        // this list causes a compile-time warning (non-exhaustive switch).
-        // The actual SettingsTab type lives in the macOS app; here we verify
-        // that AppSettingsStore has a field for each tab's key setting.
+    func testDefaultValues() {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("SettingsTabTest-\(UUID().uuidString)")
         let store = AppSettingsStore(root: root)
 
-        // This Meeting tab settings
-        _ = store.transcribeByDefault
-        _ = store.inPersonByDefault
-        _ = store.defaultLanguage
+        // This Meeting tab defaults
+        XCTAssertTrue(store.transcribeByDefault)
+        XCTAssertFalse(store.inPersonByDefault)
+        XCTAssertEqual(store.defaultLanguage, .auto)
 
-        // General tab settings
-        _ = store.appearance
-        _ = store.hotkey
-        _ = store.launchAtLogin
-        _ = store.notesFolderPath
-        _ = store.selectedSummaryModelSlug
+        // General tab defaults
+        XCTAssertEqual(store.appearance, .glass)
+        XCTAssertFalse(store.launchAtLogin)
+        XCTAssertNil(store.notesFolderPath)
 
-        // Recording tab settings
-        _ = store.micEnabled
-        _ = store.systemAudioEnabled
-        _ = store.yourName
-        _ = store.inferNamesFromCalendar
+        // Recording tab defaults
+        XCTAssertTrue(store.micEnabled)
+        XCTAssertTrue(store.systemAudioEnabled)
+        XCTAssertEqual(store.yourName, "")
+        XCTAssertTrue(store.inferNamesFromCalendar)
 
-        // Updates tab settings
-        _ = store.autoCheckForUpdates
-        _ = store.autoDownloadUpdates
-
-        XCTAssertTrue(true, "All tab settings are accessible via AppSettingsStore")
+        // Updates tab defaults
+        XCTAssertTrue(store.autoCheckForUpdates)
+        XCTAssertFalse(store.autoDownloadUpdates)
     }
 }
 

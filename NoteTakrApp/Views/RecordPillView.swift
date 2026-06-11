@@ -139,7 +139,7 @@ struct RecordPillView: View {
         .frame(minWidth: 180)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(theme.panelFill.swiftUIColor.opacity(10))
+                .fill(theme.panelFill.swiftUIColor)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(.regularMaterial)

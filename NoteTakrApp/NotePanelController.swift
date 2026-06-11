@@ -81,7 +81,8 @@ final class NotePanelController {
             noteListProvider: noteListProvider,
             eventsProvider: calendarEventsProvider,
             now: { Date() },
-            store: store
+            store: store,
+            defaultsProvider: localAppSettings
         )
         switcherBridge = SwitcherBridge(viewModel: switcherVM)
 
@@ -237,10 +238,10 @@ final class NotePanelController {
                 // Show the audio player in the transcript row
                 self?.frontmatterBridge.hasCompletedRecording = true
                 if intent == .summarize {
-                    // Switch to Summary tab; the existing auto-summarize path handles generation
                     let noteID = self?.frontmatterBridge.noteID ?? ""
                     if !noteID.isEmpty {
                         try? self?.tabsBridge.presenter.selectTab(.summary, for: noteID)
+                        self?.tabsBridge.generateSummary()
                     }
                 }
             }
@@ -271,6 +272,9 @@ final class NotePanelController {
             if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
                 self.loadNote(id: note.id)
             }
+        }
+        switcherBridge.onOpenSettings = { [weak self] in
+            self?.settingsBridge.isVisible = true
         }
     }
 

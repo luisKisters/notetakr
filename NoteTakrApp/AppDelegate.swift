@@ -77,8 +77,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         updaterController = controller
         controller.startUpdater()
-        controller.updater.automaticallyChecksForUpdates = true
-        controller.updater.automaticallyDownloadsUpdates = true
+        let settings = notePanelController?.settingsBridge.appSettings
+        controller.updater.automaticallyChecksForUpdates = settings?.autoCheckForUpdates ?? true
+        controller.updater.automaticallyDownloadsUpdates = settings?.autoDownloadUpdates ?? false
         controller.updater.checkForUpdatesInBackground()
 
         NotificationCenter.default.addObserver(

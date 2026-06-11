@@ -534,24 +534,6 @@ private struct ParticipantMenu: View {
             }
             .buttonStyle(.plain)
 
-            Button {
-                bridge.removeParticipant(participant)
-                dismiss()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "calendar.badge.minus")
-                        .font(.system(size: 11))
-                        .frame(width: 13)
-                    Text("Remove from calendar")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.red)
-                    Spacer()
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
         }
         .frame(minWidth: 190)
         .padding(.bottom, 4)
