@@ -204,7 +204,7 @@ public final class FrontmatterPresenter {
     }
 
     public func removeVocabularyTerm(_ term: String) throws {
-        note.vocabulary.removeAll { $0 == term }
+        note.vocabulary.removeAll { $0.caseInsensitiveCompare(term) == .orderedSame }
         try store.save(note)
         onChange?()
     }

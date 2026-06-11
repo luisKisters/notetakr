@@ -44,6 +44,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarController = StatusBarController(model: .shared, notePanelController: npc)
         registerNewNoteHotkey(npc: npc)
         startUpdaterIfConfigured()
+
+        npc.settingsBridge.onAutoCheckForUpdatesChange = { [weak self] value in
+            self?.updaterController?.updater.automaticallyChecksForUpdates = value
+        }
+        npc.settingsBridge.onAutoDownloadUpdatesChange = { [weak self] value in
+            self?.updaterController?.updater.automaticallyDownloadsUpdates = value
+        }
+
         NSApp.activate(ignoringOtherApps: true)
     }
 

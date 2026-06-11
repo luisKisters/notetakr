@@ -34,7 +34,7 @@ final class NotePanelController {
         recordPillMachine = RecordPillStateMachine()
 
         let settingsRoot = notesRoot.deletingLastPathComponent()
-        let localAppSettings = AppSettingsStore(root: settingsRoot)
+        let localAppSettings = appModel?.appSettings ?? AppSettingsStore(root: settingsRoot)
         appSettings = localAppSettings
         settingsBridge = SettingsSheetViewModel(
             frontmatterBridge: frontmatterBridge,
@@ -237,17 +237,16 @@ final class NotePanelController {
 
         machine.onStopped = { [weak self, weak appModel] intent in
             guard let appModel else { return }
+            let stoppedNoteID = self?.frontmatterBridge.noteID ?? ""
             Task { @MainActor in
                 self?.stopPillTickTimer()
                 await appModel.stopRecording()
-                // Show the audio player in the transcript row
-                self?.frontmatterBridge.hasCompletedRecording = true
-                if intent == .summarize {
-                    let noteID = self?.frontmatterBridge.noteID ?? ""
-                    if !noteID.isEmpty {
-                        try? self?.tabsBridge.presenter.selectTab(.summary, for: noteID)
-                        self?.tabsBridge.generateSummary()
-                    }
+                guard let self, !stoppedNoteID.isEmpty,
+                      self.frontmatterBridge.noteID == stoppedNoteID else { return }
+                self.frontmatterBridge.hasCompletedRecording = true
+                if intent == .summarize, !stoppedNoteID.isEmpty {
+                    try? self.tabsBridge.presenter.selectTab(.summary, for: stoppedNoteID)
+                    self.tabsBridge.generateSummary()
                 }
             }
         }

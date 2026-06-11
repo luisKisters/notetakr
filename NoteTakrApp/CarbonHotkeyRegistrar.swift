@@ -54,12 +54,13 @@ final class CarbonHotkeyRegistrar: HotkeyRegistering {
     // MARK: - HotkeyRegistering
 
     func register(combo: HotkeyCombo, action: @escaping () -> Void) {
+        guard let keyCode = virtualKeyCode(for: combo.key) else { return }
         unregister()
         currentAction = action
 
         var keyID = EventHotKeyID(signature: OSType(0x4E544B52), id: hotkeyID) // 'NTKR'
         RegisterEventHotKey(
-            virtualKeyCode(for: combo.key),
+            keyCode,
             carbonModifiers(from: combo.modifiers),
             keyID,
             GetApplicationEventTarget(),
@@ -112,7 +113,7 @@ final class CarbonHotkeyRegistrar: HotkeyRegistering {
 
     // MARK: - Virtual key codes (US QWERTY layout)
 
-    private func virtualKeyCode(for key: Character) -> UInt32 {
+    private func virtualKeyCode(for key: Character) -> UInt32? {
         let map: [Character: UInt32] = [
             "A": 0x00, "S": 0x01, "D": 0x02, "F": 0x03, "H": 0x04, "G": 0x05,
             "Z": 0x06, "X": 0x07, "C": 0x08, "V": 0x09, "B": 0x0B, "Q": 0x0C,
@@ -122,6 +123,6 @@ final class CarbonHotkeyRegistrar: HotkeyRegistering {
             "O": 0x1F, "U": 0x20, "I": 0x22, "P": 0x23,
             "L": 0x25, "J": 0x26, "K": 0x28, "N": 0x2D, "M": 0x2E,
         ]
-        return map[key] ?? 0
+        return map[key]
     }
 }

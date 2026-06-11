@@ -27,6 +27,10 @@ final class SettingsSheetViewModel: ObservableObject {
 
     /// Called when the user records a new hotkey so the coordinator can re-register.
     var onHotkeyChange: ((HotkeyCombo) -> Void)?
+    /// Called when the user toggles auto-check-for-updates so the live updater can be updated.
+    var onAutoCheckForUpdatesChange: ((Bool) -> Void)?
+    /// Called when the user toggles auto-download-updates so the live updater can be updated.
+    var onAutoDownloadUpdatesChange: ((Bool) -> Void)?
 
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
@@ -115,10 +119,12 @@ final class SettingsSheetViewModel: ObservableObject {
 
     func setAutoCheckForUpdates(_ value: Bool) {
         appSettings.autoCheckForUpdates = value
+        onAutoCheckForUpdatesChange?(value)
     }
 
     func setAutoDownloadUpdates(_ value: Bool) {
         appSettings.autoDownloadUpdates = value
+        onAutoDownloadUpdatesChange?(value)
     }
 
     // MARK: - Sheet lifecycle
