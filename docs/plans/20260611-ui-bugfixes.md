@@ -74,14 +74,14 @@ non-root user; Node, git, gh available; a live Swift-for-Linux toolchain is pres
 
 ### Task 2: Settings rows — whole-row hit target and correct hover
 
-- [ ] Make the **entire settings row** the click/tap target (icon, text, and the empty space
+- [x] Make the **entire settings row** the click/tap target (icon, text, and the empty space
       across the row), not only the icon or the text label.
-- [ ] Make the hover/highlight state apply to the whole row and only on actual hover; fix the
+- [x] Make the hover/highlight state apply to the whole row and only on actual hover; fix the
       current bug where hovering the text incorrectly shows the row as selected.
-- [ ] Ensure keyboard/pointer selection and the visible highlight stay consistent.
-- [ ] Add a macOS UI/interaction test (or a logic test for the row hit-test/selection model)
+- [x] Ensure keyboard/pointer selection and the visible highlight stay consistent.
+- [x] Add a macOS UI/interaction test (or a logic test for the row hit-test/selection model)
       verifying the whole row is actionable and hover ≠ selected.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 3: Fix adding custom vocabulary
 

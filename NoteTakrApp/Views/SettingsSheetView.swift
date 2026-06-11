@@ -37,6 +37,7 @@ struct SettingsSheetView: View {
     private let textSecondary = Color(red: 0.659, green: 0.643, blue: 0.702)
     private let textTertiary = Color(red: 0.471, green: 0.455, blue: 0.486)
     private let controlBg = Color.white.opacity(0.09)
+    private let hoverFill = Color.white.opacity(0.05)
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -190,16 +191,18 @@ struct SettingsSheetView: View {
             sectionLabel("Transcription")
 
             settingsRow {
-                Image(systemName: "waveform")
-                    .iconStyle()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Transcribe this meeting").font(.system(size: 13)).foregroundColor(textPrimary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.frontmatterBridge.noteTranscribe ?? viewModel.appSettings.transcribeByDefault },
                     set: { viewModel.setTranscribeThisMeeting($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "waveform").iconStyle()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Transcribe this meeting").font(.system(size: 13)).foregroundColor(textPrimary)
+                        }
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
@@ -224,18 +227,20 @@ struct SettingsSheetView: View {
             }
 
             settingsRow {
-                Image(systemName: "person.fill")
-                    .iconStyle()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Text("Mic only — skips system audio")
-                        .font(.system(size: 11)).foregroundColor(textTertiary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.frontmatterBridge.presenter?.note.inPerson ?? viewModel.appSettings.inPersonByDefault },
                     set: { viewModel.setInPersonThisMeeting($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "person.fill").iconStyle()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Mic only — skips system audio")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
@@ -317,18 +322,20 @@ struct SettingsSheetView: View {
             sectionLabel("Defaults for new meetings")
 
             settingsRow {
-                Image(systemName: "waveform")
-                    .iconStyle()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Transcribe meetings").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Text("Every new meeting starts transcribing")
-                        .font(.system(size: 11)).foregroundColor(textTertiary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.appSettings.transcribeByDefault },
                     set: { viewModel.setTranscribeByDefault($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "waveform").iconStyle()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Transcribe meetings").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Every new meeting starts transcribing")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
@@ -370,18 +377,20 @@ struct SettingsSheetView: View {
             .padding(.bottom, 2)
 
             settingsRow {
-                Image(systemName: "person.fill")
-                    .iconStyle()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Text("Mic only — skips system audio")
-                        .font(.system(size: 11)).foregroundColor(textTertiary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.appSettings.inPersonByDefault },
                     set: { viewModel.setInPersonByDefault($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "person.fill").iconStyle()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Mic only — skips system audio")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
@@ -448,14 +457,16 @@ struct SettingsSheetView: View {
             }
 
             settingsRow {
-                Image(systemName: "power")
-                    .iconStyle()
-                Text("Launch at login").font(.system(size: 13)).foregroundColor(textPrimary)
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.appSettings.launchAtLogin },
                     set: { viewModel.setLaunchAtLogin($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "power").iconStyle()
+                        Text("Launch at login").font(.system(size: 13)).foregroundColor(textPrimary)
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
@@ -510,36 +521,40 @@ struct SettingsSheetView: View {
             sectionLabel("Audio sources")
 
             settingsRow {
-                Image(systemName: "mic")
-                    .iconStyle()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Microphone").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Text("Your voice — assigned to you")
-                        .font(.system(size: 11)).foregroundColor(textTertiary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.appSettings.micEnabled },
                     set: { viewModel.setMicEnabled($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "mic").iconStyle()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Microphone").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Your voice — assigned to you")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
             }
 
             settingsRow {
-                Image(systemName: "speaker.wave.2")
-                    .iconStyle()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("System audio").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Text("Other participants · off for in-person")
-                        .font(.system(size: 11)).foregroundColor(textTertiary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.appSettings.systemAudioEnabled },
                     set: { viewModel.setSystemAudioEnabled($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "speaker.wave.2").iconStyle()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("System audio").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Other participants · off for in-person")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
@@ -568,18 +583,20 @@ struct SettingsSheetView: View {
             }
 
             settingsRow {
-                Image(systemName: "calendar.badge.checkmark")
-                    .iconStyle()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Infer names from calendar").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Text("Auto-name the other speaker when 1:1")
-                        .font(.system(size: 11)).foregroundColor(textTertiary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.appSettings.inferNamesFromCalendar },
                     set: { viewModel.setInferNamesFromCalendar($0) }
-                ))
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "calendar.badge.checkmark").iconStyle()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Infer names from calendar").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Auto-name the other speaker when 1:1")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
@@ -715,31 +732,35 @@ struct SettingsSheetView: View {
                 .overlay(alignment: .bottom) { Rectangle().fill(hairline).frame(height: 1) }
 
                 settingsRow {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .iconStyle()
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Automatically check for updates").font(.system(size: 13)).foregroundColor(textPrimary)
-                        Text("Via Sparkle").font(.system(size: 11)).foregroundColor(textTertiary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
+                    Toggle(isOn: Binding(
                         get: { viewModel.appSettings.autoCheckForUpdates },
                         set: { viewModel.setAutoCheckForUpdates($0) }
-                    ))
+                    )) {
+                        HStack(alignment: .center, spacing: 10) {
+                            Image(systemName: "clock.arrow.circlepath").iconStyle()
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Automatically check for updates").font(.system(size: 13)).foregroundColor(textPrimary)
+                                Text("Via Sparkle").font(.system(size: 11)).foregroundColor(textTertiary)
+                            }
+                            Spacer()
+                        }
+                    }
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .tint(accent)
                 }
 
                 settingsRow {
-                    Image(systemName: "arrow.down.circle")
-                        .iconStyle()
-                    Text("Automatically download updates").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Spacer()
-                    Toggle("", isOn: Binding(
+                    Toggle(isOn: Binding(
                         get: { viewModel.appSettings.autoDownloadUpdates },
                         set: { viewModel.setAutoDownloadUpdates($0) }
-                    ))
+                    )) {
+                        HStack(alignment: .center, spacing: 10) {
+                            Image(systemName: "arrow.down.circle").iconStyle()
+                            Text("Automatically download updates").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Spacer()
+                        }
+                    }
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .tint(accent)
@@ -912,13 +933,8 @@ struct SettingsSheetView: View {
 
     @ViewBuilder
     private func settingsRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        HStack(alignment: .center, spacing: 10) {
+        SettingsRowView(hairline: hairline, hoverFill: hoverFill) {
             content()
-        }
-        .frame(minHeight: 42)
-        .padding(.vertical, 0)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(hairline).frame(height: 1)
         }
     }
 
@@ -959,6 +975,31 @@ struct SettingsSheetView: View {
 
     private func triggerSparkleCheck() {
         NotificationCenter.default.post(name: .noteTakrCheckForUpdates, object: nil)
+    }
+}
+
+// MARK: - Settings row container with hover state
+
+/// Wraps any settings row content with full-width hover highlighting.
+/// Hover state is tracked independently of selection/active state so that
+/// hovering a row's text never incorrectly shows the row as "selected".
+private struct SettingsRowView<Content: View>: View {
+    let hairline: Color
+    let hoverFill: Color
+    @ViewBuilder let content: () -> Content
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            content()
+        }
+        .frame(minHeight: 42, maxWidth: .infinity)
+        .background(isHovering ? hoverFill : Color.clear)
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(hairline).frame(height: 1)
+        }
     }
 }
 
