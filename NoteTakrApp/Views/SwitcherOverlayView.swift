@@ -64,8 +64,6 @@ struct SwitcherOverlayView: View {
                 .focused($searchFocused)
                 .onKeyPress(.upArrow)    { bridge.moveUp();                  return .handled }
                 .onKeyPress(.downArrow)  { bridge.moveDown();                return .handled }
-                .onKeyPress(.return)     { bridge.openOrCreateSelected();    return .handled }
-                .onKeyPress(.escape)     { bridge.dismiss();                 return .handled }
 
             // Toggle rows ↔ timeline
             Button {

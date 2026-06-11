@@ -260,25 +260,27 @@ private struct EventPickerMenu: View {
                     .buttonStyle(.plain)
                 }
 
-                Divider().padding(.horizontal, 6)
+                if isLinked {
+                    Divider().padding(.horizontal, 6)
 
-                Button {
-                    bridge.unlinkEvent()
-                    dismiss()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11))
-                            .frame(width: 13)
-                        Text("— No event —")
-                            .font(.system(size: 12))
-                        Spacer()
+                    Button {
+                        bridge.unlinkEvent()
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11))
+                                .frame(width: 13)
+                            Text("— No event —")
+                                .font(.system(size: 12))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .frame(minWidth: 220)

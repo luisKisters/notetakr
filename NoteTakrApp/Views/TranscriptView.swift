@@ -23,11 +23,12 @@ struct TranscriptView: View {
                 toolbar
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        let indexMap = speakerIndexMap
                         ForEach(Array(segments.enumerated()), id: \.offset) { idx, seg in
                             TurnRow(
                                 index: idx,
                                 segment: seg,
-                                speakerIndex: speakerIndex(seg.speaker),
+                                speakerIndex: indexMap[seg.speaker] ?? 0,
                                 resolution: speakerResolutions[seg.speaker ?? ""],
                                 nameOverride: nameOverrides[seg.speaker ?? ""],
                                 isCollapsed: collapsedIndices.contains(idx),
@@ -119,7 +120,7 @@ struct TranscriptView: View {
 
     // MARK: - Helpers
 
-    private func speakerIndex(_ speakerID: String?) -> Int {
+    private var speakerIndexMap: [String?: Int] {
         var seen: [String?: Int] = [:]
         var next = 0
         for seg in segments {
@@ -128,7 +129,7 @@ struct TranscriptView: View {
                 next += 1
             }
         }
-        return seen[speakerID] ?? 0
+        return seen
     }
 
     private func applyRename(speakerID: String?, newName: String) {
