@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — final UI</title>
+<style>
+  :root {
+    --page-bg: #0e0d12;
+    --purple: #A78BFA;
+    --txt: rgba(235,235,240,0.92);
+    --txt2: rgba(235,235,240,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 72px 24px 120px;
+  }
+  h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  h1 span { color: var(--purple); }
+  .lede {
+    font-size: 14px;
+    color: var(--txt2);
+    margin: 0 0 56px;
+    max-width: 640px;
+  }
+  section { margin-bottom: 64px; }
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--purple);
+    margin: 0 0 6px;
+  }
+  .desc {
+    font-size: 13.5px;
+    color: var(--txt2);
+    margin: 0 0 20px;
+    max-width: 720px;
+  }
+  iframe {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
+    background: #0e0d12;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>NoteTakr — <span>final UI</span></h1>
+    <p class="lede">The decided final designs for the redesign, in one place. Both panels below are live and interactive — click around.</p>
+
+    <section>
+      <h2>Recording control</h2>
+      <p class="desc">Split badge: neutral pill, white text, only the dot is colored. Clicking the badge stops &amp; summarizes (auto-transcribes, then summarizes); the caret menu holds Pause, Stop without summarizing, Restart, and Discard. The done state reads "Summarized →" with no caret.</p>
+      <iframe src="recording-final.html" height="580" title="Recording control — final"></iframe>
+    </section>
+
+    <section>
+      <h2>⌘K palette</h2>
+      <p class="desc">No overlay tint — it just slightly blurs what's behind it. Rounded search field with no icon, dropped to the heading line; rows float as cards and the list fades at top &amp; bottom. You can't overscroll past the last meeting. Purple only marks the selected row; hover is gray.</p>
+      <iframe src="switcher-final.html" height="620" title="⌘K palette — final"></iframe>
+    </section>
+  </div>
+</body>
+</html>

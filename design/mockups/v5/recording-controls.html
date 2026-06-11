@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — Recording controls · 10 interactive variants</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* ---- neutralized preview: NO purple tint on surfaces (purple stays accent) ---- */
+  #grid .window { background: rgba(40,40,46,0.46) !important; border-color: rgba(255,255,255,0.12) !important; }
+  #grid .window.t-dark { background: #0f0f12 !important; border-color: rgba(255,255,255,0.07) !important; }
+  #grid .window.t-light { background: #f6f6f7 !important; }
+  #grid .window.t-light { --txt: rgba(24,24,27,0.92); --txt2: rgba(24,24,27,0.56); --txt3: rgba(24,24,27,0.42); --hover: rgba(0,0,0,0.05); }
+
+  /* ---- page ---- */
+  .mtop { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 24px; background: rgba(15,14,18,0.82); backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4); border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .mtop h1 { font-size: 14px; font-weight: 700; letter-spacing: -0.2px; }
+  .mtop h1 span { color: var(--purple-light); }
+  .mtop .sub { font-size: 11.5px; color: var(--page-txt2); max-width: 540px; line-height: 1.4; }
+  .mtop .spacer { flex: 1; }
+  .resetall { font: inherit; font-size: 11.5px; color: var(--page-txt2); background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .resetall:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(420px, 1fr)); gap: 30px 26px;
+    padding: 30px 24px 90px; max-width: 1340px; margin: 0 auto; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  .card { display: flex; flex-direction: column; gap: 12px; }
+  .cmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+  .cnum { font-size: 11px; font-weight: 700; color: var(--purple-light); letter-spacing: 0.12em; }
+  .cmeta h3 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .cmeta .creset { margin-left: auto; font: inherit; font-size: 11px; color: var(--page-txt2);
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; padding: 4px 9px; cursor: pointer; }
+  .cmeta .creset:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .cmeta p { flex-basis: 100%; font-size: 11.5px; color: var(--page-txt2); line-height: 1.45; margin-top: -1px; }
+  .window.mini { width: 100%; max-width: 460px; height: 396px; align-self: center; }
+
+  /* ============ shared control atoms ============ */
+  .ctlwrap { display: inline-flex; align-items: center; min-width: 0; }
+  .ctlwrap button { font: inherit; }
+  .rdot { width: 7px; height: 7px; border-radius: 50%; background: var(--txt3); flex: none; display: inline-block; }
+  .rdot.red { background: var(--rec); animation: pulse 1.4s ease-in-out infinite; }
+  .rdot.amber { background: var(--orange); animation: breathe 1.4s ease-in-out infinite; }
+  .rdot.grn { background: var(--green); animation: pulse 1.2s ease-in-out infinite; }
+  .rdot.idle { background: var(--rec); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rec) 20%, transparent); }
+
+  .statusline { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--txt2); font-variant-numeric: tabular-nums; }
+  .statusline.ok { color: var(--green); }
+  .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--chip-line); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite; display: inline-block; flex: none; }
+
+  .miniprimary { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 11.5px; font-weight: 600;
+    color: #fff; background: var(--purple); border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer;
+    box-shadow: 0 2px 10px rgba(139,92,246,0.4); transition: background 0.15s, transform 0.12s; }
+  .miniprimary:hover { background: var(--purple-light); transform: translateY(-1px); }
+  .miniprimary:active { transform: scale(0.97); }
+
+  .idlepill { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 11px; border-radius: 999px;
+    font: inherit; font-size: 11.5px; color: var(--txt); background: var(--chip-fill); border: 1px solid var(--chip-line); cursor: pointer; }
+  .idlepill:hover { background: var(--chip-fill-hover); }
+
+  .iconbtn.big { width: 30px; height: 30px; }
+  .iconbtn.sm { width: 20px; height: 20px; }
+  .iconbtn.sm svg { width: 10px; height: 10px; }
+  .recbtn.stop { border-color: color-mix(in srgb, var(--rec) 34%, var(--chip-line)); }
+
+  /* V1 — inline segments */
+  .segcap { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 5px 0 11px; border-radius: 999px;
+    background: color-mix(in srgb, var(--rec) 13%, var(--chip-fill)); border: 1px solid color-mix(in srgb, var(--rec) 30%, var(--chip-line)); }
+  .segcap.paused { background: color-mix(in srgb, var(--orange) 13%, var(--chip-fill)); border-color: color-mix(in srgb, var(--orange) 30%, var(--chip-line)); }
+  .segtime { font-variant-numeric: tabular-nums; font-size: 11.5px; }
+  .segdiv { width: 1px; height: 14px; background: var(--hairline); }
+
+  /* V2 — split button */
+  .splitwrap { position: relative; display: inline-flex; align-items: center; }
+  .splitmain { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--txt);
+    height: 27px; padding: 0 11px; border: 1px solid var(--chip-line); border-right: 0; border-radius: 999px 0 0 999px; background: var(--chip-fill); cursor: pointer; }
+  .splitmain.rec { background: color-mix(in srgb, var(--rec) 14%, var(--chip-fill)); border-color: color-mix(in srgb, var(--rec) 30%, var(--chip-line)); }
+  .splitmain.amber { background: color-mix(in srgb, var(--orange) 14%, var(--chip-fill)); border-color: color-mix(in srgb, var(--orange) 30%, var(--chip-line)); }
+  .splittime { opacity: 0.82; font-variant-numeric: tabular-nums; }
+  .splitcaret { display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 27px;
+    border: 1px solid var(--chip-line); border-radius: 0 999px 999px 0; background: var(--chip-fill); color: var(--txt2); cursor: pointer; }
+  .splitcaret:hover { background: var(--chip-fill-hover); color: var(--txt); }
+
+  /* V3 — two buttons */
+  .timchip { display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border-radius: 999px;
+    background: var(--chip-fill); border: 1px solid var(--chip-line); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+  /* V4 — morphing pill */
+  .morph { display: inline-flex; align-items: center; height: 26px; border-radius: 999px; overflow: hidden;
+    border: 1px solid var(--chip-line); background: var(--chip-fill); }
+  .morph.rec { background: color-mix(in srgb, var(--rec) 13%, var(--chip-fill)); border-color: color-mix(in srgb, var(--rec) 30%, var(--chip-line)); }
+  .morph.amber { background: color-mix(in srgb, var(--orange) 13%, var(--chip-fill)); border-color: color-mix(in srgb, var(--orange) 30%, var(--chip-line)); }
+  .morphmain { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--txt); background: none; border: 0; padding: 0 8px 0 11px; height: 100%; cursor: pointer; }
+  .morphtime { font-variant-numeric: tabular-nums; }
+  .morphstop { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 100%; background: none; border: 0; border-left: 1px solid var(--hairline); color: var(--txt2); cursor: pointer; }
+  .morphstop:hover { background: var(--hover); color: var(--txt); }
+
+  /* V5 — circular dial */
+  .dialrow { display: inline-flex; align-items: center; gap: 9px; }
+  .recdial { width: 30px; height: 30px; flex: none; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--rec) 55%, transparent);
+    background: none; cursor: pointer; position: relative; padding: 0; }
+  .recdial::after { content: ""; position: absolute; inset: 0; margin: auto; width: 15px; height: 15px; border-radius: 50%;
+    background: var(--rec); transition: border-radius 0.2s, width 0.2s, height 0.2s; }
+  .recdial.stop::after { border-radius: 4px; width: 12px; height: 12px; }
+  .dialcap { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--txt); }
+
+  /* V7 — popover toolbar */
+  .toolwrap { position: relative; display: inline-flex; }
+  .recpilltog { display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 9px 0 11px; border-radius: 999px;
+    font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--txt); border: 1px solid var(--chip-line); background: var(--chip-fill); cursor: pointer; }
+  .recpilltog.rec { background: color-mix(in srgb, var(--rec) 13%, var(--chip-fill)); border-color: color-mix(in srgb, var(--rec) 30%, var(--chip-line)); }
+  .recpilltog.paused { background: color-mix(in srgb, var(--orange) 13%, var(--chip-fill)); border-color: color-mix(in srgb, var(--orange) 30%, var(--chip-line)); }
+  .rectool { position: absolute; top: 31px; left: 0; z-index: 40; display: flex; gap: 2px; padding: 5px; border-radius: 12px;
+    background: var(--panel-fill); box-shadow: 0 14px 38px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(0,0,0,0.35);
+    backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); }
+  .window.t-dark .rectool { background: #1c1c1f; } .window.t-light .rectool { background: #fff; }
+  .rectool button { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 60px; padding: 8px 4px; border: 0;
+    border-radius: 9px; background: none; color: var(--txt); font: inherit; font-size: 10px; cursor: pointer; }
+  .rectool button:hover { background: var(--hover); }
+  .rectool .ti { width: 28px; height: 28px; border-radius: 50%; background: var(--chip-fill); display: inline-flex; align-items: center; justify-content: center; }
+
+  /* V8 — pipeline stepper */
+  .stepper { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .stepnode { display: inline-flex; align-items: center; gap: 5px; height: 25px; padding: 0 9px; border-radius: 999px;
+    background: var(--chip-fill); border: 1px solid var(--chip-line); font: inherit; font-size: 11px; color: var(--txt);
+    cursor: default; font-variant-numeric: tabular-nums; }
+  button.stepnode { cursor: pointer; }
+  .stepnode.mut { opacity: 0.5; border-style: dashed; }
+  .stepnode.live { border-color: color-mix(in srgb, var(--accent) 38%, var(--chip-line)); }
+  .stepnode.ok { color: var(--txt2); }
+  .stepnode.ok > svg { color: var(--green); }
+  .stepnode.act { color: var(--accent); border-color: var(--sel-line); border-style: dashed; }
+  .steparrow { color: var(--txt3); display: inline-flex; transform: rotate(-90deg); }
+
+  /* V9 — docked bottom bar */
+  .recdock { flex: none; display: flex; align-items: center; gap: 9px; height: 44px; padding: 0 14px;
+    border-top: 1px solid var(--hairline); background: var(--panel-fill); }
+  .recdock .recbtn { padding: 5px 12px; }
+  .docktimer { display: inline-flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--txt); }
+  .docktimer.ok { color: var(--green); }
+  .dockspace { flex: 1; }
+  .dockstart { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 12px; font-weight: 600; color: var(--txt); background: none; border: 0; cursor: pointer; }
+
+  /* V10 — primary path */
+  .primrow { position: relative; display: inline-flex; align-items: center; gap: 7px; }
+  .primtime { opacity: 0.85; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+  /* shared dropdown menu (reuses kit .recmenu look) */
+  .miniprimary svg, .recbtn svg, .splitmain svg, .morphmain svg, .stepnode svg, .docktimer svg { flex: none; }
+</style>
+</head>
+<body>
+
+<div class="mtop">
+  <h1>Note<span>Takr</span> — recording controls</h1>
+  <div class="sub">10 interactive takes on the record → pause/resume → stop → transcribe → summarize flow. Click any control to drive it. Surfaces are shown neutral (no purple tint); purple is accent only.</div>
+  <div class="spacer"></div>
+  <div class="thememode" id="theme"><button class="on" data-theme="glass">Glass</button><button data-theme="dark">Dark</button><button data-theme="light">Light</button></div>
+  <button class="resetall" id="resetall">↺ Reset all</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+/* ============ icons (self-contained: explicit fill/stroke) ============ */
+var I = {
+  play:  '<svg viewBox="0 0 16 16" width="13" height="13"><path d="M5 3.5l8 4.5-8 4.5z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="4" y="3.5" width="3" height="9" rx="1"/><rect x="9" y="3.5" width="3" height="9" rx="1"/></svg>',
+  stop:  '<svg viewBox="0 0 16 16" width="12" height="12"><rect x="3.75" y="3.75" width="8.5" height="8.5" rx="1.6" fill="currentColor"/></svg>',
+  spark: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2l1.5 3.1 3.4.5-2.45 2.4.58 3.4L8 10.4 4.97 12l.58-3.4L3.1 6.2l3.4-.5z"/></svg>',
+  chev:  '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
+  dots:  '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>',
+  check: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>',
+  clock: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.8V8l2.2 1.4"/></svg>',
+  gear:  '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M12.5 3.5l-1.4 1.4M4.9 11.1l-1.4 1.4"/></svg>'
+};
+function fmt(s){ var m=Math.floor(s/60), r=s%60; return (m<10?'0':'')+m+':'+(r<10?'0':'')+r; }
+function meters(frozen){ return '<span class="meters'+(frozen?' frozen':'')+'"><i></i><i></i><i></i><i></i></span>'; }
+function idle(){ return '<button class="idlepill" data-act="start"><span class="rdot idle"></span>Record</button>'; }
+
+/* states: idle · rec · paused · transcribing · done · summarizing · summarized */
+function afterStop(s){
+  if(s==='transcribing') return '<span class="statusline"><span class="rdot grn"></span>Transcribing…</span>';
+  if(s==='done')         return '<button class="miniprimary" data-act="summarize">'+I.spark+'Summarize</button>';
+  if(s==='summarizing')  return '<span class="statusline"><span class="spin"></span>Summarizing…</span>';
+  if(s==='summarized')   return '<span class="statusline ok">'+I.check+'Summary ready</span>';
+  return null;
+}
+
+/* ============ the 10 variants ============ */
+var VARIANTS = [
+{ id:'v1', name:'Inline segments', place:'meta',
+  desc:'Live timer with always-visible Pause + Stop icons. No hidden menu, nothing to discover.',
+  build:function(s,secs){ var a=afterStop(s); if(a)return a; if(s==='idle')return idle();
+    var amber=s==='paused';
+    return '<span class="segcap '+(amber?'paused':'')+'"><span class="rdot '+(amber?'amber':'red')+'"></span>'+
+      '<span class="segtime">'+fmt(secs)+'</span><span class="segdiv"></span>'+
+      '<button class="iconbtn" data-act="'+(amber?'resume':'pause')+'" title="'+(amber?'Resume':'Pause')+'">'+(amber?I.play:I.pause)+'</button>'+
+      '<button class="iconbtn" data-act="stop-transcribe" title="Stop &amp; transcribe">'+I.stop+'</button></span>'; } },
+
+{ id:'v2', name:'Split button', place:'meta',
+  desc:'Primary action is Stop. A small caret reveals the rest (Pause / Stop & summarize).',
+  build:function(s,secs,ui){ var a=afterStop(s); if(a)return a; if(s==='idle')return idle();
+    var amber=s==='paused';
+    return '<span class="splitwrap"><button class="splitmain '+(amber?'amber':'rec')+'" data-act="'+(amber?'resume':'stop-transcribe')+'">'+
+      '<span class="rdot '+(amber?'amber':'red')+'"></span>'+(amber?'Resume':'Stop')+'<span class="splittime">'+fmt(secs)+'</span></button>'+
+      '<button class="splitcaret" data-act="menu">'+I.chev+'</button>'+
+      (ui.menuOpen?('<div class="recmenu open">'+
+         (amber?'<button data-act="stop-transcribe">'+I.stop+'Stop &amp; transcribe</button>':'<button data-act="pause">'+I.pause+'Pause</button>')+
+         '<button data-act="stop-summarize">'+I.spark+'Stop &amp; summarize</button></div>'):'')+
+      '</span>'; } },
+
+{ id:'v3', name:'Two explicit buttons', place:'meta',
+  desc:'Plainly labelled Pause and Stop side by side. The most unambiguous, least clever option.',
+  build:function(s,secs){ var a=afterStop(s); if(a)return a; if(s==='idle')return idle();
+    var amber=s==='paused';
+    return '<span style="display:inline-flex;align-items:center;gap:7px"><span class="timchip"><span class="rdot '+(amber?'amber':'red')+'"></span>'+fmt(secs)+'</span>'+
+      '<button class="recbtn" data-act="'+(amber?'resume':'pause')+'">'+(amber?'Resume':'Pause')+'</button>'+
+      '<button class="recbtn stop" data-act="stop-transcribe">Stop</button></span>'; } },
+
+{ id:'v4', name:'Morphing pill', place:'meta',
+  desc:'One pill IS pause/resume (tap it); a tiny Stop sits at the edge. Smallest footprint.',
+  build:function(s,secs){ var a=afterStop(s); if(a)return a; if(s==='idle')return idle();
+    var amber=s==='paused';
+    return '<span class="morph '+(amber?'amber':'rec')+'"><button class="morphmain" data-act="'+(amber?'resume':'pause')+'">'+
+      '<span class="rdot '+(amber?'amber':'red')+'"></span>'+(amber?I.play:I.pause)+'<span class="morphtime">'+fmt(secs)+'</span></button>'+
+      '<button class="morphstop" data-act="stop-transcribe" title="Stop &amp; transcribe">'+I.stop+'</button></span>'; } },
+
+{ id:'v5', name:'Circular dial', place:'meta',
+  desc:'Voice-Memos style: the dot morphs to a square to stop, Pause button beside it, live meters.',
+  build:function(s,secs){ var a=afterStop(s); if(a)return '<span class="dialrow">'+a+'</span>';
+    if(s==='idle')return '<span class="dialrow"><button class="recdial" data-act="start" title="Record"></button><span class="dialcap">Record</span></span>';
+    var amber=s==='paused';
+    return '<span class="dialrow"><button class="iconbtn big" data-act="'+(amber?'resume':'pause')+'" title="'+(amber?'Resume':'Pause')+'">'+(amber?I.play:I.pause)+'</button>'+
+      '<button class="recdial stop" data-act="stop-transcribe" title="Stop &amp; transcribe"></button>'+
+      '<span class="dialcap"><span class="rdot '+(amber?'amber':'red')+'"></span>'+fmt(secs)+'</span>'+(amber?'':meters(false))+'</span>'; } },
+
+{ id:'v6', name:'Live capsule + meters', place:'meta',
+  desc:'Collapsed when idle; expands while recording to show mic/system meters, Pause and Stop inline.',
+  build:function(s,secs){ var a=afterStop(s); if(a)return a; if(s==='idle')return idle();
+    var amber=s==='paused';
+    return '<span class="segcap '+(amber?'paused':'')+'" style="padding-left:12px"><span class="rdot '+(amber?'amber':'red')+'"></span>'+
+      '<span class="segtime">'+fmt(secs)+'</span>'+meters(amber)+'<span class="segdiv"></span>'+
+      '<button class="iconbtn" data-act="'+(amber?'resume':'pause')+'">'+(amber?I.play:I.pause)+'</button>'+
+      '<button class="iconbtn" data-act="stop-transcribe">'+I.stop+'</button></span>'; } },
+
+{ id:'v7', name:'Popover toolbar', place:'meta',
+  desc:'Compact timer; click opens a horizontal icon toolbar (big tap targets) instead of a text list.',
+  build:function(s,secs,ui){ var a=afterStop(s); if(a)return a; if(s==='idle')return idle();
+    var amber=s==='paused';
+    return '<span class="toolwrap"><button class="recpilltog '+(amber?'paused':'rec')+'" data-act="menu"><span class="rdot '+(amber?'amber':'red')+'"></span>'+fmt(secs)+I.chev+'</button>'+
+      (ui.menuOpen?('<div class="rectool">'+
+        '<button data-act="'+(amber?'resume':'pause')+'"><span class="ti">'+(amber?I.play:I.pause)+'</span><span>'+(amber?'Resume':'Pause')+'</span></button>'+
+        '<button data-act="stop-transcribe"><span class="ti">'+I.stop+'</span><span>Stop</span></button>'+
+        '<button data-act="stop-summarize"><span class="ti">'+I.spark+'</span><span>Summarize</span></button></div>'):'')+
+      '</span>'; } },
+
+{ id:'v8', name:'Pipeline stepper', place:'meta', bare:true,
+  desc:'Shows the whole flow as steps — Record → Transcript → Summary — so the next action is obvious.',
+  build:function(s,secs){
+    var txDone=['done','summarizing','summarized'].indexOf(s)>=0;
+    var node1, amber=s==='paused';
+    if(s==='idle') node1='<button class="stepnode" data-act="start"><span class="rdot idle"></span>Record</button>';
+    else if(s==='rec'||s==='paused') node1='<span class="stepnode live"><span class="rdot '+(amber?'amber':'red')+'"></span>'+fmt(secs)+
+        '<button class="iconbtn sm" data-act="'+(amber?'resume':'pause')+'">'+(amber?I.play:I.pause)+'</button>'+
+        '<button class="iconbtn sm" data-act="stop-transcribe">'+I.stop+'</button></span>';
+    else node1='<span class="stepnode ok">'+I.check+'Recorded</span>';
+    var node2 = s==='transcribing' ? '<span class="stepnode live"><span class="rdot grn"></span>Transcribing…</span>'
+              : txDone ? '<span class="stepnode ok">'+I.check+'Transcript</span>'
+              : '<span class="stepnode mut">Transcript</span>';
+    var node3 = s==='summarized' ? '<span class="stepnode ok">'+I.check+'Summary</span>'
+              : s==='summarizing' ? '<span class="stepnode live"><span class="spin"></span>Summary</span>'
+              : txDone ? '<button class="stepnode act" data-act="summarize">'+I.spark+'Generate</button>'
+              : '<span class="stepnode mut">Summary</span>';
+    return '<span class="stepper">'+node1+'<span class="steparrow">'+I.chev+'</span>'+node2+'<span class="steparrow">'+I.chev+'</span>'+node3+'</span>'; } },
+
+{ id:'v9', name:'Docked control bar', place:'dock',
+  desc:'A slim bar docks above the tabs while recording — out of the note text, always visible.',
+  build:function(s,secs){ var amber=s==='paused';
+    if(s==='idle') return '<button class="dockstart" data-act="start"><span class="rdot idle"></span>Start recording</button>';
+    if(s==='rec'||s==='paused') return '<span class="docktimer"><span class="rdot '+(amber?'amber':'red')+'"></span>'+fmt(secs)+(amber?' · Paused':'')+'</span>'+meters(amber)+
+      '<span class="dockspace"></span><button class="recbtn" data-act="'+(amber?'resume':'pause')+'">'+(amber?'Resume':'Pause')+'</button>'+
+      '<button class="recbtn stop" data-act="stop-transcribe">Stop</button>';
+    if(s==='transcribing') return '<span class="docktimer"><span class="rdot grn"></span>Transcribing…</span><span class="dockspace"></span><span class="spin"></span>';
+    if(s==='done') return '<span class="docktimer">'+I.check+' Transcript ready</span><span class="dockspace"></span><button class="miniprimary" data-act="summarize">'+I.spark+'Summarize</button>';
+    if(s==='summarizing') return '<span class="docktimer"><span class="spin"></span>Summarizing…</span>';
+    return '<span class="docktimer ok">'+I.check+' Summary ready</span>'; } },
+
+{ id:'v10', name:'Primary path', place:'meta',
+  desc:'Optimised for the common case: a big “Stop & transcribe”, Pause secondary, “…” for summarize.',
+  build:function(s,secs,ui){ var a=afterStop(s); if(a)return a; if(s==='idle')return idle();
+    var amber=s==='paused';
+    return '<span class="primrow"><button class="miniprimary" data-act="'+(amber?'resume':'stop-transcribe')+'">'+
+      (amber?I.play:I.stop)+(amber?'Resume':'Stop &amp; transcribe')+'<span class="primtime">'+fmt(secs)+'</span></button>'+
+      '<button class="recbtn" data-act="'+(amber?'stop-transcribe':'pause')+'">'+(amber?'Stop':'Pause')+'</button>'+
+      '<button class="iconbtn" data-act="menu" title="More">'+I.dots+'</button>'+
+      (ui.menuOpen?('<div class="recmenu open" style="left:auto;right:0"><button data-act="stop-summarize">'+I.spark+'Stop &amp; summarize</button></div>'):'')+
+      '</span>'; } }
+];
+
+/* ============ window shell ============ */
+var CHROME = '<div class="chrome"><div class="lights"><i></i><i></i><i></i></div><span class="wtitle">Weekly Sync — Acme</span><button class="gear" title="Settings">'+I.gear+'</button></div>';
+var MD = '<div class="md"><ul><li>Q3 roadmap freeze — Sarah presents</li><li>Onboarding blocked on <code>auth-service v2</code></li></ul></div>';
+var FOOTER = '<div class="footer"><div class="ftabs"><button class="active">Notes</button><button>Summary</button><button>Transcript</button></div></div>';
+function shell(V){
+  var meta;
+  if(V.place==='dock') meta='<div class="metastrip"><span class="mseg muted">'+I.clock+'14:00–14:45 · 2 people</span></div>';
+  else if(V.bare) meta='<div class="metastrip"><span class="ctlwrap" data-ctl></span></div>';
+  else meta='<div class="metastrip"><span class="ctlwrap" data-ctl></span><span class="mdivider"></span><span class="mseg muted">'+I.clock+'14:00–14:45</span></div>';
+  var dock = V.place==='dock' ? '<div class="recdock" data-ctl></div>' : '';
+  return CHROME + '<div class="winbody"><h1 class="notetitle">Weekly Sync — Acme GmbH</h1>'+meta+'<div class="body-gap"></div>'+MD+'</div>' + dock + FOOTER + '<div class="toast" data-toast></div>';
+}
+
+/* ============ recorder state machine ============ */
+function makeRecorder(onChange){
+  var state='idle', secs=0, t=null, tr=null, autosum=false;
+  function emit(){ onChange(state, secs); }
+  function toDone(){ state='done'; emit(); if(autosum){ tr=setTimeout(function(){ if(state==='done'){ state='summarizing'; emit(); tr=setTimeout(function(){ state='summarized'; emit(); },1600);} },600);} }
+  return {
+    get state(){return state;}, get secs(){return secs;},
+    start:function(){ if(state!=='idle'&&state!=='paused')return; if(state==='idle')secs=0; state='rec'; clearInterval(t); t=setInterval(function(){secs++;emit();},1000); emit(); },
+    pause:function(){ if(state!=='rec')return; state='paused'; clearInterval(t); emit(); },
+    stopTo:function(go){ if(state!=='rec'&&state!=='paused')return; clearInterval(t); autosum=(go==='summarize'); state='transcribing'; emit(); clearTimeout(tr); tr=setTimeout(toDone,2200); },
+    summarize:function(){ if(state!=='done')return; state='summarizing'; emit(); clearTimeout(tr); tr=setTimeout(function(){ state='summarized'; emit(); },1600); },
+    reset:function(){ clearInterval(t); clearTimeout(tr); autosum=false; state='idle'; secs=0; emit(); }
+  };
+}
+function toast(win,m){ var t=win.querySelector('[data-toast]'); if(!t)return; t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},1700); }
+
+/* ============ wire up ============ */
+var WINS=[];
+function act(rec,ui,a,win,render){
+  if(a==='start')rec.start();
+  else if(a==='pause')rec.pause();
+  else if(a==='resume')rec.start();
+  else if(a==='stop-transcribe'){ ui.menuOpen=false; rec.stopTo('transcribe'); toast(win,'Stopped — transcribing…'); }
+  else if(a==='stop-summarize'){ ui.menuOpen=false; rec.stopTo('summarize'); toast(win,'Transcribe → summarize'); }
+  else if(a==='summarize')rec.summarize();
+  else if(a==='menu'){ ui.menuOpen=!ui.menuOpen; render(); }
+}
+
+var grid=document.getElementById('grid');
+VARIANTS.forEach(function(V,i){
+  var card=document.createElement('article'); card.className='card';
+  var n=(i+1<10?'0':'')+(i+1);
+  card.innerHTML='<div class="cmeta"><span class="cnum">'+n+'</span><h3>'+V.name+'</h3><button class="creset">↺ replay</button><p>'+V.desc+'</p></div>'+
+    '<div class="window mini" data-win></div>';
+  grid.appendChild(card);
+  var win=card.querySelector('[data-win]');
+  win.innerHTML=shell(V);
+  var host=win.querySelector('[data-ctl]');
+  var ui={menuOpen:false};
+  var rec;
+  function render(){ host.innerHTML=V.build(rec.state, rec.secs, ui); }
+  rec=makeRecorder(function(){ render(); });
+  render();
+  host.addEventListener('click',function(e){ var b=e.target.closest('[data-act]'); if(!b)return; e.stopPropagation(); act(rec,ui,b.dataset.act,win,render); });
+  card.querySelector('.creset').addEventListener('click',function(){ ui.menuOpen=false; rec.reset(); });
+  WINS.push({ui:ui,render:render,rec:rec});
+});
+
+/* outside-click closes any open menu */
+document.addEventListener('click',function(){ WINS.forEach(function(w){ if(w.ui.menuOpen){ w.ui.menuOpen=false; w.render(); } }); });
+
+/* theme toggle (all windows) */
+var theme=document.getElementById('theme');
+theme.querySelectorAll('button').forEach(function(b){ b.addEventListener('click',function(){
+  theme.querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+  document.querySelectorAll('[data-win]').forEach(function(w){ w.classList.remove('t-dark','t-light'); if(b.dataset.theme!=='glass')w.classList.add('t-'+b.dataset.theme); });
+}); });
+
+/* reset all */
+document.getElementById('resetall').addEventListener('click',function(){ WINS.forEach(function(w){ w.ui.menuOpen=false; w.rec.reset(); }); });
+</script>
+</body>
+</html>
