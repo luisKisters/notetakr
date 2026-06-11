@@ -507,6 +507,26 @@ final class FrontmatterPresenterTests: XCTestCase {
         XCTAssertEqual(count, 7)
         try presenter.setLanguage(.code("es"))
         XCTAssertEqual(count, 8)
+        let event = LinkedEventInfo(eventID: "EVT-1", title: "Sync")
+        try presenter.linkEvent(event)
+        XCTAssertEqual(count, 9)
+        try presenter.setDate(utcDate(2026, 7, 1, 10, 0))
+        XCTAssertEqual(count, 10)
+        try presenter.addVocabularyTerm("synergy")
+        XCTAssertEqual(count, 11)
+        try presenter.removeVocabularyTerm("synergy")
+        XCTAssertEqual(count, 12)
+    }
+
+    func testAddParticipant_duplicateDoesNotFireOnChange() throws {
+        let (presenter, _) = try makeTempPresenter(note: baseNote())
+        var count = 0
+        presenter.onChange = { count += 1 }
+        let alice = Participant(name: "Alice")
+        try presenter.addParticipant(alice)
+        XCTAssertEqual(count, 1)
+        try presenter.addParticipant(alice)
+        XCTAssertEqual(count, 1, "onChange must not fire for a duplicate participant")
     }
 
     func testNoteReflectsInMemoryMutations() throws {

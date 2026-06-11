@@ -49,6 +49,11 @@ final class TranscriptMergerTests: XCTestCase {
         XCTAssertEqual(result[0].text, "only")
     }
 
+    func testMerge_bothStreamsEmpty_returnsEmpty() {
+        let result = TranscriptMerger.merge(mic: [], systemAudio: [])
+        XCTAssertTrue(result.isEmpty)
+    }
+
     // MARK: - In-person: mic only
 
     func testMerge_inPerson_micOnly() {
@@ -147,6 +152,11 @@ final class TranscriptMergerTests: XCTestCase {
     }
 
     // MARK: - Copy as markdown
+
+    func testCopyAsMarkdown_emptyTurns_returnsEmptyString() {
+        let md = TranscriptMerger.copyAsMarkdown(turns: [])
+        XCTAssertEqual(md, "")
+    }
 
     func testCopyAsMarkdown_confirmedSpeaker() {
         let turns = [DisplaySegment(speaker: "SPK_0", startStamp: "0:00", text: "Hello world")]

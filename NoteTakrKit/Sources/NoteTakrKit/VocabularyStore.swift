@@ -33,7 +33,7 @@ public final class VocabularyStore: @unchecked Sendable {
     public func addEntry(phrase: String) throws {
         let trimmed = phrase.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        var entries = (try? load()) ?? []
+        var entries = try load()
         guard !entries.contains(where: { $0.phrase.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
         entries.append(VocabularyEntry(phrase: trimmed))
         try save(entries)

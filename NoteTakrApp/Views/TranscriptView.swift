@@ -196,14 +196,7 @@ private struct TurnRow: View {
             if !isCollapsed {
                 Text(segment.text)
                     .font(.system(size: 13.5))
-                    .foregroundStyle(
-                        Color(
-                            red: theme.primaryText.r,
-                            green: theme.primaryText.g,
-                            blue: theme.primaryText.b,
-                            opacity: 0.85
-                        )
-                    )
+                    .foregroundStyle(theme.primaryText.swiftUIColor.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 32)
                     .padding(.trailing, 4)
