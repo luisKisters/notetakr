@@ -195,6 +195,26 @@ final class NotePanelController {
                 recordPillMachine: recordPillMachine
             )
         )
+        // Wire ESC precedence: settings → switcher → hide panel.
+        // This is a safety-net in case SwiftUI keyboard shortcuts don't consume the event
+        // (e.g. focus is on an AppKit control rather than a SwiftUI view).
+        p.cancelHandler = { [weak self] in
+            guard let self else { return false }
+            let context = KeyCommandRouter.activeContext(
+                settingsVisible: self.settingsBridge.isVisible,
+                switcherVisible: self.switcherBridge.isVisible
+            )
+            switch context {
+            case .settingsVisible:
+                self.settingsBridge.close()
+                return true
+            case .switcherVisible:
+                self.switcherBridge.dismiss()
+                return true
+            case .inlineEditActive, .editorFocused:
+                return false
+            }
+        }
         self.panel = p
     }
 
@@ -378,7 +398,12 @@ final class NotePanelController {
 private final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
+    /// Called by the controller after the panel is built to wire the overlay checks.
+    /// Return `true` to consume the ESC and prevent the panel from hiding.
+    var cancelHandler: (() -> Bool)?
+
     override func cancelOperation(_ sender: Any?) {
+        if let handler = cancelHandler, handler() { return }
         orderOut(nil)
     }
 }

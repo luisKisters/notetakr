@@ -17,6 +17,8 @@ public enum AppKeyContext: Equatable {
     case editorFocused
     case switcherVisible
     case settingsVisible
+    /// A chip or inline field within the frontmatter is being edited.
+    case inlineEditActive
 }
 
 // MARK: - Intent
@@ -45,11 +47,24 @@ public enum KeyCommandRouter {
             return .openSettings
         case .escape:
             switch context {
-            case .switcherVisible, .settingsVisible:
+            case .switcherVisible, .settingsVisible, .inlineEditActive:
                 return .dismissOverlay
             case .editorFocused:
                 return nil
             }
         }
+    }
+
+    /// Returns the effective context given the current overlay state, honouring the
+    /// dismissal precedence: settings → switcher → inline-edit → plain editor.
+    public static func activeContext(
+        settingsVisible: Bool,
+        switcherVisible: Bool,
+        inlineEditActive: Bool = false
+    ) -> AppKeyContext {
+        if settingsVisible { return .settingsVisible }
+        if switcherVisible { return .switcherVisible }
+        if inlineEditActive { return .inlineEditActive }
+        return .editorFocused
     }
 }

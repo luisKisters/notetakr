@@ -208,11 +208,11 @@ Reproduce `design/mockups/v5/recording-final.html` exactly. `NoteTakrApp/Views/R
 ### Task 10: Escape handling
 `NoteTakrKit/Sources/NoteTakrKit/KeyCommandRouter.swift`, `NoteTakrApp/Views/SettingsSheetView.swift`,
 `NoteTakrApp/NotePanelController.swift`.
-- [ ] Centralize ESC precedence: **settings → switcher → inline edit → (only then) hide the panel.**
+- [x] Centralize ESC precedence: **settings → switcher → inline edit → (only then) hide the panel.**
       ESC dismisses the topmost overlay first and never closes the whole window while an
       overlay/settings is open. ESC in Settings always just closes Settings.
-- [ ] Linux tests: KeyCommandRouter precedence for each context (settings/switcher/editor).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Linux tests: KeyCommandRouter precedence for each context (settings/switcher/editor).
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 11: Final review & sign-off
 - [ ] Walk every changed screen against `recording-final.html` / `switcher-final.html` / `kit.css`
