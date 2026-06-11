@@ -116,21 +116,16 @@ struct EditorView: View {
     private var tabContent: some View {
         switch tabsBridge.selectedTab {
         case .privateNotes:
-            TextEditor(text: Binding(
-                get: { bridge.body },
-                set: { bridge.setBody($0) }
-            ))
-            .font(.system(size: 14))
-            .foregroundStyle(themeColors.primaryText.swiftUIColor.opacity(0.85))
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            MarkdownBodyView(
+                parsed: MarkdownBodyParser.parse(bridge.body)
+            )
+            .environment(\.themeColors, themeColors)
         case .summary:
             SummaryView(
                 state: tabsBridge.summaryState,
                 onGenerate: { tabsBridge.generateSummary() }
             )
+            .environment(\.themeColors, themeColors)
         case .transcript:
             TranscriptView(state: tabsBridge.transcriptState)
         }

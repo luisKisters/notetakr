@@ -101,22 +101,22 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 3: Editor screen
-- [ ] Reproduce `editor.html`: title H1, then one quiet **preview line** = **record (first) ·
+- [x] Reproduce `editor.html`: title H1, then one quiet **preview line** = **record (first) ·
       time** only, with a clear (bordered) expand control on the right.
-- [ ] The **whole preview line** is the hit target — hovering highlights the entire strip and
+- [x] The **whole preview line** is the hit target — hovering highlights the entire strip and
       clicking expands the frontmatter panel (the record pill keeps its own click).
-- [ ] Render the note body as **formatted markdown** (headings, bullet/numbered lists, task
+- [x] Render the note body as **formatted markdown** (headings, bullet/numbered lists, task
       checkboxes, inline code, code blocks, blockquotes, hr, bold/italic, links). Use the `.md`
       styling from `kit.css`.
-- [ ] **No copy button**: selecting text and copying yields the **raw markdown source** (not the
+- [x] **No copy button**: selecting text and copying yields the **raw markdown source** (not the
       rendered output). Verify a round-trip: select-all → copy → clipboard equals the source.
-- [ ] Footer = three bare tabs **Notes · Summary · Transcript** (active = purple). Tab switching
+- [x] Footer = three bare tabs **Notes · Summary · Transcript** (active = purple). Tab switching
       swaps the body pane.
-- [ ] Summary tab **empty state**: a "Generate summary" button (sparkle icon) → spinner →
+- [x] Summary tab **empty state**: a "Generate summary" button (sparkle icon) → spinner →
       rendered markdown summary.
-- [ ] Put markdown→view conversion and copy-source extraction in Linux-testable types; unit-test
+- [x] Put markdown→view conversion and copy-source extraction in Linux-testable types; unit-test
       each construct renders and that copy returns the exact raw source.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 4: Frontmatter panel (editable, calendar-driven)
 - [ ] Reproduce `frontmatter.html`: the expandable panel with right-aligned values. Nothing
