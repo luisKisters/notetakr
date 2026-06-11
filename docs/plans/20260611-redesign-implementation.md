@@ -180,15 +180,15 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 7: Summary generation + speaker-inference prompt
-- [ ] Wire the **Generate summary** flow (empty state → generating → rendered markdown), using
+- [x] Wire the **Generate summary** flow (empty state → generating → rendered markdown), using
       the configured **Summary model** (Task 8).
-- [ ] The summary/note prompt instructs the model to **infer who each speaker is** from the
+- [x] The summary/note prompt instructs the model to **infer who each speaker is** from the
       participants and context, and when unsure to label **"Speaker N · most likely <name>"**
       rather than guessing a definite name. Pass participant names + the user's own name into the
       prompt context.
-- [ ] Unit-test (Linux) that the constructed prompt contains the speaker-inference instruction
+- [x] Unit-test (Linux) that the constructed prompt contains the speaker-inference instruction
       and the participant context, and that the selected summary model is honored.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 8: Settings
 - [ ] Reproduce `settings.html`: a sheet over the (blurred) note with icon tabs **This Meeting ·
