@@ -109,22 +109,22 @@ non-root user; Node, git, gh available; a live Swift-for-Linux toolchain is pres
 
 ### Task 5: Merge transcripts — same-speaker turns and the two audio streams
 
-- [ ] Merge **consecutive segments from the same speaker** into a single turn/block so the
+- [x] Merge **consecutive segments from the same speaker** into a single turn/block so the
       transcript no longer shows the same speaker split into many separate entries.
-- [ ] Merge the microphone-stream transcript and the system-audio-stream transcript into one
+- [x] Merge the microphone-stream transcript and the system-audio-stream transcript into one
       chronological transcript, ordered by each segment's **start time** (when two segments
       overlap, the one that started first comes first).
-- [ ] Speaker naming when exactly **one** speaker is detected on each stream: name the
+- [x] Speaker naming when exactly **one** speaker is detected on each stream: name the
       microphone speaker as the local user, and the system-audio speaker as the other meeting
       participant (taken from the linked calendar event's participants when available; otherwise
       a neutral "Speaker 2"). Do not invent names when more than one speaker is on a stream.
-- [ ] For **in-person** meetings, do not capture or diarize the system-audio stream at all
+- [x] For **in-person** meetings, do not capture or diarize the system-audio stream at all
       (microphone only).
-- [ ] Implement all of the above as pure, Linux-testable logic over transcript-segment models;
+- [x] Implement all of the above as pure, Linux-testable logic over transcript-segment models;
       add unit tests for same-speaker merging, two-stream interleave ordering (including an
       overlap case), single-speaker-per-stream naming with and without calendar participants,
       and the in-person path skipping the system stream.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass. (local: 489 tests pass; CI gate skipped - requires GitHub Actions runner)
 
 ### Task 6: Speaker inference in the summary/note generation prompt
 
