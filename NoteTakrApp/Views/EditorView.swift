@@ -8,6 +8,7 @@ struct EditorView: View {
     @ObservedObject var switcherBridge: SwitcherBridge
     @ObservedObject var settingsBridge: SettingsSheetViewModel
     let recordPillMachine: RecordPillStateMachine
+    var availableEvents: [UpcomingEvent] = []
     @State private var pillState: RecordPillState = .idle
 
     private var themeColors: ThemeColors {
@@ -65,9 +66,14 @@ struct EditorView: View {
                         }
                     }
 
-                PropertyPanelView(bridge: frontmatterBridge)
-                    .environment(\.themeColors, themeColors)
-                    .animation(.easeInOut(duration: 0.2), value: frontmatterBridge.isExpanded)
+                PropertyPanelView(
+                    bridge: frontmatterBridge,
+                    recordPillMachine: recordPillMachine,
+                    pillState: pillState,
+                    availableEvents: availableEvents
+                )
+                .environment(\.themeColors, themeColors)
+                .animation(.easeInOut(duration: 0.2), value: frontmatterBridge.isExpanded)
 
                 Rectangle()
                     .fill(themeColors.hairline.swiftUIColor)

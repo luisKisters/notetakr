@@ -369,6 +369,9 @@ private final class ImmediateMockGenerator: SummaryGenerating {
     init(result: Result<String, Error>) { self.result = result }
 
     func generate(for noteID: String) async throws -> String {
+        // Yield so the caller can observe the intermediate .generating state
+        // before this task completes (Swift 6 schedules tasks eagerly).
+        await Task.yield()
         switch result {
         case .success(let s): return s
         case .failure(let e): throw e

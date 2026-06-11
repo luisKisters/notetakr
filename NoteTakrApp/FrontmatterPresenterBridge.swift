@@ -8,6 +8,8 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published private(set) var chips: [Chip] = []
     @Published private(set) var propertyRows: [PropertyRow] = []
     @Published var isExpanded: Bool = false
+    /// Set by the recording pipeline when a recording completes and audio is available.
+    @Published var hasCompletedRecording: Bool = false
 
     private(set) var presenter: FrontmatterPresenter?
     private let store: any NoteStoring
@@ -28,6 +30,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
         }
         presenter = p
         isExpanded = false
+        hasCompletedRecording = false
         refresh()
     }
 
@@ -37,17 +40,50 @@ final class FrontmatterPresenterBridge: ObservableObject {
         try? presenter?.setInPerson(value)
     }
 
-    /// Link a calendar event. `attendees` is passed as plain tuples to avoid
-    /// importing NoteTakrCore here (which would conflict with the Kit Participant type
-    /// due to the public enum NoteTakrKit shadowing the module name).
-    func linkCalendarEvent(id: String, title: String, attendees: [(name: String, email: String?)]) {
+    func linkCalendarEvent(
+        id: String,
+        title: String,
+        attendees: [(name: String, email: String?)],
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        locationText: String? = nil,
+        meetingLink: String? = nil
+    ) {
         let participants = attendees.map { Participant(name: $0.name, email: $0.email) }
-        let info = LinkedEventInfo(eventID: id, title: title, participants: participants)
+        let info = LinkedEventInfo(
+            eventID: id,
+            title: title,
+            participants: participants,
+            startDate: startDate,
+            endDate: endDate,
+            locationText: locationText,
+            meetingLink: meetingLink
+        )
         try? presenter?.linkEvent(info)
     }
 
     func unlinkEvent() {
         try? presenter?.unlinkEvent()
+    }
+
+    func addParticipant(name: String, email: String? = nil) {
+        try? presenter?.addParticipant(Participant(name: name, email: email))
+    }
+
+    func removeParticipant(_ participant: Participant) {
+        try? presenter?.removeParticipant(participant)
+    }
+
+    func setLocationText(_ text: String?) {
+        try? presenter?.setLocationText(text)
+    }
+
+    func setMeetingLink(_ link: String?) {
+        try? presenter?.setMeetingLink(link)
+    }
+
+    func setDate(_ date: Date, end: Date? = nil) {
+        try? presenter?.setDate(date, end: end)
     }
 
     func setTranscribe(_ value: Bool) {

@@ -100,10 +100,15 @@ final class NotePanelController {
                 end: ce.endDate,
                 participants: ce.attendees.map { p in
                     .init(name: p.name, email: p.email)
-                }
+                },
+                locationText: ce.location,
+                meetingLink: ce.url?.absoluteString
             )
         }
     }
+
+    /// Returns currently available upcoming events for the property panel event chip.
+    var availableEvents: [UpcomingEvent] { calendarEventsProvider.events }
 
     // MARK: - Recording lifecycle
 
@@ -185,7 +190,8 @@ final class NotePanelController {
                 tabsBridge: tabsBridge,
                 switcherBridge: switcherBridge,
                 settingsBridge: settingsBridge,
-                recordPillMachine: recordPillMachine
+                recordPillMachine: recordPillMachine,
+                availableEvents: calendarEventsProvider.events
             )
         )
         self.panel = p
@@ -228,6 +234,8 @@ final class NotePanelController {
             Task { @MainActor in
                 self?.stopPillTickTimer()
                 await appModel.stopRecording()
+                // Show the audio player in the transcript row
+                self?.frontmatterBridge.hasCompletedRecording = true
                 if intent == .summarize {
                     // Switch to Summary tab; the existing auto-summarize path handles generation
                     let noteID = self?.frontmatterBridge.noteID ?? ""

@@ -8,13 +8,25 @@ public struct UpcomingEvent: Equatable {
     public var start: Date
     public var end: Date?
     public var participants: [Participant]
+    public var locationText: String?
+    public var meetingLink: String?
 
-    public init(id: String, title: String, start: Date, end: Date? = nil, participants: [Participant] = []) {
+    public init(
+        id: String,
+        title: String,
+        start: Date,
+        end: Date? = nil,
+        participants: [Participant] = [],
+        locationText: String? = nil,
+        meetingLink: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.start = start
         self.end = end
         self.participants = participants
+        self.locationText = locationText
+        self.meetingLink = meetingLink
     }
 }
 

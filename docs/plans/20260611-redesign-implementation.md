@@ -119,24 +119,24 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 4: Frontmatter panel (editable, calendar-driven)
-- [ ] Reproduce `frontmatter.html`: the expandable panel with right-aligned values. Nothing
+- [x] Reproduce `frontmatter.html`: the expandable panel with right-aligned values. Nothing
       looks editable until **hover**; **click a field to edit** (date, time, location, link).
-- [ ] **Event**: a small inline chip showing the linked calendar event; a menu switches the
+- [x] **Event**: a small inline chip showing the linked calendar event; a menu switches the
       event and **auto-updates** title, date/time, location, link, and participants from it.
-- [ ] **People**: render participants as **initials circles** (single row, overflow-safe).
+- [x] **People**: render participants as **initials circles** (single row, overflow-safe).
       Hovering a circle swaps the initials for a red **✕** and shows a tooltip with **name,
       email, and "Click to remove"**; clicking opens a menu with **Remove from note** /
       **Remove from calendar**. An "+" circle adds a person inline.
-- [ ] **Location** = the calendar's actual location (free text; empty shows "No location").
+- [x] **Location** = the calendar's actual location (free text; empty shows "No location").
       **Meeting link** is its own editable field.
-- [ ] **In-person**: a toggle with a small **"?" explainer** ("In-person meetings are mic-only —
+- [x] **In-person**: a toggle with a small **"?" explainer** ("In-person meetings are mic-only —
       NoteTakr skips system-audio capture"). No "system audio off" inline text.
-- [ ] **Transcript row**: shows the record pill; once a recording is done it becomes the seekable
+- [x] **Transcript row**: shows the record pill; once a recording is done it becomes the seekable
       **player** (Task 2). No color picker anywhere.
-- [ ] Extract calendar-event → frontmatter mapping into a Linux-testable type; unit-test that
+- [x] Extract calendar-event → frontmatter mapping into a Linux-testable type; unit-test that
       selecting an event updates all fields, add/remove participant, location/link empty states,
       and that in-person disables the system-audio source.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 5: ⌘K Switcher (overlay + full-window; rows + timeline)
 - [ ] Reproduce `switcher.html`'s four directions, all sharing the **same row rendering**:

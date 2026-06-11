@@ -43,6 +43,7 @@ private extension CalendarEvent {
             title: ekEvent.title ?? "Untitled",
             startDate: ekEvent.startDate ?? Date(),
             endDate: ekEvent.endDate ?? Date(),
+            location: ekEvent.location,
             url: ekEvent.url,
             notes: ekEvent.notes,
             attendees: (ekEvent.attendees ?? []).map(Participant.init(ekParticipant:)),

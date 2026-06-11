@@ -42,6 +42,10 @@ public struct MeetingNote: Equatable {
     public var calendarEvent: String?
     public var participants: [Participant]
     public var location: Location?
+    /// Free-text location from the linked calendar event (e.g. "Acme HQ · Room 4").
+    public var locationText: String?
+    /// Meeting URL (Zoom/Meet/Teams link) from the linked calendar event.
+    public var meetingLink: String?
     public var inPerson: Bool?
     public var transcribe: Bool?
     public var language: TranscribeLanguage?
@@ -57,6 +61,8 @@ public struct MeetingNote: Equatable {
         calendarEvent: String? = nil,
         participants: [Participant] = [],
         location: Location? = nil,
+        locationText: String? = nil,
+        meetingLink: String? = nil,
         inPerson: Bool? = nil,
         transcribe: Bool? = nil,
         language: TranscribeLanguage? = nil,
@@ -71,6 +77,8 @@ public struct MeetingNote: Equatable {
         self.calendarEvent = calendarEvent
         self.participants = participants
         self.location = location
+        self.locationText = locationText
+        self.meetingLink = meetingLink
         self.inPerson = inPerson
         self.transcribe = transcribe
         self.language = language
@@ -87,6 +95,8 @@ public struct MeetingNote: Equatable {
         lhs.calendarEvent == rhs.calendarEvent &&
         lhs.participants == rhs.participants &&
         lhs.location == rhs.location &&
+        lhs.locationText == rhs.locationText &&
+        lhs.meetingLink == rhs.meetingLink &&
         lhs.inPerson == rhs.inPerson &&
         lhs.transcribe == rhs.transcribe &&
         lhs.language == rhs.language &&

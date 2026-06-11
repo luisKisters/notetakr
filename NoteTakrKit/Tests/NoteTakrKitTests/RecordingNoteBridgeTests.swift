@@ -29,6 +29,9 @@ final class RecordingNoteBridgeTests: XCTestCase {
             capturedNoteID = noteID
             capturedLanguage = language
             capturedVocabulary = vocabulary
+            // Yield so the caller can observe the intermediate .transcribing state
+            // before this task completes (Swift 6 schedules tasks eagerly).
+            await Task.yield()
             switch behavior {
             case .succeed(let segs): return segs
             case .fail(let err): throw err
@@ -45,6 +48,7 @@ final class RecordingNoteBridgeTests: XCTestCase {
         func transcribe(noteID: String, language: TranscribeLanguage, vocabulary: [String]) async throws -> [RawSegment] {
             let r = results[min(index, results.count - 1)]
             index += 1
+            await Task.yield()
             switch r {
             case .success(let segs): return segs
             case .failure(let err): throw err
