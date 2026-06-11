@@ -24,7 +24,10 @@ let package = Package(
         ),
         .testTarget(
             name: "NoteTakrCoreTests",
-            dependencies: ["NoteTakrCore"],
+            dependencies: [
+                "NoteTakrCore",
+                .product(name: "NoteTakrKit", package: "NoteTakrKit"),
+            ],
             path: "Tests/NoteTakrCoreTests"
         ),
         .executableTarget(
