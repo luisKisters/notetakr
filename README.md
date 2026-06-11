@@ -34,6 +34,11 @@ Homebrew strips the download quarantine attribute on install, so the app launche
 **without any Gatekeeper prompt** — even though the current builds are only
 ad-hoc signed (see below). Update later with `brew upgrade --cask notetakr`.
 
+If you have `HOMEBREW_REQUIRE_TAP_TRUST` set, Homebrew refuses to load the cask
+from this third-party tap until you trust it once:
+`brew trust --cask luiskisters/notetakr/notetakr`. Most setups don't set that
+variable and can skip this step.
+
 ### Direct download (.dmg)
 
 Download the latest `.dmg` from the [Releases page](https://github.com/luisKisters/notetakr/releases),
