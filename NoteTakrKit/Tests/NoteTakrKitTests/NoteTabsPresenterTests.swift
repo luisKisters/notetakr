@@ -5,7 +5,7 @@ final class NoteTabsPresenterTests: XCTestCase {
 
     // MARK: - Default state
 
-    func testDefaultTabIsPrivateNotes() {
+    func testDefaultTabIsNotes() {
         let p = NoteTabsPresenter()
         XCTAssertEqual(p.selectedTab(for: "n1"), .privateNotes)
     }

@@ -14,6 +14,11 @@ struct RecordPillView: View {
     @State private var dotPhase = false
     @State private var isHovering = false
 
+    private var isMenuShowing: Bool {
+        if case .showingMenu = pillState { return true }
+        return false
+    }
+
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             pillButton
@@ -21,8 +26,13 @@ struct RecordPillView: View {
                 recordMenu
                     .offset(y: 28)
                     .zIndex(100)
+                    .transition(
+                        .opacity.combined(with: .scale(scale: 0.94, anchor: .topLeading))
+                        .animation(.spring(response: 0.22, dampingFraction: 0.80))
+                    )
             }
         }
+        .animation(.easeInOut(duration: 0.15), value: isMenuShowing)
     }
 
     // MARK: - Pill button
@@ -50,7 +60,7 @@ struct RecordPillView: View {
 
         switch pillState {
         case .idle:
-            color = theme.destructive.swiftUIColor
+            color = theme.tertiaryText.swiftUIColor
             animate = false
         case .recording:
             color = theme.destructive.swiftUIColor

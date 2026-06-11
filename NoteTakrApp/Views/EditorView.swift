@@ -87,9 +87,11 @@ struct EditorView: View {
         }
         // ⌘K — toggle switcher
         .background(
-            Button("") { switcherBridge.toggle() }
-                .keyboardShortcut("k", modifiers: .command)
-                .hidden()
+            Button("") {
+                withAnimation(.easeInOut(duration: 0.15)) { switcherBridge.toggle() }
+            }
+            .keyboardShortcut("k", modifiers: .command)
+            .hidden()
         )
         // ⌘, — open/close settings
         .background(
@@ -164,7 +166,7 @@ struct EditorView: View {
             ? themeColors.accent.swiftUIColor
             : themeColors.primaryText.swiftUIColor.opacity(0.45)
         return Button(label) {
-            tabsBridge.selectTab(tab)
+            withAnimation(.easeInOut(duration: 0.15)) { tabsBridge.selectTab(tab) }
         }
         .buttonStyle(.plain)
         .font(.system(size: 12, weight: weight))

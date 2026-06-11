@@ -214,14 +214,14 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 9: Motion, shortcuts & cross-screen polish
-- [ ] Add the animations the mockups imply: panel expand/collapse, record breathing while paused,
+- [x] Add the animations the mockups imply: panel expand/collapse, record breathing while paused,
       menu/tooltip fades, summary spinner, switcher open/close. Keep them subtle and smooth.
-- [ ] Confirm the global/window shortcuts end-to-end: **⌘N** (new note, global), **⌘,** (Settings),
+- [x] Confirm the global/window shortcuts end-to-end: **⌘N** (new note, global), **⌘,** (Settings),
       **⌘K** (switcher toggle), **esc** (closes Settings and the switcher), tab switching.
-- [ ] Replace any remaining "Private Notes" label with **Notes**; ensure copy = raw markdown
+- [x] Replace any remaining "Private Notes" label with **Notes**; ensure copy = raw markdown
       everywhere a note/transcript is copyable.
-- [ ] Verify all three themes look correct on every screen (spot-check against the mockups).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Verify all three themes look correct on every screen (spot-check against the mockups).
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 10: Final review & sign-off
 - [ ] Walk every screen against its `design/mockups/v5/*.html` counterpart and fix mismatches in

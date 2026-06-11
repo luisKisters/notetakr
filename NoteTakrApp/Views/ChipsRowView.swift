@@ -16,7 +16,7 @@ struct ChipsRowView: View {
         // The outer button covers the whole row for expand toggle.
         // RecordPillView (nested Button) intercepts taps within its own bounds.
         Button {
-            bridge.isExpanded.toggle()
+            withAnimation(.easeInOut(duration: 0.2)) { bridge.isExpanded.toggle() }
         } label: {
             HStack(spacing: 0) {
                 RecordPillView(machine: machine, pillState: pillState)
