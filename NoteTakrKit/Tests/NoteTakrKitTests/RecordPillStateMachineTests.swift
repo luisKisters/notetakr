@@ -63,8 +63,8 @@ final class RecordPillStateMachineTests: XCTestCase {
     func testTickIsNoOpWhenTranscribing() {
         let m = RecordPillStateMachine()
         m.tap()              // → recording(0)
-        m.tap()              // fires onStopped (state unchanged by machine)
-        m.beginTranscribing() // → transcribing
+        m.tap()              // → transcribing (immediate), fires onStopped
+        m.beginTranscribing() // no-op: already transcribing
         m.tick()             // no-op
         XCTAssertEqual(m.state, .transcribing)
     }
@@ -133,13 +133,13 @@ final class RecordPillStateMachineTests: XCTestCase {
         XCTAssertEqual(receivedIntent, .summarize)
     }
 
-    func testTapFromRecordingDoesNotChangeStateItself() {
-        // The machine signals onStopped; controller drives state via beginTranscribing()
+    func testTapFromRecordingImmediatelyTransitionsToTranscribing() {
+        // tap() in .recording pre-transitions to .transcribing to block re-entry before
+        // the async stop/pipeline completes. The controller's beginTranscribing() becomes a no-op.
         let m = RecordPillStateMachine()
-        m.tap()
-        let preState = m.state
-        m.tap()
-        XCTAssertEqual(m.state, preState)  // still recording until controller calls beginTranscribing()
+        m.tap()  // → recording(0)
+        m.tap()  // → transcribing (immediate), then fires onStopped
+        XCTAssertEqual(m.state, .transcribing)
     }
 
     // MARK: - menuStopAndSummarize
@@ -329,6 +329,39 @@ final class RecordPillStateMachineTests: XCTestCase {
         XCTAssertEqual(m.state, .idle)
     }
 
+    // MARK: - cancelBusyPipeline
+
+    func testCancelBusyPipelineResetsFromTranscribing() {
+        let m = RecordPillStateMachine()
+        m.tap()              // → recording
+        m.tap()              // → transcribing (fires onStopped)
+        XCTAssertEqual(m.state, .transcribing)
+        m.cancelBusyPipeline()
+        XCTAssertEqual(m.state, .idle)
+    }
+
+    func testCancelBusyPipelineResetsFromSummarizing() {
+        let m = RecordPillStateMachine()
+        m.tap()              // → recording
+        m.tap()              // → transcribing
+        m.beginSummarizing() // → summarizing
+        m.cancelBusyPipeline()
+        XCTAssertEqual(m.state, .idle)
+    }
+
+    func testCancelBusyPipelineIsNoOpWhenRecording() {
+        let m = RecordPillStateMachine()
+        m.tap()              // → recording
+        m.cancelBusyPipeline()
+        XCTAssertEqual(m.state, .recording(elapsed: 0))
+    }
+
+    func testCancelBusyPipelineIsNoOpWhenIdle() {
+        let m = RecordPillStateMachine()
+        m.cancelBusyPipeline()
+        XCTAssertEqual(m.state, .idle)
+    }
+
     // MARK: - Tap on done states fires view callbacks
 
     func testTapDoneFiresOnViewSummary() {
@@ -438,9 +471,9 @@ final class RecordPillStateMachineTests: XCTestCase {
         m.menuPause()        // → paused(1)
         m.tap()              // → recording(1) resume
         m.tick()             // → recording(2)
-        // Main tap while recording → onStopped(.summarize), state unchanged
+        // Main tap while recording → transitions to .transcribing, fires onStopped(.summarize)
         m.tap()
-        m.beginTranscribing()
+        m.beginTranscribing() // no-op: already transcribing
         m.beginSummarizing()
         m.finishAsDone()
 

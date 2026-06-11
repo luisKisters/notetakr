@@ -389,6 +389,7 @@ final class NotePanelController {
     /// Loads a note by ID into all bridges (editor, frontmatter, tabs).
     func loadNote(id: String) {
         pillPipelineCancellables.removeAll()
+        recordPillMachine.cancelBusyPipeline()
         guard let note = try? store.load(id: id) else { return }
         try? bridge.viewModel.load(noteID: id)
         frontmatterBridge.load(note: note)

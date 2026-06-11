@@ -77,6 +77,7 @@ public final class RecordPillStateMachine {
             transition(to: .recording(elapsed: 0))
             onStarted?()
         case .recording:
+            transition(to: .transcribing)
             onStopped?(.summarize)
         case .paused(let elapsed):
             transition(to: .recording(elapsed: elapsed))
@@ -156,6 +157,14 @@ public final class RecordPillStateMachine {
         transition(to: .doneTranscript)
     }
 
+    /// Resets to idle if the machine is mid-pipeline (transcribing or summarizing).
+    /// Call when the pipeline is cancelled (e.g., user switches notes).
+    public func cancelBusyPipeline() {
+        if state == .transcribing || state == .summarizing {
+            transition(to: .idle)
+        }
+    }
+
     // MARK: - Private
 
     private var isActiveRecording: Bool {
@@ -166,6 +175,7 @@ public final class RecordPillStateMachine {
 
     private func fireStop(_ intent: StopIntent) {
         guard isActiveRecording else { return }
+        transition(to: .transcribing)
         onStopped?(intent)
     }
 
