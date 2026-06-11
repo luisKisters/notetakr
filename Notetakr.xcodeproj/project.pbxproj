@@ -60,6 +60,9 @@
 		AAFADE000000000000000590 /* PanelToggleCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000557 /* PanelToggleCoordinatorTests.swift */; };
 		AAFADE000000000000000593 /* WindowChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000055A /* WindowChromeView.swift */; };
 		AAFADE000000000000000594 /* KbdPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000055B /* KbdPillView.swift */; };
+		AAFADE000000000000000595 /* AudioPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000055C /* AudioPlayerView.swift */; };
+		AAFADE000000000000000596 /* MarkdownBodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000055D /* MarkdownBodyView.swift */; };
+		AAFADE000000000000000597 /* RecordPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000055E /* RecordPillView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,6 +84,9 @@
 		AAFADE000000000000000559 /* RecordingBridgeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecordingBridgeIntegrationTests.swift; path = NoteTakrTests/RecordingBridgeIntegrationTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000055A /* WindowChromeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WindowChromeView.swift; path = NoteTakrApp/Views/WindowChromeView.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000055B /* KbdPillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KbdPillView.swift; path = NoteTakrApp/Views/KbdPillView.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000055C /* AudioPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AudioPlayerView.swift; path = NoteTakrApp/Views/AudioPlayerView.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000055D /* MarkdownBodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MarkdownBodyView.swift; path = NoteTakrApp/Views/MarkdownBodyView.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000055E /* RecordPillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecordPillView.swift; path = NoteTakrApp/Views/RecordPillView.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitCalendarAdapter.swift; path = NoteTakrApp/Calendar/EventKitCalendarAdapter.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTakrLaunchTests.swift; path = NoteTakrTests/NoteTakrLaunchTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000211 /* SessionViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionViewTests.swift; path = NoteTakrTests/SessionViewTests.swift; sourceTree = "<group>"; };
@@ -183,6 +189,9 @@
 				AAFADE000000000000000546 /* PropertyPanelView.swift */,
 				AAFADE00000000000000055A /* WindowChromeView.swift */,
 				AAFADE00000000000000055B /* KbdPillView.swift */,
+				AAFADE00000000000000055C /* AudioPlayerView.swift */,
+				AAFADE00000000000000055D /* MarkdownBodyView.swift */,
+				AAFADE00000000000000055E /* RecordPillView.swift */,
 				AAFADE000000000000000548 /* NoteTabsBridge.swift */,
 				AAFADE000000000000000549 /* SummaryGeneratingAdapter.swift */,
 				AAFADE00000000000000054A /* SummaryView.swift */,
@@ -356,6 +365,9 @@
 				AAFADE00000000000000057F /* PropertyPanelView.swift in Sources */,
 				AAFADE000000000000000593 /* WindowChromeView.swift in Sources */,
 				AAFADE000000000000000594 /* KbdPillView.swift in Sources */,
+				AAFADE000000000000000595 /* AudioPlayerView.swift in Sources */,
+				AAFADE000000000000000596 /* MarkdownBodyView.swift in Sources */,
+				AAFADE000000000000000597 /* RecordPillView.swift in Sources */,
 				AAFADE000000000000000581 /* NoteTabsBridge.swift in Sources */,
 				AAFADE000000000000000582 /* SummaryGeneratingAdapter.swift in Sources */,
 				AAFADE000000000000000583 /* SummaryView.swift in Sources */,

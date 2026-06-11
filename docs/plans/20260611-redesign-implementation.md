@@ -160,24 +160,24 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 6: Transcript & Summary + diarization
-- [ ] Reproduce `transcript.html` (document layout): speaker as a bold lead-in, paragraphs,
+- [x] Reproduce `transcript.html` (document layout): speaker as a bold lead-in, paragraphs,
       quiet collapse. **Merge consecutive same-speaker segments into one turn.** Collapsible
       turns with **Collapse all / Expand all**; collapsed shows a one-line preview.
-- [ ] **Merge the microphone and system-audio transcripts** into one chronological transcript,
+- [x] **Merge the microphone and system-audio transcripts** into one chronological transcript,
       ordered by each segment's **start time** (overlap → earlier start first).
-- [ ] **Speaker naming**: when exactly one speaker is detected per stream, name the **microphone**
+- [x] **Speaker naming**: when exactly one speaker is detected per stream, name the **microphone**
       speaker as the local user and the **system-audio** speaker as the other participant (from
       the linked calendar event when available, else "Speaker 2"). When uncertain, show
       **"Speaker · most likely <name>"**; clicking a name lets you **rename** it (updates all of
       that speaker's turns).
-- [ ] **In-person** meetings: capture/diarize the **microphone only** (no system stream).
-- [ ] Select-and-copy yields a **markdown** rendering of the transcript (`**Speaker:** text`).
-- [ ] A finished recording is playable via the seekable **player** (Task 2) where shown.
-- [ ] Implement merging/diarization/naming as pure, Linux-testable logic; unit-test same-speaker
+- [x] **In-person** meetings: capture/diarize the **microphone only** (no system stream).
+- [x] Select-and-copy yields a **markdown** rendering of the transcript (`**Speaker:** text`).
+- [x] A finished recording is playable via the seekable **player** (Task 2) where shown.
+- [x] Implement merging/diarization/naming as pure, Linux-testable logic; unit-test same-speaker
       merge, two-stream interleave ordering (incl. an overlap case), single-speaker-per-stream
       naming with/without calendar participants, the in-person mic-only path, rename propagation,
       and the copy-as-markdown output.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 7: Summary generation + speaker-inference prompt
 - [ ] Wire the **Generate summary** flow (empty state → generating → rendered markdown), using
