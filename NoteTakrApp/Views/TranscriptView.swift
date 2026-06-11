@@ -34,7 +34,7 @@ struct TranscriptView: View {
                                 isLast: idx == segments.count - 1,
                                 theme: theme,
                                 onToggleCollapse: { collapsedIndices.formSymmetricDifference([idx]) },
-                                onRename: { newName in applyRename(speakerID: seg.speaker, name: newName) }
+                                onRename: { newName in applyRename(speakerID: seg.speaker, newName: newName) }
                             )
                         }
                     }

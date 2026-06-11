@@ -1,8 +1,8 @@
 import SwiftUI
 import NoteTakrKit
 
-private let accentColor  = Color(red: 0.545, green: 0.361, blue: 0.965)   // #8B5CF6
-private let accentLight  = Color(red: 0.655, green: 0.545, blue: 0.980)   // #A78BFA
+private let kAccent  = Color(red: 0.545, green: 0.361, blue: 0.965)   // #8B5CF6
+private let kAccentLight  = Color(red: 0.655, green: 0.545, blue: 0.980)   // #A78BFA
 
 // MARK: - Display mode
 
@@ -156,108 +156,97 @@ struct SwitcherOverlayView: View {
         Button {
             tap(item: item)
         } label: {
-            HStack(spacing: 10) {
-                // Icon bubble
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(Color.white.opacity(isSelected ? 0.12 : 0.06))
-                        .frame(width: 26, height: 26)
-                    Image(systemName: sfIconName(for: item))
-                        .font(.system(size: 13, weight: .light))
-                        .foregroundColor(Color.white.opacity(isSelected ? 0.9 : 0.50))
-                }
-
-                // Title + subtitle
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(itemTitle(item))
-                        .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
-                        .foregroundColor(isGhost ? Color.white.opacity(0.65) : Color.white.opacity(isSelected ? 1 : 0.88))
-                        .lineLimit(1)
-
-                    if !isCommand {
-                        Text(itemSubtitle(item))
-                            .font(.system(size: 10.5))
-                            .foregroundColor(Color.white.opacity(0.38))
-                            .lineLimit(1)
-                    } else {
-                        Text(commandSubtitle(item))
-                            .font(.system(size: 10.5))
-                            .foregroundColor(Color.white.opacity(0.38))
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer()
-
-                // Right accessories
-                if isGhost {
-                    HStack(spacing: 3) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 9, weight: .semibold))
-                        Text("Create")
-                    }
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundColor(accentLight)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(accentColor.opacity(0.14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(accentColor.opacity(0.34), lineWidth: 1)
-                    )
-                    .cornerRadius(6)
-                } else if isCommand {
-                    kbdBadge(commandShortcut(item))
-                } else {
-                    HStack(spacing: 6) {
-                        if item.dotState == .current {
-                            Text("now")
-                                .font(.system(size: 8.5, weight: .bold))
-                                .tracking(0.06)
-                                .textCase(.uppercase)
-                                .foregroundColor(accentLight)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(accentColor.opacity(0.14))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 5)
-                                        .stroke(accentColor.opacity(0.30), lineWidth: 1)
-                                )
-                                .cornerRadius(5)
-                        }
-                        Text(timeString(for: item))
-                            .font(.system(size: 10.5))
-                            .foregroundColor(Color.white.opacity(0.38))
-                            .monospacedDigit()
-                    }
-                }
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(rowBackground(isSelected: isSelected, isGhost: isGhost))
-            .cornerRadius(9)
-            .overlay(
-                isGhost
-                    ? RoundedRectangle(cornerRadius: 9)
-                        .stroke(accentColor.opacity(0.38), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                    : nil
-            )
-            .overlay(
-                !isGhost
-                    ? RoundedRectangle(cornerRadius: 9)
-                        .stroke(
-                            isSelected
-                                ? accentColor.opacity(0.26)
-                                : Color.white.opacity(0.0),
-                            lineWidth: 1
-                        )
-                    : nil
-            )
+            twoLineRowLabel(item: item, isSelected: isSelected, isGhost: isGhost, isCommand: isCommand)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 2)
         .padding(.bottom, 1)
+    }
+
+    @ViewBuilder
+    private func twoLineRowLabel(item: SwitcherItem, isSelected: Bool, isGhost: Bool, isCommand: Bool) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(Color.white.opacity(isSelected ? 0.12 : 0.06))
+                    .frame(width: 26, height: 26)
+                Image(systemName: sfIconName(for: item))
+                    .font(.system(size: 13, weight: .light))
+                    .foregroundColor(Color.white.opacity(isSelected ? 0.9 : 0.50))
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(itemTitle(item))
+                    .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
+                    .foregroundColor(isGhost ? Color.white.opacity(0.65) : Color.white.opacity(isSelected ? 1 : 0.88))
+                    .lineLimit(1)
+                if !isCommand {
+                    Text(itemSubtitle(item))
+                        .font(.system(size: 10.5))
+                        .foregroundColor(Color.white.opacity(0.38))
+                        .lineLimit(1)
+                } else {
+                    Text(commandSubtitle(item))
+                        .font(.system(size: 10.5))
+                        .foregroundColor(Color.white.opacity(0.38))
+                        .lineLimit(1)
+                }
+            }
+            Spacer()
+            twoLineRowAccessory(item: item, isGhost: isGhost, isCommand: isCommand)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(rowBackground(isSelected: isSelected, isGhost: isGhost))
+        .cornerRadius(9)
+        .overlay(
+            isGhost
+                ? RoundedRectangle(cornerRadius: 9).stroke(kAccent.opacity(0.38), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                : nil
+        )
+        .overlay(
+            !isGhost
+                ? RoundedRectangle(cornerRadius: 9).stroke(isSelected ? kAccent.opacity(0.26) : Color.white.opacity(0.0), lineWidth: 1)
+                : nil
+        )
+    }
+
+    @ViewBuilder
+    private func twoLineRowAccessory(item: SwitcherItem, isGhost: Bool, isCommand: Bool) -> some View {
+        if isGhost {
+            HStack(spacing: 3) {
+                Image(systemName: "plus").font(.system(size: 9, weight: .semibold))
+                Text("Create")
+            }
+            .font(.system(size: 9.5, weight: .semibold))
+            .foregroundColor(kAccentLight)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(kAccent.opacity(0.14))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(kAccent.opacity(0.34), lineWidth: 1))
+            .cornerRadius(6)
+        } else if isCommand {
+            kbdBadge(commandShortcut(item))
+        } else {
+            HStack(spacing: 6) {
+                if item.dotState == .current {
+                    Text("now")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .tracking(0.06)
+                        .textCase(.uppercase)
+                        .foregroundColor(kAccentLight)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(kAccent.opacity(0.14))
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(kAccent.opacity(0.30), lineWidth: 1))
+                        .cornerRadius(5)
+                }
+                Text(timeString(for: item))
+                    .font(.system(size: 10.5))
+                    .foregroundColor(Color.white.opacity(0.38))
+                    .monospacedDigit()
+            }
+        }
     }
 
     // MARK: - Timeline list (secondary)
@@ -340,80 +329,75 @@ struct SwitcherOverlayView: View {
     private func timelineRow(item: SwitcherItem, flatIndex: Int) -> some View {
         let isSelected = bridge.selectedIndex == flatIndex
         let isGhost = isGhostItem(item)
-
         Button {
             tap(item: item)
         } label: {
-            HStack(spacing: 10) {
-                // Node dot centered on the timeline line
-                nodeDot(for: item.dotState)
-                    .frame(width: gutterLeft * 2, height: 14, alignment: .center)
-                    .offset(x: -(gutterLeft * 2 + 16))
-
-                // Icon
-                Image(systemName: sfIconName(for: item))
-                    .font(.system(size: 13, weight: .light))
-                    .foregroundColor(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.40))
-                    .frame(width: 16)
-                    .offset(x: -(gutterLeft * 2 + 16))
-
-                // Title
-                Text(itemTitle(item))
-                    .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
-                    .foregroundColor(isGhost ? Color.white.opacity(0.65) : Color.white.opacity(isSelected ? 1 : 0.88))
-                    .lineLimit(1)
-                    .offset(x: -(gutterLeft * 2 + 16))
-
-                Spacer()
-
-                // Right accessories
-                if isGhost {
-                    HStack(spacing: 3) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 9, weight: .semibold))
-                        Text("Create")
-                    }
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundColor(accentLight)
-                } else {
-                    HStack(spacing: 6) {
-                        if item.dotState == .current {
-                            Text("now")
-                                .font(.system(size: 8.5, weight: .bold))
-                                .tracking(0.06)
-                                .textCase(.uppercase)
-                                .foregroundColor(accentLight)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(accentColor.opacity(0.14))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 5)
-                                        .stroke(accentColor.opacity(0.30), lineWidth: 1)
-                                )
-                                .cornerRadius(5)
-                        }
-                        Text(timeString(for: item))
-                            .font(.system(size: 10.5))
-                            .foregroundColor(Color.white.opacity(0.38))
-                            .monospacedDigit()
-                    }
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.leading, gutterLeft)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(rowBackground(isSelected: isSelected, isGhost: isGhost))
-            .cornerRadius(9)
-            .overlay(
-                isGhost ? RoundedRectangle(cornerRadius: 9)
-                    .stroke(accentLight.opacity(0.38), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                : nil
-            )
+            timelineRowLabel(item: item, isSelected: isSelected, isGhost: isGhost)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 10)
         .padding(.bottom, 3)
+    }
+
+    @ViewBuilder
+    private func timelineRowLabel(item: SwitcherItem, isSelected: Bool, isGhost: Bool) -> some View {
+        HStack(spacing: 10) {
+            nodeDot(for: item.dotState)
+                .frame(width: gutterLeft * 2, height: 14, alignment: .center)
+                .offset(x: -(gutterLeft * 2 + 16))
+            Image(systemName: sfIconName(for: item))
+                .font(.system(size: 13, weight: .light))
+                .foregroundColor(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.40))
+                .frame(width: 16)
+                .offset(x: -(gutterLeft * 2 + 16))
+            Text(itemTitle(item))
+                .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
+                .foregroundColor(isGhost ? Color.white.opacity(0.65) : Color.white.opacity(isSelected ? 1 : 0.88))
+                .lineLimit(1)
+                .offset(x: -(gutterLeft * 2 + 16))
+            Spacer()
+            timelineRowAccessory(item: item, isGhost: isGhost)
+        }
+        .padding(.horizontal, 10)
+        .padding(.leading, gutterLeft)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(rowBackground(isSelected: isSelected, isGhost: isGhost))
+        .cornerRadius(9)
+        .overlay(
+            isGhost ? RoundedRectangle(cornerRadius: 9).stroke(kAccentLight.opacity(0.38), style: StrokeStyle(lineWidth: 1, dash: [4, 3])) : nil
+        )
+    }
+
+    @ViewBuilder
+    private func timelineRowAccessory(item: SwitcherItem, isGhost: Bool) -> some View {
+        if isGhost {
+            HStack(spacing: 3) {
+                Image(systemName: "plus").font(.system(size: 9, weight: .semibold))
+                Text("Create")
+            }
+            .font(.system(size: 9.5, weight: .semibold))
+            .foregroundColor(kAccentLight)
+        } else {
+            HStack(spacing: 6) {
+                if item.dotState == .current {
+                    Text("now")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .tracking(0.06)
+                        .textCase(.uppercase)
+                        .foregroundColor(kAccentLight)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(kAccent.opacity(0.14))
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(kAccent.opacity(0.30), lineWidth: 1))
+                        .cornerRadius(5)
+                }
+                Text(timeString(for: item))
+                    .font(.system(size: 10.5))
+                    .foregroundColor(Color.white.opacity(0.38))
+                    .monospacedDigit()
+            }
+        }
     }
 
     // MARK: - Footer hints
@@ -482,13 +466,13 @@ struct SwitcherOverlayView: View {
         switch state {
         case .upcoming:
             Circle()
-                .stroke(accentLight, lineWidth: 1.5)
+                .stroke(kAccentLight, lineWidth: 1.5)
                 .frame(width: 7, height: 7)
         case .current:
             Circle()
-                .fill(accentColor)
+                .fill(kAccent)
                 .frame(width: 7, height: 7)
-                .shadow(color: accentColor.opacity(0.5), radius: 3)
+                .shadow(color: kAccent.opacity(0.5), radius: 3)
         case .past:
             Circle()
                 .fill(Color.white.opacity(0.4))
@@ -500,7 +484,7 @@ struct SwitcherOverlayView: View {
     private func rowBackground(isSelected: Bool, isGhost: Bool) -> some View {
         Group {
             if isSelected {
-                accentColor.opacity(0.11)
+                kAccent.opacity(0.11)
             } else {
                 Color.clear
             }
