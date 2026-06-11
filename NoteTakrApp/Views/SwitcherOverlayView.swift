@@ -356,10 +356,14 @@ struct SwitcherOverlayView: View {
         }
     }
 
+    private static let hhmmFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
     private func HHmm(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        return fmt.string(from: date)
+        Self.hhmmFormatter.string(from: date)
     }
 
     private func isGhostItem(_ item: SwitcherItem) -> Bool {

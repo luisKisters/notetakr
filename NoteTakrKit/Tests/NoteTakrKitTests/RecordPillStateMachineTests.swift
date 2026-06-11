@@ -200,34 +200,43 @@ final class RecordPillStateMachineTests: XCTestCase {
 
     // MARK: - menuRestart
 
-    func testMenuRestartFromRecordingResetsElapsedAndFiresOnStarted() {
+    func testMenuRestartFromRecordingResetsElapsedAndFiresOnRestarted() {
         let m = RecordPillStateMachine()
-        var count = 0
-        m.onStarted = { count += 1 }
-        m.tap()              // start (count=1)
+        var startCount = 0
+        var restartCount = 0
+        m.onStarted = { startCount += 1 }
+        m.onRestarted = { restartCount += 1 }
+        m.tap()              // → recording(0), startCount=1
         m.tick(); m.tick()   // → recording(2)
-        m.menuRestart()      // → recording(0), count=2
+        m.menuRestart()      // → recording(0), restartCount=1
         XCTAssertEqual(m.state, .recording(elapsed: 0))
-        XCTAssertEqual(count, 2)
+        XCTAssertEqual(startCount, 1)
+        XCTAssertEqual(restartCount, 1)
     }
 
-    func testMenuRestartFromPausedResetsElapsedAndFiresOnStarted() {
+    func testMenuRestartFromPausedResetsElapsedAndFiresOnRestarted() {
         let m = RecordPillStateMachine()
-        var count = 0
-        m.onStarted = { count += 1 }
+        var startCount = 0
+        var restartCount = 0
+        m.onStarted = { startCount += 1 }
+        m.onRestarted = { restartCount += 1 }
         m.tap(); m.tick(); m.tick(); m.tick()   // recording(3)
         m.menuPause()        // paused(3)
-        m.menuRestart()      // → recording(0), count=2
+        m.menuRestart()      // → recording(0), restartCount=1
         XCTAssertEqual(m.state, .recording(elapsed: 0))
-        XCTAssertEqual(count, 2)
+        XCTAssertEqual(startCount, 1)
+        XCTAssertEqual(restartCount, 1)
     }
 
     func testMenuRestartIsNoOpWhenIdle() {
         let m = RecordPillStateMachine()
-        var fired = false
-        m.onStarted = { fired = true }
+        var startFired = false
+        var restartFired = false
+        m.onStarted = { startFired = true }
+        m.onRestarted = { restartFired = true }
         m.menuRestart()
-        XCTAssertFalse(fired)
+        XCTAssertFalse(startFired)
+        XCTAssertFalse(restartFired)
         XCTAssertEqual(m.state, .idle)
     }
 
@@ -381,14 +390,17 @@ final class RecordPillStateMachineTests: XCTestCase {
         XCTAssertEqual(count, 1)
     }
 
-    func testMenuRestartFiresOnStartedAgain() {
+    func testMenuRestartFiresOnRestarted() {
         let m = RecordPillStateMachine()
-        var count = 0
-        m.onStarted = { count += 1 }
+        var startCount = 0
+        var restartCount = 0
+        m.onStarted = { startCount += 1 }
+        m.onRestarted = { restartCount += 1 }
 
-        m.tap()              // count=1
-        m.menuRestart()      // count=2
-        XCTAssertEqual(count, 2)
+        m.tap()              // startCount=1
+        m.menuRestart()      // restartCount=1, onStarted NOT fired again
+        XCTAssertEqual(startCount, 1)
+        XCTAssertEqual(restartCount, 1)
     }
 
     // MARK: - onStopped does not fire on pause

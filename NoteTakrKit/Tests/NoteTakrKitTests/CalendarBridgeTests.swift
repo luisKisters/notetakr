@@ -97,7 +97,7 @@ final class CalendarBridgeTests: XCTestCase {
             participants: participants
         )
         XCTAssertEqual(event.participants[0].name, "Alice")
-        XCTAssertEqual(event.participants[0].email, "acme" == "acme" ? "alice@acme.com" : nil)
+        XCTAssertEqual(event.participants[0].email, "alice@acme.com")
         XCTAssertEqual(event.participants[1].name, "Bob")
         XCTAssertNil(event.participants[1].email)
         XCTAssertEqual(event.participants[2].name, "Carol")

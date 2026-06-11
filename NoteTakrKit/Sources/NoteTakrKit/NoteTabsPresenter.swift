@@ -161,8 +161,8 @@ public final class NoteTabsPresenter {
             guard let self else { return }
             do {
                 let rawSegments = try await generator.generate(for: noteID)
-                self.onPersistTranscript?(noteID, rawSegments)
                 self.setSegments(rawSegments, for: noteID)
+                self.onPersistTranscript?(noteID, rawSegments)
             } catch {
                 self.transcriptByNoteID[noteID] = .empty
                 self.onChange?()
@@ -180,8 +180,8 @@ public final class NoteTabsPresenter {
             guard let self else { return }
             do {
                 let rawSegments = try await generator.generate(for: noteID)
-                self.onPersistTranscript?(noteID, rawSegments)
                 self.setSegments(rawSegments, for: noteID)
+                self.onPersistTranscript?(noteID, rawSegments)
                 self.generateSummary(for: noteID)
             } catch {
                 self.transcriptByNoteID[noteID] = .empty

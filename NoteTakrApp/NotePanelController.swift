@@ -254,12 +254,21 @@ final class NotePanelController {
             let stoppedNoteID = self.frontmatterBridge.noteID
             Task { @MainActor in
                 self.stopPillTickTimer()
-                self.recordPillMachine.beginTranscribing()
                 await appModel.stopRecording()
                 guard !stoppedNoteID.isEmpty,
                       self.frontmatterBridge.noteID == stoppedNoteID else { return }
+                self.recordPillMachine.beginTranscribing()
                 self.frontmatterBridge.hasCompletedRecording = true
                 self.drivePostStopPipeline(noteID: stoppedNoteID, intent: intent)
+            }
+        }
+
+        machine.onRestarted = { [weak self, weak appModel] in
+            guard let appModel else { return }
+            Task { @MainActor in
+                await appModel.stopRecording()
+                await appModel.startRecording(title: nil)
+                self?.startPillTickTimer()
             }
         }
 
@@ -322,7 +331,11 @@ final class NotePanelController {
 
             tabsBridge.$summaryState
                 .receive(on: DispatchQueue.main)
-                .filter { if case .ready = $0 { return true }; return false }
+                .filter {
+                    if case .ready = $0 { return true }
+                    if case .failed = $0 { return true }
+                    return false
+                }
                 .first()
                 .sink { [weak self] _ in
                     self?.recordPillMachine.finishAsDone()

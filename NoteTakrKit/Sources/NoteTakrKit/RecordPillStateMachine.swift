@@ -43,6 +43,10 @@ public final class RecordPillStateMachine {
     /// Fires when entering recording from idle (new session start).
     public var onStarted: (() -> Void)?
 
+    /// Fires when the user restarts mid-session (caret menu → Restart).
+    /// Unlike onStarted, the controller must stop the current audio session before starting a new one.
+    public var onRestarted: (() -> Void)?
+
     /// Fires when the user triggers a stop. Controller calls beginTranscribing() etc. afterwards.
     public var onStopped: ((StopIntent) -> Void)?
 
@@ -107,14 +111,16 @@ public final class RecordPillStateMachine {
 
     /// Caret menu: Stop without summarizing — fires onStopped(.transcribe).
     public func menuStopOnly() {
+        guard isActiveRecording else { return }
         fireStop(.transcribe)
     }
 
-    /// Caret menu: Restart recording — back to recording(0), fires onStarted.
+    /// Caret menu: Restart recording — back to recording(0), fires onRestarted.
+    /// The controller must stop the in-flight audio session before starting a new one.
     public func menuRestart() {
         guard isActiveRecording else { return }
         transition(to: .recording(elapsed: 0))
-        onStarted?()
+        onRestarted?()
     }
 
     /// Caret menu: Discard — back to idle, fires onDiscarded.
