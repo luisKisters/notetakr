@@ -37,7 +37,7 @@ final class CarbonHotkeyRegistrar: HotkeyRegistering {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
     private(set) var currentAction: (() -> Void)?
-    private let hotkeyID: UInt32
+    fileprivate let hotkeyID: UInt32
 
     init(hotkeyID: UInt32 = 1) {
         self.hotkeyID = hotkeyID

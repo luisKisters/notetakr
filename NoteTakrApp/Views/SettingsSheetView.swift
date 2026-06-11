@@ -925,7 +925,7 @@ struct SettingsSheetView: View {
     // MARK: - Shared row builder
 
     @ViewBuilder
-    private func settingsRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    private func settingsRow<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
         SettingsRowView(hairline: hairline, hoverFill: hoverFill) {
             content()
         }
@@ -986,7 +986,7 @@ private struct SettingsRowView<Content: View>: View {
         HStack(alignment: .center, spacing: 10) {
             content()
         }
-        .frame(minHeight: 42, maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 42)
         .background(isHovering ? hoverFill : Color.clear)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
