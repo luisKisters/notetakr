@@ -19,12 +19,16 @@ private func carbonHotkeyCallback(
 
 /// Registers and unregisters a global keyboard shortcut using Carbon's
 /// RegisterEventHotKey API. Owned for the app lifetime by PanelToggleCoordinator.
+/// Pass a unique `hotkeyID` (default 1) when registering multiple global hotkeys
+/// so each has a distinct (signature, id) pair and they coexist without conflict.
 final class CarbonHotkeyRegistrar: HotkeyRegistering {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
     private(set) var currentAction: (() -> Void)?
+    private let hotkeyID: UInt32
 
-    init() {
+    init(hotkeyID: UInt32 = 1) {
+        self.hotkeyID = hotkeyID
         installEventHandler()
     }
 
@@ -41,7 +45,7 @@ final class CarbonHotkeyRegistrar: HotkeyRegistering {
         unregister()
         currentAction = action
 
-        var keyID = EventHotKeyID(signature: OSType(0x4E544B52), id: 1) // 'NTKR'
+        var keyID = EventHotKeyID(signature: OSType(0x4E544B52), id: hotkeyID) // 'NTKR'
         RegisterEventHotKey(
             virtualKeyCode(for: combo.key),
             carbonModifiers(from: combo.modifiers),

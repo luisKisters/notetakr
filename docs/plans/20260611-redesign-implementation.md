@@ -82,23 +82,23 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 2: The record control (monochrome pill + state machine + ⌘N)
-- [ ] Build the record pill exactly per `kit.css` `.recpill` + `recording.html`: a fixed,
+- [x] Build the record pill exactly per `kit.css` `.recpill` + `recording.html`: a fixed,
       monochrome pill where **only the indicator dot is colored** (gray idle, red recording,
       amber breathing when paused). Width stays constant; it never wraps.
-- [ ] State machine: **idle → click → recording** (ticking mm:ss) **→ click → paused**
+- [x] State machine: **idle → click → recording** (ticking mm:ss) **→ click → paused**
       (breathing) **→ click → menu**. The menu (borderless, soft shadow) has **Resume**,
       **Stop & Transcribe**, **Stop & Summarize**. Resume → recording; the Stop items end the
       recording. The menu opens **below** the pill, staying on-screen (left-anchored when the
       pill is on the left, right-anchored when on the right — see `.ralign`).
-- [ ] **Stop & Summarize** switches to the Summary tab and triggers summary generation.
-- [ ] When a recording finishes (transcript ready), the front-meta Transcript row swaps the pill
+- [x] **Stop & Summarize** switches to the Summary tab and triggers summary generation.
+- [x] When a recording finishes (transcript ready), the front-meta Transcript row swaps the pill
       for a **seekable audio player** (play/pause + scrubbable progress + `mm:ss / mm:ss`) — see
       `frontmatter.html` `.player`.
-- [ ] Register **⌘N** as a *global* new-note shortcut (reuse the floating-note hotkey mechanism).
-- [ ] Extract the state machine into a pure, Linux-testable type; unit-test every transition
+- [x] Register **⌘N** as a *global* new-note shortcut (reuse the floating-note hotkey mechanism).
+- [x] Extract the state machine into a pure, Linux-testable type; unit-test every transition
       (idle→rec→paused→resume→rec→stop), the timer pause/resume, and that Summarize signals the
       Summary+generate intent.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 3: Editor screen
 - [ ] Reproduce `editor.html`: title H1, then one quiet **preview line** = **record (first) ·

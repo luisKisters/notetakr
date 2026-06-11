@@ -14,6 +14,7 @@ final class NotePanelController {
     let tabsBridge: NoteTabsBridge
     let switcherBridge: SwitcherBridge
     let settingsBridge: SettingsSheetViewModel
+    let recordPillMachine: RecordPillStateMachine
 
     private let sessionStore: SessionStore?
     private let calendarEventsProvider = CalendarEventsProvider()
@@ -23,11 +24,13 @@ final class NotePanelController {
     private var recordingBridge: RecordingNoteBridge?
     private var transcriptionAdapter: TranscriptionRequestingAdapter?
     private var elapsedTimer: Timer?
+    private var pillTickTimer: Timer?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
         bridge = NoteEditorBridge(store: store)
         frontmatterBridge = FrontmatterPresenterBridge(store: store)
+        recordPillMachine = RecordPillStateMachine()
 
         let settingsRoot = notesRoot.deletingLastPathComponent()
         let localAppSettings = AppSettingsStore(root: settingsRoot)
@@ -84,6 +87,7 @@ final class NotePanelController {
 
         buildPanel()
         wireSwitcher()
+        wireRecordPill(appModel: appModel)
     }
 
     /// Updates calendar events in the switcher from an external snapshot.
@@ -180,7 +184,8 @@ final class NotePanelController {
                 frontmatterBridge: frontmatterBridge,
                 tabsBridge: tabsBridge,
                 switcherBridge: switcherBridge,
-                settingsBridge: settingsBridge
+                settingsBridge: settingsBridge,
+                recordPillMachine: recordPillMachine
             )
         )
         self.panel = p
@@ -196,6 +201,54 @@ final class NotePanelController {
         }
         guard let note else { return }
         loadNote(id: note.id)
+    }
+
+    /// Creates a blank note and loads it into the editor. Used by the ⌘N global hotkey.
+    func createNewNote() {
+        if let note = try? store.create(title: "Untitled meeting", date: Date()) {
+            loadNote(id: note.id)
+        }
+    }
+
+    private func wireRecordPill(appModel: AppModel?) {
+        guard let appModel else { return }
+        let machine = recordPillMachine
+
+        machine.onStarted = { [weak self, weak appModel] in
+            guard let appModel else { return }
+            Task { @MainActor in
+                await appModel.startRecording(title: nil)
+                // Start pill tick timer
+                self?.startPillTickTimer()
+            }
+        }
+
+        machine.onStopped = { [weak self, weak appModel] intent in
+            guard let appModel else { return }
+            Task { @MainActor in
+                self?.stopPillTickTimer()
+                await appModel.stopRecording()
+                if intent == .summarize {
+                    // Switch to Summary tab; the existing auto-summarize path handles generation
+                    let noteID = self?.frontmatterBridge.noteID ?? ""
+                    if !noteID.isEmpty {
+                        try? self?.tabsBridge.presenter.selectTab(.summary, for: noteID)
+                    }
+                }
+            }
+        }
+    }
+
+    private func startPillTickTimer() {
+        pillTickTimer?.invalidate()
+        pillTickTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.recordPillMachine.tick() }
+        }
+    }
+
+    private func stopPillTickTimer() {
+        pillTickTimer?.invalidate()
+        pillTickTimer = nil
     }
 
     private func wireSwitcher() {

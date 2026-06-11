@@ -2,21 +2,42 @@ import SwiftUI
 import NoteTakrKit
 
 /// Compact frontmatter summary chips below the title.
-/// Tapping the whole row toggles the property panel expansion.
+/// The record pill is always the first element with its own tap handler.
+/// Tapping anywhere else on the row toggles the property panel expansion.
 struct ChipsRowView: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
+    let machine: RecordPillStateMachine
+    let pillState: RecordPillState
     @Environment(\.themeColors) private var theme
 
     @State private var isHovering = false
 
     var body: some View {
+        // The outer button covers the whole row for expand toggle.
+        // RecordPillView (nested Button) intercepts taps within its own bounds.
         Button {
             bridge.isExpanded.toggle()
         } label: {
-            HStack(spacing: 6) {
-                ForEach(Array(bridge.chips.enumerated()), id: \.offset) { _, chip in
-                    chipView(chip)
+            HStack(spacing: 0) {
+                RecordPillView(machine: machine, pillState: pillState)
+                    .environment(\.themeColors, theme)
+                    .padding(.trailing, 6)
+
+                // Vertical divider
+                Rectangle()
+                    .fill(theme.hairline.swiftUIColor)
+                    .frame(width: 1, height: 11)
+                    .padding(.trailing, 9)
+
+                // Non-recording chips (recording chip removed — pill handles the display)
+                HStack(spacing: 6) {
+                    ForEach(Array(nonRecordingChips.enumerated()), id: \.offset) { _, chip in
+                        chipView(chip)
+                    }
                 }
+
+                Spacer(minLength: 0)
+
                 chevron
             }
             .padding(.horizontal, 20)
@@ -26,6 +47,13 @@ struct ChipsRowView: View {
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
         .padding(.bottom, 2)
+    }
+
+    private var nonRecordingChips: [Chip] {
+        bridge.chips.filter {
+            if case .recording = $0 { return false }
+            return true
+        }
     }
 
     @ViewBuilder
@@ -42,8 +70,8 @@ struct ChipsRowView: View {
                 theme: theme,
                 isRowHovered: isHovering
             )
-        case .recording(let elapsed):
-            RecordingChip(elapsed: elapsed, theme: theme, isRowHovered: isHovering)
+        case .recording:
+            EmptyView()
         }
     }
 
@@ -122,28 +150,6 @@ private struct ParticipantsChip: View {
     }
 }
 
-private struct RecordingChip: View {
-    let elapsed: String
-    let theme: ThemeColors
-    let isRowHovered: Bool
-
-    @State private var dotVisible = true
-
-    var body: some View {
-        ChipContainer(theme: theme, isRowHovered: isRowHovered) {
-            // Only the REC dot is colored (kit.css: red is used only for the REC indicator dot)
-            Circle()
-                .fill(DesignConstants.recRed.swiftUIColor)
-                .frame(width: 6, height: 6)
-                .opacity(dotVisible ? 1 : 0.2)
-                .animation(.easeInOut(duration: 0.8).repeatForever(), value: dotVisible)
-                .onAppear { dotVisible = false }
-            Text(elapsed)
-                .font(.system(size: 11.5))
-                .fontDesign(.monospaced)
-        }
-    }
-}
 
 private struct AvatarCircle: View {
     let initial: String

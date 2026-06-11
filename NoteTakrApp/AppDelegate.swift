@@ -1,6 +1,7 @@
 import AppKit
 import Sparkle
 import SwiftUI
+import NoteTakrKit
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var notePanelController: NotePanelController?
     private var panelCoordinator: PanelToggleCoordinator?
     private var updaterController: SPUStandardUpdaterController?
+    private var newNoteRegistrar: CarbonHotkeyRegistrar?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -40,6 +42,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusBarController = StatusBarController(model: .shared, notePanelController: npc)
+        registerNewNoteHotkey(npc: npc)
         startUpdaterIfConfigured()
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -47,6 +50,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         notePanelController?.show()
         return true
+    }
+
+    private func registerNewNoteHotkey(npc: NotePanelController) {
+        guard let combo = try? HotkeyCombo(modifiers: .command, key: "N") else { return }
+        let registrar = CarbonHotkeyRegistrar(hotkeyID: 2)
+        registrar.register(combo: combo) { [weak npc] in
+            Task { @MainActor in
+                npc?.createNewNote()
+                npc?.show()
+            }
+        }
+        newNoteRegistrar = registrar
     }
 
     private func startUpdaterIfConfigured() {

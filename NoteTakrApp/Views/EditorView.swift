@@ -7,6 +7,8 @@ struct EditorView: View {
     @ObservedObject var tabsBridge: NoteTabsBridge
     @ObservedObject var switcherBridge: SwitcherBridge
     @ObservedObject var settingsBridge: SettingsSheetViewModel
+    let recordPillMachine: RecordPillStateMachine
+    @State private var pillState: RecordPillState = .idle
 
     private var themeColors: ThemeColors {
         Theme.colors(for: settingsBridge.currentAppearance)
@@ -55,8 +57,13 @@ struct EditorView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
 
-                ChipsRowView(bridge: frontmatterBridge)
+                ChipsRowView(bridge: frontmatterBridge, machine: recordPillMachine, pillState: pillState)
                     .environment(\.themeColors, themeColors)
+                    .onAppear {
+                        recordPillMachine.onStateChanged = { newState in
+                            DispatchQueue.main.async { self.pillState = newState }
+                        }
+                    }
 
                 PropertyPanelView(bridge: frontmatterBridge)
                     .environment(\.themeColors, themeColors)
