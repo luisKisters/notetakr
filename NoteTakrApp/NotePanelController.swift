@@ -187,6 +187,7 @@ final class NotePanelController {
         p.isOpaque = false
         p.backgroundColor = .clear
         p.minSize = NSSize(width: 300, height: 400)
+        p.standardWindowButton(.closeButton)?.isHidden = false
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.center()
