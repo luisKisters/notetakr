@@ -1,4 +1,5 @@
 import AppKit
+import NoteTakrKit
 import NoteTakrCore
 
 /// Single shared source of truth for the app: owns the session store, recorder,

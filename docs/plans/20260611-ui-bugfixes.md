@@ -85,13 +85,13 @@ non-root user; Node, git, gh available; a live Swift-for-Linux toolchain is pres
 
 ### Task 3: Fix adding custom vocabulary
 
-- [ ] Investigate why a custom vocabulary entry cannot currently be added in Settings and fix
+- [x] Investigate why a custom vocabulary entry cannot currently be added in Settings and fix
       it so a new phrase can be typed and added.
-- [ ] Ensure added entries persist across relaunch and are passed to the transcription adapter
+- [x] Ensure added entries persist across relaunch and are passed to the transcription adapter
       (preserve the existing phrase/alias/enabled/weight model — do not redesign it).
-- [ ] Add Linux-compatible unit tests for add, persist/reload, duplicate handling, and that
+- [x] Add Linux-compatible unit tests for add, persist/reload, duplicate handling, and that
       enabled entries reach the transcription adapter boundary.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 4: Render markdown in the note body; copy yields raw markdown
 

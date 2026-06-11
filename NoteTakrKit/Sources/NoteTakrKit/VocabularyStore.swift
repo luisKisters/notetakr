@@ -28,4 +28,14 @@ public final class VocabularyStore: @unchecked Sendable {
     public func enabledEntries() throws -> [VocabularyEntry] {
         try load().filter { $0.isEnabled }
     }
+
+    /// Adds a phrase with case-insensitive deduplication. No-op for blank or duplicate phrases.
+    public func addEntry(phrase: String) throws {
+        let trimmed = phrase.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        var entries = (try? load()) ?? []
+        guard !entries.contains(where: { $0.phrase.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        entries.append(VocabularyEntry(phrase: trimmed))
+        try save(entries)
+    }
 }

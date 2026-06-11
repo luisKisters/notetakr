@@ -1,4 +1,5 @@
 import Foundation
+import NoteTakrKit
 
 public final class TranscriptionService: @unchecked Sendable {
     private let engine: any TranscriptionEngine

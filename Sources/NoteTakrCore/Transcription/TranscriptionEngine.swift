@@ -1,4 +1,5 @@
 import Foundation
+import NoteTakrKit
 
 public enum TranscriptionError: Error, Sendable, Equatable {
     case audioFileNotFound

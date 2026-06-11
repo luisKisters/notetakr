@@ -19,6 +19,7 @@ final class NotePanelController {
     private let sessionStore: SessionStore?
     private let calendarEventsProvider = CalendarEventsProvider()
     private let appSettings: AppSettingsStore
+    private let vocabularyStore: VocabularyStore?
 
     // Recording wiring
     private var recordingBridge: RecordingNoteBridge?
@@ -53,9 +54,11 @@ final class NotePanelController {
             generator = adapter
             sessionStoreRef = appModel.store
             transcriptionAdapter = TranscriptionRequestingAdapter(appModel: appModel)
+            vocabularyStore = appModel.vocabularyStore
         } else {
             generator = nil
             sessionStoreRef = nil
+            vocabularyStore = nil
         }
         sessionStore = sessionStoreRef
 
@@ -129,7 +132,8 @@ final class NotePanelController {
 
         guard let presenter = frontmatterBridge.presenter else { return }
 
-        let settings = EffectiveMeetingSettings.resolve(note: presenter.note, defaults: appSettings)
+        let globalVocab = (try? vocabularyStore?.enabledEntries())?.map { $0.phrase } ?? []
+        let settings = EffectiveMeetingSettings.resolve(note: presenter.note, defaults: appSettings, globalVocabulary: globalVocab)
         let recBridge = RecordingNoteBridge(
             frontmatterPresenter: presenter,
             tabsPresenter: tabsBridge.presenter,

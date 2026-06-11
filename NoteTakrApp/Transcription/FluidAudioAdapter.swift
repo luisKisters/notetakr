@@ -1,5 +1,6 @@
 import Foundation
 import FluidAudio
+import NoteTakrKit
 import NoteTakrCore
 
 // MARK: - Injectable seams

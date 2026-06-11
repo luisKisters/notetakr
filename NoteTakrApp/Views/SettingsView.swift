@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import NoteTakrKit
 import NoteTakrCore
 
 @MainActor
@@ -23,6 +24,7 @@ final class VocabularyViewModel: ObservableObject {
     func add(phrase: String) {
         let trimmed = phrase.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        guard !entries.contains(where: { $0.phrase.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
         entries.append(VocabularyEntry(phrase: trimmed))
         persist()
     }
