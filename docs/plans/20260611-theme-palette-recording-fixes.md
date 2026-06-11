@@ -135,14 +135,14 @@ Reproduce `design/mockups/v5/switcher-final.html` exactly. `NoteTakrApp/Views/Sw
 ### Task 5: Note editor — typing, copy, remove markdown hint
 `NoteTakrApp/Views/EditorView.swift`, `NoteTakrApp/Views/MarkdownBodyView.swift`,
 `NoteTakrApp/Views/TranscriptView.swift`.
-- [ ] Make the note body reliably editable: clicking into it focuses an editable field and you can
+- [x] Make the note body reliably editable: clicking into it focuses an editable field and you can
       type; the tap→focus handoff must be reliable (keep the editable field mounted or set/retain
       focus on tap and when the tab becomes active). Cmd+A / Cmd+C work (select-all + copy yields the
       raw markdown source).
-- [ ] Remove the "→ raw markdown" / "Select & copy → markdown" hint text (the `copyHint` in
+- [x] Remove the "→ raw markdown" / "Select & copy → markdown" hint text (the `copyHint` in
       `MarkdownBodyView.swift` and the equivalent in `TranscriptView.swift`).
-- [ ] Linux tests: copy returns the exact raw markdown source (round-trip on the pure type).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Linux tests: copy returns the exact raw markdown source (round-trip on the pure type).
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 6: Recording control — final split badge (state machine + view)
 Reproduce `design/mockups/v5/recording-final.html` exactly. `NoteTakrApp/Views/RecordPillView.swift`
