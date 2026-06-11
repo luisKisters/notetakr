@@ -76,10 +76,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             userDriverDelegate: nil
         )
         updaterController = controller
-        controller.startUpdater()
         let settings = notePanelController?.settingsBridge.appSettings
         controller.updater.automaticallyChecksForUpdates = settings?.autoCheckForUpdates ?? true
         controller.updater.automaticallyDownloadsUpdates = settings?.autoDownloadUpdates ?? false
+        controller.startUpdater()
         controller.updater.checkForUpdatesInBackground()
 
         NotificationCenter.default.addObserver(
