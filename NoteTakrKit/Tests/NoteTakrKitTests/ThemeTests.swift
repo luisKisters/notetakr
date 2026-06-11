@@ -17,18 +17,17 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(Theme.colors(for: .light), Theme.light)
     }
 
-    // MARK: - Exhaustive coverage: every Appearance case has a non-default token set
+    // MARK: - Exhaustive coverage
 
     func testAllAppearanceCasesHandled() {
         for appearance in Appearance.allCases {
             let colors = Theme.colors(for: appearance)
-            // Every token must have non-negative components — sanity guard
             XCTAssertGreaterThanOrEqual(colors.background.a, 0.0, "\(appearance) background alpha")
             XCTAssertGreaterThanOrEqual(colors.accent.r, 0.0, "\(appearance) accent r")
         }
     }
 
-    // MARK: - Dark background is #151417
+    // MARK: - Background values
 
     func testDarkBackground() {
         let bg = Theme.dark.background
@@ -36,15 +35,11 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(bg.a, 1.0)
     }
 
-    // MARK: - Light background is #FAF8F4 (warm paper)
-
     func testLightBackground() {
         let bg = Theme.light.background
         XCTAssertEqual(bg, RGBA(red: 250, green: 248, blue: 244))
         XCTAssertEqual(bg.a, 1.0)
     }
-
-    // MARK: - Glass background is semi-transparent
 
     func testGlassBackgroundIsSemiTransparent() {
         let bg = Theme.glass.background
@@ -53,14 +48,12 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(bg, RGBA(red: 46, green: 44, blue: 54, alpha: 0.44))
     }
 
-    // MARK: - Dark/light backgrounds are fully opaque
-
     func testDarkAndLightBackgroundsAreOpaque() {
         XCTAssertEqual(Theme.dark.background.a, 1.0)
         XCTAssertEqual(Theme.light.background.a, 1.0)
     }
 
-    // MARK: - Accent colours: dark/glass use the light purple (#A78BFA), light uses the darker (#8B5CF6)
+    // MARK: - Accent colours
 
     func testDarkAccentIsLightPurple() {
         XCTAssertEqual(Theme.dark.accent, RGBA(red: 167, green: 139, blue: 250))
@@ -78,7 +71,7 @@ final class ThemeTests: XCTestCase {
         XCTAssertNotEqual(Theme.dark.accent, Theme.light.accent)
     }
 
-    // MARK: - Destructive colour is consistent across modes (#FF453A)
+    // MARK: - Destructive colour (#FF453A — consistent)
 
     func testDestructiveIsConsistentAcrossModes() {
         let expected = RGBA(red: 255, green: 69, blue: 58)
@@ -87,7 +80,7 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(Theme.light.destructive, expected)
     }
 
-    // MARK: - Light mode uses dark text, glass/dark use white text
+    // MARK: - Text hierarchy
 
     func testLightPrimaryTextIsDark() {
         let txt = Theme.light.primaryText
@@ -97,16 +90,26 @@ final class ThemeTests: XCTestCase {
     }
 
     func testDarkPrimaryTextIsLight() {
-        let txt = Theme.dark.primaryText
-        XCTAssertGreaterThan(txt.r, 0.5)
+        XCTAssertGreaterThan(Theme.dark.primaryText.r, 0.5)
     }
 
     func testGlassPrimaryTextIsLight() {
-        let txt = Theme.glass.primaryText
-        XCTAssertGreaterThan(txt.r, 0.5)
+        XCTAssertGreaterThan(Theme.glass.primaryText.r, 0.5)
     }
 
-    // MARK: - Hairline opacity matches mockup values
+    func testTertiaryTextIsLessOpaqueThanSecondary() {
+        for appearance in Appearance.allCases {
+            let c = Theme.colors(for: appearance)
+            XCTAssertLessThan(c.tertiaryText.a, c.secondaryText.a,
+                              "\(appearance): tertiary should be less opaque than secondary")
+        }
+    }
+
+    func testLightTertiaryTextIs40PercentOpaque() {
+        XCTAssertEqual(Theme.light.tertiaryText.a, 0.40, accuracy: 1e-9)
+    }
+
+    // MARK: - Hairline
 
     func testDarkHairlineOpacity() {
         XCTAssertEqual(Theme.dark.hairline.a, 0.10, accuracy: 1e-9)
@@ -120,7 +123,7 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(h.a, 0.10, accuracy: 1e-9)
     }
 
-    // MARK: - Elevated fill: glass/dark are white-tinted, light is black-tinted
+    // MARK: - Elevated fill
 
     func testGlassElevatedFillIsWhiteTinted() {
         let fill = Theme.glass.elevatedFill
@@ -136,5 +139,156 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(fill.g, 0.0, accuracy: 1e-9)
         XCTAssertEqual(fill.b, 0.0, accuracy: 1e-9)
         XCTAssertLessThan(fill.a, 0.1)
+    }
+
+    // MARK: - Hover fill (row/button hover background)
+
+    func testHoverFillIsSemiTransparent() {
+        for appearance in Appearance.allCases {
+            let c = Theme.colors(for: appearance)
+            XCTAssertGreaterThan(c.hoverFill.a, 0.0, "\(appearance) hoverFill")
+            XCTAssertLessThan(c.hoverFill.a, 0.2, "\(appearance) hoverFill")
+        }
+    }
+
+    // MARK: - Chip tokens
+
+    func testChipFillHoverIsMoreOpaqueThanChipFill() {
+        for appearance in Appearance.allCases {
+            let c = Theme.colors(for: appearance)
+            XCTAssertGreaterThan(c.chipFillHover.a, c.chipFill.a,
+                                 "\(appearance): chipFillHover should be more opaque than chipFill")
+        }
+    }
+
+    func testGlassChipFillMatches() {
+        XCTAssertEqual(Theme.glass.chipFill.a, 0.055, accuracy: 1e-9)
+    }
+
+    func testLightChipFillIsBlackTinted() {
+        let fill = Theme.light.chipFill
+        XCTAssertEqual(fill.r, 0.0, accuracy: 1e-9)
+        XCTAssertEqual(fill.a, 0.04, accuracy: 1e-9)
+    }
+
+    // MARK: - KBD pill tokens
+
+    func testKbdBackgroundAndBorderExist() {
+        for appearance in Appearance.allCases {
+            let c = Theme.colors(for: appearance)
+            XCTAssertGreaterThan(c.kbdBackground.a, 0.0, "\(appearance) kbdBg")
+            XCTAssertGreaterThan(c.kbdBorder.a, 0.0, "\(appearance) kbdBorder")
+        }
+    }
+
+    func testLightKbdIsBlackTinted() {
+        XCTAssertEqual(Theme.light.kbdBackground.r, 0.0, accuracy: 1e-9)
+        XCTAssertEqual(Theme.light.kbdBorder.r, 0.0, accuracy: 1e-9)
+    }
+
+    // MARK: - Avatar ring matches background hue
+
+    func testDarkAvatarRingMatchesBackground() {
+        XCTAssertEqual(Theme.dark.avatarRing, Theme.dark.background)
+    }
+
+    func testLightAvatarRingMatchesBackground() {
+        XCTAssertEqual(Theme.light.avatarRing, Theme.light.background)
+    }
+
+    func testGlassAvatarRingIsNearBlack() {
+        let ring = Theme.glass.avatarRing
+        XCTAssertLessThan(ring.r, 0.1)
+        XCTAssertLessThan(ring.g, 0.1)
+        XCTAssertGreaterThan(ring.a, 0.8)
+    }
+
+    // MARK: - Traffic-light dot (dimmed state)
+
+    func testTrafficLightDotIsSemiTransparent() {
+        for appearance in Appearance.allCases {
+            let c = Theme.colors(for: appearance)
+            XCTAssertGreaterThan(c.trafficLightDot.a, 0.0, "\(appearance) trafficLightDot")
+            XCTAssertLessThan(c.trafficLightDot.a, 1.0, "\(appearance) trafficLightDot")
+        }
+    }
+
+    func testLightTrafficLightDotIsBlackTinted() {
+        let dot = Theme.light.trafficLightDot
+        XCTAssertEqual(dot.r, 0.0, accuracy: 1e-9)
+        XCTAssertEqual(dot.g, 0.0, accuracy: 1e-9)
+        XCTAssertEqual(dot.b, 0.0, accuracy: 1e-9)
+    }
+
+    // MARK: - Toggle-off color
+
+    func testToggleOffIsMoreOpaqueThanHover() {
+        for appearance in Appearance.allCases {
+            let c = Theme.colors(for: appearance)
+            XCTAssertGreaterThan(c.toggleOff.a, c.hoverFill.a,
+                                 "\(appearance): toggleOff should be more prominent than hover")
+        }
+    }
+
+    // MARK: - Field fill
+
+    func testLightFieldFillIsMostlyOpaque() {
+        XCTAssertGreaterThan(Theme.light.fieldFill.a, 0.5)
+    }
+
+    func testDarkFieldFillIsSubtle() {
+        XCTAssertLessThan(Theme.dark.fieldFill.a, 0.15)
+    }
+}
+
+// MARK: - DesignConstantsTests
+
+final class DesignConstantsTests: XCTestCase {
+
+    func testPurpleHex() {
+        let p = DesignConstants.purple
+        XCTAssertEqual(p, RGBA(red: 139, green: 92, blue: 246))
+    }
+
+    func testPurpleLightHex() {
+        let p = DesignConstants.purpleLight
+        XCTAssertEqual(p, RGBA(red: 167, green: 139, blue: 250))
+    }
+
+    func testRecRedHex() {
+        let r = DesignConstants.recRed
+        XCTAssertEqual(r, RGBA(red: 255, green: 69, blue: 58))
+    }
+
+    func testRecRedMatchesDestructive() {
+        for appearance in Appearance.allCases {
+            XCTAssertEqual(DesignConstants.recRed, Theme.colors(for: appearance).destructive,
+                           "\(appearance): recRed should match destructive token")
+        }
+    }
+
+    func testWindowDimensions() {
+        XCTAssertEqual(DesignConstants.windowWidth, 420)
+        XCTAssertEqual(DesignConstants.windowHeight, 620)
+    }
+
+    func testWindowRadius() {
+        XCTAssertEqual(DesignConstants.windowRadius, 16)
+    }
+
+    func testChipRadius() {
+        XCTAssertEqual(DesignConstants.chipRadius, 7)
+    }
+
+    func testPropsRadius() {
+        XCTAssertEqual(DesignConstants.propsRadius, 10)
+    }
+
+    func testPurpleAndPurpleLightDiffer() {
+        XCTAssertNotEqual(DesignConstants.purple, DesignConstants.purpleLight)
+    }
+
+    func testStatusGreenAndPauseAmberAreDifferentHues() {
+        XCTAssertNotEqual(DesignConstants.statusGreen, DesignConstants.pauseAmber)
     }
 }

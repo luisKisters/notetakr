@@ -1,16 +1,12 @@
 import SwiftUI
 import NoteTakrKit
 
-private let tabsAccentColor = Color(red: 0.545, green: 0.361, blue: 0.965)
-
 struct EditorView: View {
     @ObservedObject var bridge: NoteEditorBridge
     @ObservedObject var frontmatterBridge: FrontmatterPresenterBridge
     @ObservedObject var tabsBridge: NoteTabsBridge
     @ObservedObject var switcherBridge: SwitcherBridge
     @ObservedObject var settingsBridge: SettingsSheetViewModel
-
-    @State private var isHoveringPanel: Bool = false
 
     private var themeColors: ThemeColors {
         Theme.colors(for: settingsBridge.currentAppearance)
@@ -38,62 +34,36 @@ struct EditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 0) {
-                ZStack(alignment: .topTrailing) {
-                    TextField("Title", text: Binding(
-                        get: { bridge.title },
-                        set: { bridge.setTitle($0) }
-                    ))
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
-                    .textFieldStyle(.plain)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 24)
-                    .padding(.bottom, 12)
-
-                    // Gear icon — visible on panel hover or when settings are open
-                    if isHoveringPanel || settingsBridge.isVisible {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.22)) {
-                                settingsBridge.isVisible.toggle()
-                            }
-                        } label: {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 13, weight: .light))
-                                .foregroundColor(settingsBridge.isVisible
-                                    ? .white
-                                    : Color.white.opacity(0.55))
-                                .frame(width: 25, height: 25)
-                                .background(settingsBridge.isVisible
-                                    ? Color.white.opacity(0.12)
-                                    : Color.clear)
-                                .cornerRadius(7)
-                                .overlay {
-                                    if settingsBridge.isVisible {
-                                        RoundedRectangle(cornerRadius: 7)
-                                            .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-                                    }
-                                }
+                // Window chrome: traffic lights left, gear right (always visible per mockup)
+                WindowChromeView(
+                    settingsIsVisible: settingsBridge.isVisible,
+                    onGearTap: {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            settingsBridge.isVisible.toggle()
                         }
-                        .buttonStyle(.plain)
-                        .padding(.top, 14)
-                        .padding(.trailing, 14)
-                        .accessibilityIdentifier("settingsGearButton")
-                        .transition(.opacity)
                     }
-                }
-                .onHover { hovering in
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        isHoveringPanel = hovering
-                    }
-                }
+                )
+                .environment(\.themeColors, themeColors)
+
+                TextField("Title", text: Binding(
+                    get: { bridge.title },
+                    set: { bridge.setTitle($0) }
+                ))
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(themeColors.primaryText.swiftUIColor)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
 
                 ChipsRowView(bridge: frontmatterBridge)
+                    .environment(\.themeColors, themeColors)
 
                 PropertyPanelView(bridge: frontmatterBridge)
+                    .environment(\.themeColors, themeColors)
                     .animation(.easeInOut(duration: 0.2), value: frontmatterBridge.isExpanded)
 
                 Rectangle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(themeColors.hairline.swiftUIColor)
                     .frame(height: 1)
 
                 tabContent
@@ -102,11 +72,21 @@ struct EditorView: View {
                 footerTabs
             }
         }
-        // ⌘K keyboard shortcut — always active while the panel is open
+        // ⌘K — toggle switcher
         .background(
             Button("") { switcherBridge.toggle() }
                 .keyboardShortcut("k", modifiers: .command)
                 .hidden()
+        )
+        // ⌘, — open/close settings
+        .background(
+            Button("") {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    settingsBridge.isVisible.toggle()
+                }
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .hidden()
         )
     }
 
@@ -116,7 +96,7 @@ struct EditorView: View {
         case .glass:
             ZStack {
                 VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                Color.white.opacity(0.02) // subtle grain tint
+                Color.white.opacity(0.02)
             }
         case .dark:
             Theme.dark.background.swiftUIColor
@@ -134,7 +114,7 @@ struct EditorView: View {
                 set: { bridge.setBody($0) }
             ))
             .font(.system(size: 14))
-            .foregroundColor(.white.opacity(0.85))
+            .foregroundStyle(themeColors.primaryText.swiftUIColor.opacity(0.85))
             .scrollContentBackground(.hidden)
             .background(Color.clear)
             .padding(.horizontal, 16)
@@ -152,11 +132,11 @@ struct EditorView: View {
     private var footerTabs: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color.white.opacity(0.08))
+                .fill(themeColors.hairline.swiftUIColor)
                 .frame(height: 1)
 
             HStack(spacing: 34) {
-                tabButton("Private Notes", tab: .privateNotes)
+                tabButton("Notes", tab: .privateNotes)
                 tabButton("Summary", tab: .summary)
                 tabButton("Transcript", tab: .transcript)
             }
@@ -168,13 +148,15 @@ struct EditorView: View {
     private func tabButton(_ label: String, tab: NoteTab) -> some View {
         let isActive = tabsBridge.selectedTab == tab
         let weight: Font.Weight = isActive ? .medium : .regular
-        let color: Color = isActive ? tabsAccentColor : Color.white.opacity(0.45)
+        let color: Color = isActive
+            ? themeColors.accent.swiftUIColor
+            : themeColors.primaryText.swiftUIColor.opacity(0.45)
         return Button(label) {
             tabsBridge.selectTab(tab)
         }
         .buttonStyle(.plain)
         .font(.system(size: 12, weight: weight))
-        .foregroundColor(color)
+        .foregroundStyle(color)
         .animation(.easeInOut(duration: 0.15), value: tabsBridge.selectedTab)
     }
 }

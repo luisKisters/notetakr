@@ -2,9 +2,12 @@ import SwiftUI
 import NoteTakrKit
 
 /// Compact frontmatter summary chips below the title.
-/// Tapping the row toggles the property panel expansion.
+/// Tapping the whole row toggles the property panel expansion.
 struct ChipsRowView: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
+    @Environment(\.themeColors) private var theme
+
+    @State private var isHovering = false
 
     var body: some View {
         Button {
@@ -16,37 +19,41 @@ struct ChipsRowView: View {
                 }
                 chevron
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 6)
+        .onHover { isHovering = $0 }
+        .padding(.bottom, 2)
     }
-
-    // MARK: - Chip views
 
     @ViewBuilder
     private func chipView(_ chip: Chip) -> some View {
         switch chip {
         case .timeRange(let label):
-            TimeChip(label: label)
+            TimeChip(label: label, theme: theme, isRowHovered: isHovering)
         case .location(let label):
-            LocationChip(label: label)
+            LocationChip(label: label, theme: theme, isRowHovered: isHovering)
         case .participants(let label):
             ParticipantsChip(
                 label: label,
-                participants: bridge.participants
+                participants: bridge.participants,
+                theme: theme,
+                isRowHovered: isHovering
             )
         case .recording(let elapsed):
-            RecordingChip(elapsed: elapsed)
+            RecordingChip(elapsed: elapsed, theme: theme, isRowHovered: isHovering)
         }
     }
 
     private var chevron: some View {
         Image(systemName: "chevron.down")
             .font(.system(size: 10, weight: .medium))
-            .foregroundColor(Color.white.opacity(0.4))
+            .foregroundStyle(theme.tertiaryText.swiftUIColor)
             .rotationEffect(.degrees(bridge.isExpanded ? 180 : 0))
             .animation(.easeInOut(duration: 0.2), value: bridge.isExpanded)
+            .padding(.leading, 3)
     }
 }
 
@@ -54,9 +61,11 @@ struct ChipsRowView: View {
 
 private struct TimeChip: View {
     let label: String
+    let theme: ThemeColors
+    let isRowHovered: Bool
 
     var body: some View {
-        ChipContainer {
+        ChipContainer(theme: theme, isRowHovered: isRowHovered) {
             Image(systemName: "clock")
                 .font(.system(size: 10, weight: .light))
                 .opacity(0.78)
@@ -69,18 +78,18 @@ private struct TimeChip: View {
 
 private struct LocationChip: View {
     let label: String
+    let theme: ThemeColors
+    let isRowHovered: Bool
 
     private var iconName: String {
         switch label {
-        case "Zoom":    return "video"
-        case "Google Meet": return "video"
-        case "Teams":   return "video"
-        default:        return "person.2"
+        case "Zoom", "Google Meet", "Teams": return "video"
+        default: return "person.2"
         }
     }
 
     var body: some View {
-        ChipContainer {
+        ChipContainer(theme: theme, isRowHovered: isRowHovered) {
             Image(systemName: iconName)
                 .font(.system(size: 10, weight: .light))
                 .opacity(0.78)
@@ -93,17 +102,18 @@ private struct LocationChip: View {
 private struct ParticipantsChip: View {
     let label: String
     let participants: [Participant]
+    let theme: ThemeColors
+    let isRowHovered: Bool
 
     private var visibleInitials: [String] {
         Array(participants.prefix(3)).map { String($0.name.prefix(1)).uppercased() }
     }
 
     var body: some View {
-        ChipContainer(leadingPadding: 6) {
-            // Avatar initial circles
+        ChipContainer(theme: theme, isRowHovered: isRowHovered, leadingPadding: 6) {
             HStack(spacing: -5) {
                 ForEach(Array(visibleInitials.enumerated()), id: \.offset) { _, initial in
-                    AvatarCircle(initial: initial)
+                    AvatarCircle(initial: initial, theme: theme)
                 }
             }
             Text(label)
@@ -114,15 +124,19 @@ private struct ParticipantsChip: View {
 
 private struct RecordingChip: View {
     let elapsed: String
+    let theme: ThemeColors
+    let isRowHovered: Bool
+
     @State private var dotVisible = true
 
     var body: some View {
-        ChipContainer {
+        ChipContainer(theme: theme, isRowHovered: isRowHovered) {
+            // Only the REC dot is colored (kit.css: red is used only for the REC indicator dot)
             Circle()
-                .fill(Color.red)
+                .fill(DesignConstants.recRed.swiftUIColor)
                 .frame(width: 6, height: 6)
                 .opacity(dotVisible ? 1 : 0.2)
-                .animation(.easeInOut(duration: 0.7).repeatForever(), value: dotVisible)
+                .animation(.easeInOut(duration: 0.8).repeatForever(), value: dotVisible)
                 .onAppear { dotVisible = false }
             Text(elapsed)
                 .font(.system(size: 11.5))
@@ -133,23 +147,38 @@ private struct RecordingChip: View {
 
 private struct AvatarCircle: View {
     let initial: String
+    let theme: ThemeColors
 
     var body: some View {
         Text(initial)
             .font(.system(size: 8.5, weight: .semibold))
-            .foregroundColor(Color.white.opacity(0.7))
+            .foregroundStyle(theme.secondaryText.swiftUIColor)
             .frame(width: 16, height: 16)
-            .background(Color.white.opacity(0.12))
+            .background(theme.avatarFill.swiftUIColor)
             .clipShape(Circle())
-            .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+            .overlay(
+                Circle().stroke(theme.chipLine.swiftUIColor, lineWidth: 1)
+            )
+            .background(
+                Circle().fill(theme.avatarRing.swiftUIColor).padding(-1.5)
+            )
     }
 }
 
 private struct ChipContainer<Content: View>: View {
+    let theme: ThemeColors
+    let isRowHovered: Bool
     let leadingPadding: CGFloat
     let content: Content
 
-    init(leadingPadding: CGFloat = 9, @ViewBuilder content: () -> Content) {
+    init(
+        theme: ThemeColors,
+        isRowHovered: Bool,
+        leadingPadding: CGFloat = 9,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.theme = theme
+        self.isRowHovered = isRowHovered
         self.leadingPadding = leadingPadding
         self.content = content()
     }
@@ -158,15 +187,24 @@ private struct ChipContainer<Content: View>: View {
         HStack(spacing: 5.5) {
             content
         }
-        .foregroundColor(Color.white.opacity(0.55))
+        .foregroundStyle(
+            isRowHovered
+                ? theme.primaryText.swiftUIColor
+                : theme.secondaryText.swiftUIColor
+        )
         .frame(height: 24)
         .padding(.leading, leadingPadding)
         .padding(.trailing, 9)
-        .background(Color.white.opacity(0.07))
-        .overlay(
-            RoundedRectangle(cornerRadius: 7)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        .background(
+            isRowHovered
+                ? theme.chipFillHover.swiftUIColor
+                : theme.chipFill.swiftUIColor
         )
-        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignConstants.chipRadius)
+                .stroke(theme.chipLine.swiftUIColor, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DesignConstants.chipRadius))
+        .animation(.easeInOut(duration: 0.15), value: isRowHovered)
     }
 }
