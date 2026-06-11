@@ -133,7 +133,11 @@ struct EditorView: View {
             )
             .environment(\.themeColors, themeColors)
         case .transcript:
-            TranscriptView(state: tabsBridge.transcriptState)
+            TranscriptView(
+                state: tabsBridge.transcriptState,
+                speakerResolutions: tabsBridge.speakerResolutions
+            )
+            .environment(\.themeColors, themeColors)
         }
     }
 
