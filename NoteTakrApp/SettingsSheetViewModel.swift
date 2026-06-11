@@ -8,6 +8,7 @@ enum SettingsTab: CaseIterable, Equatable {
     case general
     case recording
     case vocabulary
+    case updates
     case permissions
 }
 
@@ -94,6 +95,30 @@ final class SettingsSheetViewModel: ObservableObject {
     func setHotkey(_ combo: HotkeyCombo) {
         appSettings.hotkey = combo
         onHotkeyChange?(combo)
+    }
+
+    func setYourName(_ name: String) {
+        appSettings.yourName = name
+    }
+
+    func setInferNamesFromCalendar(_ value: Bool) {
+        appSettings.inferNamesFromCalendar = value
+    }
+
+    func setMicEnabled(_ value: Bool) {
+        appSettings.micEnabled = value
+    }
+
+    func setSystemAudioEnabled(_ value: Bool) {
+        appSettings.systemAudioEnabled = value
+    }
+
+    func setAutoCheckForUpdates(_ value: Bool) {
+        appSettings.autoCheckForUpdates = value
+    }
+
+    func setAutoDownloadUpdates(_ value: Bool) {
+        appSettings.autoDownloadUpdates = value
     }
 
     // MARK: - Sheet lifecycle

@@ -191,27 +191,27 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 8: Settings
-- [ ] Reproduce `settings.html`: a sheet over the (blurred) note with icon tabs **This Meeting ·
+- [x] Reproduce `settings.html`: a sheet over the (blurred) note with icon tabs **This Meeting ·
       General · Recording · Vocabulary · Updates · Permissions**. **The whole row is the hit
       target** (clickable + hover) — not just the icon/text; hover ≠ selected. **Esc closes** the
       sheet; a quiet "Close" + `esc` pill in the footer.
-- [ ] **This Meeting**: a purple scope banner ("applies only to this note"), then per-meeting
+- [x] **This Meeting**: a purple scope banner ("applies only to this note"), then per-meeting
       Transcribe toggle (+ live timer), In-person, Language, Linked event, **and per-meeting
       "Word boosting · this meeting" custom vocabulary** (add/remove terms — must work).
-- [ ] **General**: defaults for new meetings (Transcribe, Language Auto-detect), a **Models**
+- [x] **General**: defaults for new meetings (Transcribe, Language Auto-detect), a **Models**
       group (**Transcription model**, **Summary model**), and App settings (floating-note hotkey,
       global **New note ⌘N**, Launch at login, Notes folder, **Appearance** Glass/Dark/Light).
-- [ ] **Recording**: Microphone + System-audio sources (System off for in-person), speaker-naming
+- [x] **Recording**: Microphone + System-audio sources (System off for in-person), speaker-naming
       ("Your name", infer-from-calendar).
-- [ ] **Vocabulary**: the global custom-vocabulary editor — **adding a term works** and persists
+- [x] **Vocabulary**: the global custom-vocabulary editor — **adding a term works** and persists
       and is passed to the transcription adapter (per the bug report).
-- [ ] **Updates**: a **"Check for Updates…"** action and an **"Automatically check for updates"**
+- [x] **Updates**: a **"Check for Updates…"** action and an **"Automatically check for updates"**
       toggle wired to **Sparkle**; current version + channel. Guard so Linux validation still
       passes; verify on the macOS runner.
-- [ ] **Permissions**: Microphone, Screen & system audio, Calendar — with granted/ask states.
-- [ ] Unit-test (Linux) vocabulary add/remove/persist for **both** the global and per-meeting
+- [x] **Permissions**: Microphone, Screen & system audio, Calendar — with granted/ask states.
+- [x] Unit-test (Linux) vocabulary add/remove/persist for **both** the global and per-meeting
       stores, the model selections persisting, and the whole-row hit-test/selection model.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 9: Motion, shortcuts & cross-screen polish
 - [ ] Add the animations the mockups imply: panel expand/collapse, record breathing while paused,

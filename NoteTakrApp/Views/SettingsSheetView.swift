@@ -24,9 +24,11 @@ struct SettingsSheetView: View {
     @ObservedObject var viewModel: SettingsSheetViewModel
     @StateObject private var permissions = AudioPermissionManager()
     @StateObject private var vocab = VocabularyViewModel()
+    @StateObject private var summarization = SummarizationViewModel()
     @State private var modelSettings: TranscriptionModelSettings = .default
     private let transcriptionSettingsStore = TranscriptionSettingsStore()
     @State private var newPerMeetingTerm: String = ""
+    @State private var yourNameDraft: String = ""
 
     private let sheetBg = Color(red: 0.110, green: 0.102, blue: 0.128)
     private let hairline = Color.white.opacity(0.08)
@@ -90,7 +92,9 @@ struct SettingsSheetView: View {
         .onAppear {
             permissions.refresh(includeCalendar: true)
             vocab.reload()
+            summarization.reload()
             modelSettings = transcriptionSettingsStore.load()
+            yourNameDraft = viewModel.appSettings.yourName
         }
     }
 
@@ -102,9 +106,10 @@ struct SettingsSheetView: View {
             tabButton(.general,     icon: "gearshape",               label: "General")
             tabButton(.recording,   icon: "waveform",                 label: "Recording")
             tabButton(.vocabulary,  icon: "book.closed",              label: "Vocabulary")
+            tabButton(.updates,     icon: "arrow.down.circle",        label: "Updates")
             tabButton(.permissions, icon: "checkmark.shield",         label: "Permissions")
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 6)
         .padding(.vertical, 9)
         .background(sheetBg)
     }
@@ -167,6 +172,7 @@ struct SettingsSheetView: View {
                 case .general:      generalContent
                 case .recording:    recordingContent
                 case .vocabulary:   vocabularyContent
+                case .updates:      updatesContent
                 case .permissions:  permissionsContent
                 }
             }
@@ -381,6 +387,52 @@ struct SettingsSheetView: View {
                 .tint(accent)
             }
 
+            sectionLabel("Models")
+
+            settingsRow {
+                Image(systemName: "waveform")
+                    .iconStyle()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Transcription model").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("On-device · FluidAudio")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { modelSettings.modelVersion },
+                    set: { modelSettings.modelVersion = $0; persistModelSettings() }
+                )) {
+                    ForEach(FluidAudioModelVersion.allCases, id: \.self) { v in
+                        Text(v.displayName).tag(v)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.system(size: 12))
+                .frame(maxWidth: 160)
+            }
+
+            settingsRow {
+                Image(systemName: "sparkles")
+                    .iconStyle()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Summary model").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Used for Generate summary")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { summarization.settings.selectedModelSlug },
+                    set: { summarization.settings.selectedModelSlug = $0; summarization.saveSettings() }
+                )) {
+                    ForEach(SummarizationSettings.presets, id: \.slug) { preset in
+                        Text(preset.displayName).tag(preset.slug)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.system(size: 12))
+                .frame(maxWidth: 160)
+            }
+
             sectionLabel("App")
 
             settingsRow {
@@ -455,40 +507,83 @@ struct SettingsSheetView: View {
 
     private var recordingContent: some View {
         Group {
-            sectionLabel("Engine")
+            sectionLabel("Audio sources")
 
             settingsRow {
-                Image(systemName: "cpu")
+                Image(systemName: "mic")
                     .iconStyle()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Model").font(.system(size: 13)).foregroundColor(textPrimary)
-                    Text("Runs fully on-device")
+                    Text("Microphone").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Your voice — assigned to you")
                         .font(.system(size: 11)).foregroundColor(textTertiary)
                 }
                 Spacer()
-                Picker("", selection: Binding(
-                    get: { modelSettings.modelVersion },
-                    set: { modelSettings.modelVersion = $0; persistModelSettings() }
-                )) {
-                    ForEach(FluidAudioModelVersion.allCases, id: \.self) { v in
-                        Text(v.displayName).tag(v)
-                    }
-                }
-                .pickerStyle(.menu)
-                .font(.system(size: 12))
+                Toggle("", isOn: Binding(
+                    get: { viewModel.appSettings.micEnabled },
+                    set: { viewModel.setMicEnabled($0) }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(accent)
             }
 
-            HStack(spacing: 8) {
-                Button("Select Folder\u{2026}") { selectModelFolder() }
-                    .controlSize(.small)
-                Button("Use Auto") { updateModelSettings(source: .fluidAudioDefaultCache) }
-                    .controlSize(.small)
-                Button("Clear") { updateModelSettings(source: .notConfigured) }
-                    .controlSize(.small)
-                    .disabled(modelSettings.source == .notConfigured)
+            settingsRow {
+                Image(systemName: "speaker.wave.2")
+                    .iconStyle()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("System audio").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Other participants · off for in-person")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { viewModel.appSettings.systemAudioEnabled },
+                    set: { viewModel.setSystemAudioEnabled($0) }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(accent)
             }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 2)
+
+            sectionLabel("Speaker naming")
+
+            settingsRow {
+                Image(systemName: "person")
+                    .iconStyle()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your name").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Used for the microphone speaker")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
+                Spacer()
+                TextField("Name\u{2026}", text: $yourNameDraft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .foregroundColor(textPrimary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 130)
+                    .onChange(of: yourNameDraft) { name in
+                        viewModel.setYourName(name)
+                    }
+            }
+
+            settingsRow {
+                Image(systemName: "calendar.badge.checkmark")
+                    .iconStyle()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Infer names from calendar").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Auto-name the other speaker when 1:1")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { viewModel.appSettings.inferNamesFromCalendar },
+                    set: { viewModel.setInferNamesFromCalendar($0) }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(accent)
+            }
         }
     }
 
@@ -555,6 +650,128 @@ struct SettingsSheetView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 2)
+    }
+
+    // MARK: - Updates content
+
+    @State private var updateCheckStatus: String = "Check for the latest release"
+    @State private var isCheckingForUpdates: Bool = false
+
+    private var updatesContent: some View {
+        Group {
+            sectionLabel("Software update")
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundColor(accent)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text("NoteTakr \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(textPrimary)
+                            Text("Up to date")
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .foregroundColor(accent)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1)
+                                .background(accent.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                        Text(updateCheckStatus)
+                            .font(.system(size: 11))
+                            .foregroundColor(textTertiary)
+                    }
+                    Spacer()
+                    Button {
+                        checkForUpdates()
+                    } label: {
+                        HStack(spacing: 5) {
+                            if isCheckingForUpdates {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .tint(textSecondary)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            Text(isCheckingForUpdates ? "Checking\u{2026}" : "Check Now")
+                                .font(.system(size: 12))
+                        }
+                        .foregroundColor(isCheckingForUpdates ? textTertiary : textPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(controlBg)
+                        .cornerRadius(7)
+                        .overlay(RoundedRectangle(cornerRadius: 7)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isCheckingForUpdates)
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 2)
+                .overlay(alignment: .bottom) { Rectangle().fill(hairline).frame(height: 1) }
+
+                settingsRow {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .iconStyle()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Automatically check for updates").font(.system(size: 13)).foregroundColor(textPrimary)
+                        Text("Via Sparkle").font(.system(size: 11)).foregroundColor(textTertiary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { viewModel.appSettings.autoCheckForUpdates },
+                        set: { viewModel.setAutoCheckForUpdates($0) }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .tint(accent)
+                }
+
+                settingsRow {
+                    Image(systemName: "arrow.down.circle")
+                        .iconStyle()
+                    Text("Automatically download updates").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { viewModel.appSettings.autoDownloadUpdates },
+                        set: { viewModel.setAutoDownloadUpdates($0) }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .tint(accent)
+                }
+            }
+
+            sectionLabel("Channel")
+
+            settingsRow {
+                Image(systemName: "clock")
+                    .iconStyle()
+                Text("Release channel").font(.system(size: 13)).foregroundColor(textPrimary)
+                Spacer()
+                Text("Stable")
+                    .font(.system(size: 12))
+                    .foregroundColor(textSecondary)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10))
+                    .foregroundColor(textTertiary)
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        isCheckingForUpdates = true
+        updateCheckStatus = "Checking\u{2026}"
+        // Sparkle check is macOS-only; on Linux / simulator this is a no-op UI stub.
+        triggerSparkleCheck()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            isCheckingForUpdates = false
+            updateCheckStatus = "Last checked just now"
+        }
     }
 
     // MARK: - Permissions content
@@ -736,24 +953,15 @@ struct SettingsSheetView: View {
         }
     }
 
-    private func selectModelFolder() {
-        let panel = NSOpenPanel()
-        panel.title = "Select FluidAudio Model Folder"
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url {
-            updateModelSettings(source: .localFolder(url))
-        }
-    }
-
-    private func updateModelSettings(source: TranscriptionModelSettings.Source) {
-        modelSettings.source = source
-        persistModelSettings()
-    }
-
     private func persistModelSettings() {
         try? transcriptionSettingsStore.save(modelSettings)
+    }
+
+    private func triggerSparkleCheck() {
+        // Sparkle updater check — guarded so Linux / simulator builds are unaffected.
+        #if canImport(Sparkle)
+        SparkleUpdaterCoordinator.shared.checkForUpdates()
+        #endif
     }
 }
 

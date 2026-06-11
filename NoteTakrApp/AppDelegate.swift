@@ -76,6 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             userDriverDelegate: nil
         )
         updaterController = controller
+        SparkleUpdaterCoordinator.shared.configure(controller: controller)
         controller.startUpdater()
         controller.updater.automaticallyChecksForUpdates = true
         controller.updater.automaticallyDownloadsUpdates = true
