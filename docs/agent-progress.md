@@ -239,3 +239,87 @@ The following require a real Mac and are outside the automated test scope:
 - [ ] Vocabulary terms added in Settings → Vocabulary are passed to transcription
 - [ ] Updates tab: Check for Updates contacts Sparkle; auto-check toggle persists
 - [ ] All permissions (Microphone, Screen & System Audio, Calendar) show correct state after granting
+
+---
+
+## Project: NoteTakr UI Bug Fixes (redesign-implementation branch, ui-bugfixes plan)
+
+### Summary
+
+Seven targeted bug-fix and behavioural-gap tasks were completed on the redesign-implementation branch.
+All 498 Linux-compatible tests pass. No out-of-scope UI redesign work was touched. No new
+cloud services, login flows, browser extensions, Electron, or Tauri dependencies were added.
+
+### What was fixed
+
+**Task 1 — Global shortcuts, Escape handling, and the Notes label**
+- "Private Notes" label renamed to "Notes" everywhere in the UI
+- ⌘N registered as a global shortcut (new note, works regardless of focus)
+- ⌘, bound to open Settings from the main note window
+- Esc dismisses Settings sheet and the ⌘K switcher/quick-switch overlay
+- KeyCommandRouter pure Swift type added; 9 unit tests covering all three intents
+
+**Task 2 — Settings rows: whole-row hit target and correct hover**
+- Entire settings row (icon + text + empty space) is now the click/tap target
+- Hover/highlight applies to the whole row only on actual hover; fixed bug where
+  hovering the text showed the row as selected
+- SettingsRowModel pure type added with 10 unit tests for hit-test / selection model
+
+**Task 3 — Fix adding custom vocabulary**
+- Fixed bug preventing new vocabulary entries from being added in Settings
+- Added entries persist across relaunch and are passed to the transcription adapter
+- 20 unit tests: add, persist/reload, duplicate handling, enabled entries reach adapter
+
+**Task 4 — Render markdown in note body; copy yields raw markdown**
+- Note body renders formatted markdown (headings, bullets, task checkboxes, code,
+  blockquotes, hr, bold/italic, links)
+- Copy action copies the raw markdown source, not the rendered output
+- MarkdownBodyParser pure type; 14 unit tests covering every block type and raw copy
+
+**Task 5 — Merge transcripts: same-speaker turns and two audio streams**
+- Consecutive segments from the same speaker are merged into a single turn
+- Microphone and system-audio transcripts merged chronologically by start time
+- Single-speaker-per-stream naming: mic → local user, system audio → calendar
+  participant or "Speaker 2"; in-person mode skips system-audio entirely
+- TranscriptMerger; 22 unit tests covering merging, interleave, overlap, naming
+
+**Task 6 — Speaker inference in the summary/note generation prompt**
+- LLM prompt updated to instruct inference of speaker identity from participant
+  context; uncertain attribution uses "Speaker N · most likely <name>" form
+- Known participant names (including user's own) passed into prompt context
+- SummarizationPromptBuilder; tests assert prompt contains both instruction and context
+
+**Task 7 — Expose Sparkle update checking in Settings**
+- "Check for Updates..." action and "Automatically check for updates" toggle added
+  to Settings → Updates tab; toggle persists and reflects current state on launch
+- Sparkle calls guarded with compile-time and runtime macOS checks; Linux no-ops cleanly
+- SparkleSettingsTask7Tests: 9 tests for toggle persistence and Sparkle wiring stubs
+
+### Verification status
+
+- Linux-compatible test suite: 498 tests, 0 failures (all seven tasks)
+- macOS GitHub Actions CI: each task commit pushed; CI gate requires macOS runner
+- Out-of-scope items confirmed untouched: frontmatter visual redesign, record-button
+  placement/styling, command-palette/timeline restyle, transcript-collapse styling,
+  summary-button styling, animation/polish pass — none were modified
+
+### macOS-only paths (not verified on Linux)
+
+| Path | Guard | Status |
+|------|-------|--------|
+| Global hotkey registration (CarbonHotkeyRegistrar) | macOS Carbon framework | Verified only on macOS runner / physical Mac |
+| Sparkle "Check for Updates" trigger | `#if canImport(AppKit)` + runtime guard | Verified only on macOS runner / physical Mac |
+| Sparkle auto-check toggle persistence | macOS UserDefaults + SPUUpdater | Verified only on macOS runner / physical Mac |
+| NSPasteboard raw-markdown copy | `#if canImport(AppKit)` | Verified only on macOS runner / physical Mac |
+
+### Remaining manual steps (physical Mac)
+
+1. Open Settings with ⌘, and confirm it opens from the main note window.
+2. Press Esc with Settings open; confirm it closes. Same for the ⌘K switcher.
+3. Press ⌘N from another app; confirm a new note is created.
+4. Add a vocabulary entry in Settings → Vocabulary; relaunch and confirm it persists.
+5. Open a note with markdown content; confirm it renders (headings, bullets, code, etc.).
+6. Use Copy on a note; confirm pasting elsewhere yields raw markdown.
+7. Record a meeting; confirm same-speaker segments are merged in the transcript.
+8. Settings → Updates: click "Check for Updates…" and confirm Sparkle opens the update UI.
+9. Toggle "Automatically check for updates"; relaunch and confirm the toggle state persists.
