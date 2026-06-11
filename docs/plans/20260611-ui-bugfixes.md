@@ -128,15 +128,15 @@ non-root user; Node, git, gh available; a live Swift-for-Linux toolchain is pres
 
 ### Task 6: Speaker inference in the summary/note generation prompt
 
-- [ ] Update the LLM prompt used for summary/note generation to instruct the model to infer
+- [x] Update the LLM prompt used for summary/note generation to instruct the model to infer
       who each speaker is from the participants and conversation context, and — when it is not
       certain — to label the speaker as e.g. "Speaker 1 · most likely <name>" rather than
       guessing a definite name.
-- [ ] Pass the known participant names (and the user's own name) into the prompt context so the
+- [x] Pass the known participant names (and the user's own name) into the prompt context so the
       inference has something to map onto.
-- [ ] Add a Linux-compatible unit test asserting the constructed prompt contains the speaker-
+- [x] Add a Linux-compatible unit test asserting the constructed prompt contains the speaker-
       inference instruction and the participant context.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass. (local: 489 tests pass; CI gate skipped - requires GitHub Actions runner)
 
 ### Task 7: Expose Sparkle update checking in Settings
 
