@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — v5 · Recording</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  .toast { position:absolute; left:50%; bottom:18px; transform:translateX(-50%); background:var(--purple); color:#fff; font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; box-shadow:0 6px 20px rgba(139,92,246,.5); opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; z-index:70; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
+  .steps { font-size:11px; color:var(--txt3); margin-top:14px; line-height:1.7; }
+  .steps b { color:var(--txt2); }
+</style>
+</head>
+<body>
+
+<nav class="pagenav"><span class="brand">Note<span>Takr</span> · v5</span><span class="label">Screens</span><a href="index.html">Overview</a><a href="editor.html">Editor</a><a href="frontmatter.html">Frontmatter</a><a href="switcher.html">⌘K Switcher</a><a href="transcript.html">Transcript</a><a class="current" href="recording.html">Recording</a><a href="settings.html">Settings</a></nav>
+
+<section class="demo bg-a">
+  <div class="blurb">
+    <span class="num">Recording — final</span>
+    <h2>Record lives in the front-meta (placement A)</h2>
+    <p>Just the control that’s already there — <b>record first</b> in the preview line, monochrome (only the dot is colored). Click to start; click to <b>pause</b> (breathing); click again for the menu: <b>Resume / Stop&nbsp;&amp;&nbsp;Transcribe / Stop&nbsp;&amp;&nbsp;Summarize</b>. No extra meters or sources UI.</p>
+  </div>
+  <div class="thememode" data-for="w1"><button class="on" data-theme="glass">Glass</button><button data-theme="dark">Dark</button><button data-theme="light">Light</button></div>
+  <div class="window" id="w1" data-win></div>
+</section>
+
+<footer class="pagefoot">NoteTakr — v5 · Recording · placement A · monochrome pill · idle → recording → paused → menu</footer>
+
+<script>
+var I = {
+  clock:'<svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.8V8l2.2 1.4"/></svg>',
+  play:'<svg class="ic" viewBox="0 0 16 16"><path d="M5 3.5l8 4.5-8 4.5z" fill="currentColor" stroke="none"/></svg>',
+  stop:'<svg class="ic" viewBox="0 0 16 16"><rect x="3.75" y="3.75" width="8.5" height="8.5" rx="1.5" fill="currentColor" stroke="none"/></svg>',
+  spark:'<svg class="ic" viewBox="0 0 16 16"><path d="M8 2.2l1.5 3.1 3.4.5-2.45 2.4.58 3.4L8 10.4 4.97 12l.58-3.4L3.1 6.2l3.4-.5z"/></svg>'
+};
+function recpill(){ return '<span class="recpill idle" data-rec><span class="rdot"></span><span class="rlabel">Record</span><div class="recmenu" data-recmenu><button data-act="resume">'+I.play+'Resume</button><div class="sep"></div><button data-act="transcribe">'+I.stop+'Stop &amp; Transcribe</button><button data-act="summarize">'+I.spark+'Stop &amp; Summarize</button></div></span>'; }
+function windowHTML(){ return ''+
+  '<div class="chrome"><div class="lights"><i></i><i></i><i></i></div><span class="wtitle">Weekly Sync — Acme GmbH</span><button class="gear" title="Settings (⌘,)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M12.5 3.5l-1.4 1.4M4.9 11.1l-1.4 1.4"/></svg></button></div>'+
+  '<div class="winbody"><h1 class="notetitle">Weekly Sync — Acme GmbH</h1>'+
+    '<div class="metastrip">'+recpill()+'<span class="mdivider"></span><span class="mseg">'+I.clock+'14:00–14:45</span></div>'+
+    '<div class="body-gap"></div>'+
+    '<div class="md"><ul><li>Q3 roadmap freeze — Sarah presents</li><li>Onboarding blocked on <code>auth-service v2</code></li></ul></div>'+
+    '<div class="steps">Click the pill: <b>Record</b> → timer → <b>Paused</b> → menu (Resume · Stop&nbsp;&amp;&nbsp;Transcribe · Stop&nbsp;&amp;&nbsp;Summarize).</div>'+
+  '</div><div class="toast" data-toast></div>'; }
+
+function toast(win,m){ var t=win.querySelector('[data-toast]'); if(!t)return; t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1600); }
+function closeMenus(){ document.querySelectorAll('.recmenu.open').forEach(m=>m.classList.remove('open')); }
+document.addEventListener('click',closeMenus);
+
+document.querySelectorAll('.thememode').forEach(function(tg){
+  var win=document.getElementById(tg.dataset.for);
+  tg.querySelectorAll('button').forEach(function(btn){ btn.addEventListener('click',function(){
+    tg.querySelectorAll('button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
+    win.classList.remove('t-dark','t-light'); if(btn.dataset.theme!=='glass') win.classList.add('t-'+btn.dataset.theme);
+  }); });
+});
+
+document.querySelectorAll('[data-win]').forEach(function(win){
+  win.innerHTML=windowHTML();
+  var pill=win.querySelector('[data-rec]'), menu=pill.querySelector('[data-recmenu]'), label=pill.querySelector('.rlabel');
+  var state='idle', secs=0, timer=null;
+  function fmt(s){ var m=Math.floor(s/60),r=s%60; return (m<10?'0':'')+m+':'+(r<10?'0':'')+r; }
+  function render(){ pill.classList.remove('idle','rec','paused'); pill.classList.add(state); label.textContent=state==='idle'?'Record':fmt(secs); }
+  function start(){ state='rec'; render(); timer=setInterval(()=>{secs++;render();},1000); }
+  function pause(){ state='paused'; clearInterval(timer); render(); }
+  function resume(){ closeMenus(); start(); }
+  function stop(then){ state='idle'; clearInterval(timer); secs=0; closeMenus(); render(); if(then)then(); }
+  render();
+  pill.addEventListener('click',function(e){ if(e.target.closest('[data-recmenu]'))return; e.stopPropagation();
+    if(state==='idle')start(); else if(state==='rec')pause(); else { var o=!menu.classList.contains('open'); closeMenus(); menu.classList.toggle('open',o); } });
+  menu.querySelectorAll('button').forEach(b=>b.addEventListener('click',function(e){ e.stopPropagation(); var a=b.dataset.act;
+    if(a==='resume')resume(); else if(a==='transcribe')stop(()=>toast(win,'Transcribing…')); else if(a==='summarize')stop(()=>toast(win,'Summarizing → Summary tab')); }));
+});
+</script>
+</body>
+</html>

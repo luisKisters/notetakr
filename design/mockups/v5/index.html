@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — v5 redesign mockups</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  .hero { max-width: 860px; margin: 0 auto; padding: 64px 24px 8px; }
+  .hero .num { color: var(--purple-light); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .hero h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 10px 0; }
+  .hero p { font-size: 14px; line-height: 1.6; color: var(--page-txt2); max-width: 680px; }
+  .hero p b { color: var(--page-txt); }
+  .grid { max-width: 860px; margin: 28px auto 0; padding: 0 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card { display: block; text-decoration: none; color: inherit; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; padding: 18px 18px 16px; transition: background 0.15s, border-color 0.15s, transform 0.12s; }
+  .card:hover { background: rgba(255,255,255,0.05); border-color: rgba(167,139,250,0.4); transform: translateY(-2px); }
+  .card .tag { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--purple-light); margin-bottom:8px; }
+  .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .card p { font-size: 12.5px; line-height: 1.5; color: var(--page-txt2); }
+  .card ul { margin: 9px 0 0; padding-left: 16px; }
+  .card li { font-size: 11.5px; color: var(--page-txt3); line-height: 1.5; }
+  .legend { max-width: 860px; margin: 30px auto 0; padding: 16px 22px; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.22); border-radius: 12px; font-size: 12.5px; line-height: 1.6; color: var(--page-txt2); }
+  .legend b { color: var(--page-txt); }
+  .legend .row2 { margin-top: 8px; color: var(--page-txt3); font-size: 11.5px; }
+  @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<nav class="pagenav"><span class="brand">Note<span>Takr</span> · v5</span><span class="label">Screens</span><a class="current" href="index.html">Overview</a><a href="editor.html">Editor</a><a href="frontmatter.html">Frontmatter</a><a href="switcher.html">⌘K Switcher</a><a href="transcript.html">Transcript</a><a href="recording.html">Recording</a><a href="settings.html">Settings</a></nav>
+
+<div class="hero">
+  <span class="num">Round 6 · v5 mockups</span>
+  <h1>NoteTakr — redesign explorations</h1>
+  <p>Interactive HTML mockups (mock data, click everything) building on the locked <b>Glass / Dark / Light</b> design language. Each screen has <b>three distinct variations</b> — from clean/minimal to conservative/dense — so we can pick a direction before touching Swift. Every window has a theme toggle.</p>
+</div>
+
+<div class="grid">
+  <a class="card" href="editor.html">
+    <span class="tag">final</span>
+    <h3>Editor →</h3>
+    <p>Round-2 Solid / Glass Twin, rebuilt clean.</p>
+    <ul>
+      <li><b>Markdown is rendered</b>, not raw</li>
+      <li><b>No copy button</b> — select + copy → raw markdown</li>
+      <li>One quiet preview line, <b>record first</b></li>
+      <li>Tabs renamed <b>Notes</b> · Summary · Transcript</li>
+      <li>“Generate summary” empty-state</li>
+    </ul>
+  </a>
+  <a class="card" href="frontmatter.html">
+    <span class="tag">final</span>
+    <h3>Frontmatter →</h3>
+    <p>Twin-clean. Nothing shouts “editable”.</p>
+    <ul>
+      <li>One calm line, <b>record first</b>; expand to edit</li>
+      <li><b>Hover</b> hints editable · click to edit</li>
+      <li>People as <b>initials circles</b> (hover → email + remove)</li>
+      <li>Calendar location + link · relink <b>event</b> updates all</li>
+    </ul>
+  </a>
+  <a class="card" href="switcher.html">
+    <span class="tag">4 distinct</span>
+    <h3>⌘K Switcher →</h3>
+    <p>Four genuinely different directions (not theme dupes).</p>
+    <ul>
+      <li><b>Palette overlay</b> over the dimmed note</li>
+      <li><b>Full-window</b> list · <b>roomy two-line</b> rows</li>
+      <li><b>Agenda timeline</b> — line + a dot per meeting</li>
+      <li>Soft hover · only “now” flagged · tiny create chip</li>
+    </ul>
+  </a>
+  <a class="card" href="transcript.html">
+    <span class="tag">final</span>
+    <h3>Transcript &amp; Summary →</h3>
+    <p>Document layout (your pick).</p>
+    <ul>
+      <li><b>Consecutive same-speaker turns merged</b></li>
+      <li>Collapsible turns · collapse/expand all</li>
+      <li>“Speaker · most likely Tom” + click-to-rename</li>
+      <li>Generate-summary · select-to-copy markdown</li>
+    </ul>
+  </a>
+  <a class="card" href="recording.html">
+    <span class="tag">final</span>
+    <h3>Recording →</h3>
+    <p>Just the control that’s already there.</p>
+    <ul>
+      <li><b>Placement A</b> — record-first in the front-meta</li>
+      <li>Monochrome (only the dot is colored)</li>
+      <li>idle → timer → <b>pause</b> → menu</li>
+      <li>No extra meters / sources UI</li>
+    </ul>
+  </a>
+  <a class="card" href="settings.html">
+    <span class="tag">fixes</span>
+    <h3>Settings →</h3>
+    <p>The settings bugs, fixed.</p>
+    <ul>
+      <li><b>Whole row</b> is clickable + hover (not just the icon)</li>
+      <li><b>Add custom vocabulary</b> works</li>
+      <li><b>Sparkle</b>: check now + auto-check toggle</li>
+      <li>Opens with ⌘, · <b>Esc closes</b></li>
+    </ul>
+  </a>
+</div>
+
+<div class="legend">
+  <b>Two tracks are running.</b> These mockups cover everything that needs a <b>design decision</b> from you.
+  Separately, the unambiguous bugs — global ⌘N / ⌘, + Esc, the “Notes” rename, whole-row settings, vocabulary-add,
+  markdown rendering + raw-copy, transcript merging, two-stream speaker naming, the speaker-inference prompt, and the
+  Sparkle update UI — were written into a <b>ralphex plan</b> (<code>docs/plans/20260611-ui-bugfixes.md</code>) and
+  pushed to <b>main</b> for executr to implement automatically.
+  <div class="row2">Pick a variation per screen and I’ll turn the chosen directions into SwiftUI.</div>
+</div>
+
+<footer class="pagefoot">NoteTakr — v5 · design language: monochrome + purple · Glass / Dark / Light · all mockups use mock data</footer>
+</body>
+</html>
