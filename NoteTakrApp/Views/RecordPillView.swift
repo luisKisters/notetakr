@@ -37,20 +37,8 @@ struct RecordPillView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            badge
-            if menuOpen && hasCaret {
-                caretMenu
-                    .offset(y: 30)
-                    .zIndex(100)
-                    .transition(
-                        .opacity.combined(with: .scale(scale: 0.94, anchor: .topLeading))
-                        .animation(.spring(response: 0.22, dampingFraction: 0.80))
-                    )
-            }
-        }
-        .animation(.easeInOut(duration: 0.15), value: menuOpen)
-        .onTapGesture { /* handled by sub-buttons; this prevents click-throughs */ }
+        badge
+            .onTapGesture { /* handled by sub-buttons; this prevents click-throughs */ }
     }
 
     // MARK: - Badge shell
@@ -144,6 +132,10 @@ struct RecordPillView: View {
         )
         .onHover { caretHovering = $0 }
         .contentShape(Rectangle())
+        .popover(isPresented: $menuOpen, arrowEdge: .bottom) {
+            caretMenuContent
+                .environment(\.themeColors, theme)
+        }
     }
 
     // MARK: - Indicator dot
@@ -241,10 +233,12 @@ struct RecordPillView: View {
         .foregroundStyle(theme.primaryText.swiftUIColor)
     }
 
-    // MARK: - Caret menu
+    // MARK: - Caret menu (popover content)
+    // Background, border, and shadow come from the system popover container.
+    // ESC is handled natively by the popover; onExitCommand is an extra safeguard.
 
     @ViewBuilder
-    private var caretMenu: some View {
+    private var caretMenuContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch pillState {
             case .recording:
@@ -282,17 +276,7 @@ struct RecordPillView: View {
         }
         .padding(.vertical, 5)
         .frame(minWidth: 210)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(theme.panelFill.swiftUIColor)
-                .background(RoundedRectangle(cornerRadius: 10).fill(.regularMaterial))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(theme.hairline.swiftUIColor, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.28), radius: 12, x: 0, y: 6)
-        .compositingGroup()
+        .onExitCommand { menuOpen = false }
     }
 
     private var menuSeparator: some View {

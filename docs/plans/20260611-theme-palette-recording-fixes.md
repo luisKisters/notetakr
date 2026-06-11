@@ -169,15 +169,15 @@ Reproduce `design/mockups/v5/recording-final.html` exactly. `NoteTakrApp/Views/R
 ### Task 7: Recording frontmatter bugs (hover bleed, chip jump, menu, people)
 `NoteTakrApp/Views/RecordPillView.swift`, `NoteTakrApp/Views/PropertyPanelView.swift`,
 `NoteTakrApp/Views/ChipsRowView.swift`.
-- [ ] Hovering the record badge must NOT restyle the time/clock chip — decouple `RecordPillView`'s
+- [x] Hovering the record badge must NOT restyle the time/clock chip — decouple `RecordPillView`'s
       hover from `ChipsRowView`'s row hover.
-- [ ] Chips (location, meeting link) must NOT jump left when clicked to edit — give the display and
+- [x] Chips (location, meeting link) must NOT jump left when clicked to edit — give the display and
       edit states the same trailing alignment/width so entering edit doesn't reflow the row.
-- [ ] The record menu (and any frontmatter popover) must dismiss on click-outside + ESC, render over
+- [x] The record menu (and any frontmatter popover) must dismiss on click-outside + ESC, render over
       the shared (non-whitening) blurred surface, and NOT change the row height / stretch the
       frontmatter separator / grow the pill.
-- [ ] Normalize the people/participants input layout in the same alignment pass.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Normalize the people/participants input layout in the same alignment pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 8: Transcript & Summary tabs — centered Generate buttons + states
 `NoteTakrApp/Views/SummaryView.swift`, `NoteTakrApp/Views/TranscriptView.swift`,

@@ -406,35 +406,38 @@ private struct PeopleValue: View {
                 }
             }
 
-            // Add "+" circle
-            if showAddField {
-                TextField("Name…", text: $newPersonName)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 11))
-                    .frame(width: 80)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(theme.hairline.swiftUIColor, lineWidth: 1)
-                    )
-                    .focused($addFieldFocused)
-                    .onSubmit { commitAdd() }
-                    .onExitCommand { cancelAdd() }
-                    .onAppear { addFieldFocused = true }
-            } else {
-                Button {
-                    showAddField = true
-                } label: {
-                    Text("+")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(theme.chipFill.swiftUIColor))
-                        .overlay(Circle().stroke(theme.hairline.swiftUIColor.opacity(0.8), lineWidth: 1))
+            // Add field — fixed width prevents layout shift when toggling between
+            // the "+" avatar button and the name TextField.
+            Group {
+                if showAddField {
+                    TextField("Name…", text: $newPersonName)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(theme.hairline.swiftUIColor, lineWidth: 1)
+                        )
+                        .focused($addFieldFocused)
+                        .onSubmit { commitAdd() }
+                        .onExitCommand { cancelAdd() }
+                        .onAppear { addFieldFocused = true }
+                } else {
+                    Button {
+                        showAddField = true
+                    } label: {
+                        Text("+")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                            .frame(width: 24, height: 24)
+                            .background(Circle().fill(theme.chipFill.swiftUIColor))
+                            .overlay(Circle().stroke(theme.hairline.swiftUIColor.opacity(0.8), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+            .frame(width: 88, alignment: .leading)
         }
     }
 
@@ -571,7 +574,7 @@ private struct EditableTextValue: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(theme.primaryText.swiftUIColor)
-                .frame(minWidth: 90)
+                .frame(minWidth: 90, alignment: .trailing)
                 .focused($focused)
                 .onSubmit { commit() }
                 .onExitCommand { cancel() }
@@ -587,6 +590,8 @@ private struct EditableTextValue: View {
                         ? theme.tertiaryText.swiftUIColor
                         : theme.primaryText.swiftUIColor.opacity(0.85)
                 )
+                // Same minWidth as the TextField so entering edit mode doesn't reflow the row.
+                .frame(minWidth: 90, alignment: .trailing)
                 .underline(isHovering, color: theme.hairline.swiftUIColor)
                 .onHover { isHovering = $0 }
                 .onTapGesture { isEditing = true }
