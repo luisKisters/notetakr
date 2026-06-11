@@ -38,11 +38,46 @@ public enum DotState: Equatable {
     case past
 }
 
+// MARK: - SwitcherCommand
+
+public struct SwitcherCommand: Equatable {
+    public enum CommandID: String, Equatable {
+        case openSettings
+        case newNote
+    }
+
+    public var id: CommandID
+    public var title: String
+    public var subtitle: String
+    public var shortcut: String
+
+    public init(id: CommandID, title: String, subtitle: String, shortcut: String) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.shortcut = shortcut
+    }
+}
+
+// MARK: - SwitcherIconKind
+
+/// Deterministic icon shape for a switcher row — computed from note/event metadata.
+public enum SwitcherIconKind: Equatable {
+    case videoCall      // note or event with a meeting link (Zoom/Meet/Teams)
+    case groupMeeting   // 2+ participants, no video link
+    case oneOnOne       // exactly 1 participant, no video link
+    case soloNote       // 0 participants, no video link
+    case ghostEvent     // calendar event row (no associated note)
+    case openSettings   // "Open Settings…" command row
+    case newNote        // "New note" command row
+}
+
 // MARK: - SwitcherItemKind
 
 public enum SwitcherItemKind: Equatable {
     case note(id: String, title: String, date: Date, participants: [Participant])
     case event(UpcomingEvent)
+    case command(SwitcherCommand)
 }
 
 // MARK: - SwitcherItem
@@ -102,6 +137,28 @@ public final class SwitcherViewModel {
     private let store: any NoteStoring
     private let defaultsProvider: any NoteDefaultsProviding
     private let calendar: Calendar
+
+    /// All available commands — surfaced when the search query matches their keywords.
+    private static let allCommands: [SwitcherCommand] = [
+        SwitcherCommand(
+            id: .openSettings,
+            title: "Open Settings\u{2026}",
+            subtitle: "Preferences \u{B7} vocabulary \u{B7} updates",
+            shortcut: "\u{2318},"
+        ),
+        SwitcherCommand(
+            id: .newNote,
+            title: "New note",
+            subtitle: "Start a fresh meeting note",
+            shortcut: "\u{2318}N"
+        ),
+    ]
+
+    /// Keywords associated with each command for search matching.
+    private static let commandKeywords: [SwitcherCommand.CommandID: [String]] = [
+        .openSettings: ["settings", "preferences", "vocabulary", "updates"],
+        .newNote:       ["new", "create", "note"],
+    ]
 
     public var searchQuery: String = "" {
         didSet {
@@ -167,12 +224,12 @@ public final class SwitcherViewModel {
 
     // MARK: - Actions
 
-    /// Returns the selected note's ID, or nil when the selection is a ghost event row.
+    /// Returns the selected note's ID, or nil when the selection is a ghost event or command row.
     public func open() -> String? {
         guard let item = selectedItem else { return nil }
         switch item.kind {
         case .note(let id, _, _, _): return id
-        case .event: return nil
+        case .event, .command: return nil
         }
     }
 
@@ -199,6 +256,28 @@ public final class SwitcherViewModel {
         try store.save(note)
         rebuildGroups()
         return note
+    }
+
+    // MARK: - Icon kind
+
+    /// Deterministic icon kind for a row — computed from the note/event/command metadata.
+    public static func iconKind(for item: SwitcherItem) -> SwitcherIconKind {
+        switch item.kind {
+        case .event(let ev):
+            if ev.meetingLink != nil { return .videoCall }
+            return .ghostEvent
+        case .note(_, _, _, let participants):
+            switch participants.count {
+            case 0:  return .soloNote
+            case 1:  return .oneOnOne
+            default: return .groupMeeting
+            }
+        case .command(let cmd):
+            switch cmd.id {
+            case .openSettings: return .openSettings
+            case .newNote:      return .newNote
+            }
+        }
     }
 
     // MARK: - Groups computation
@@ -239,6 +318,23 @@ public final class SwitcherViewModel {
         let todayAndPastDays = dayBuckets.keys.filter { $0 <= todayStart }.sorted(by: >)
 
         var newGroups: [SwitcherGroup] = []
+
+        // Prepend command rows when the query matches.
+        if !query.isEmpty {
+            let matchingCmds = Self.allCommands.filter { cmd in
+                let keywords = Self.commandKeywords[cmd.id] ?? []
+                let lq = query.lowercased()
+                return keywords.contains { $0.hasPrefix(lq) }
+                    || cmd.title.lowercased().contains(lq)
+            }
+            if !matchingCmds.isEmpty {
+                let cmdItems = matchingCmds.map {
+                    SwitcherItem(kind: .command($0), dotState: .past)
+                }
+                newGroups.append(SwitcherGroup(label: "Commands", items: cmdItems))
+            }
+        }
+
         for dayStart in futureDays + todayAndPastDays {
             var items = dayBuckets[dayStart] ?? []
             if dayStart > todayStart {
@@ -277,24 +373,14 @@ public final class SwitcherViewModel {
         return .past
     }
 
+    /// 4-bucket recency label used by the switcher groups.
     private func dayLabel(_ dayStart: Date, todayStart: Date) -> String {
         let diff = calendar.dateComponents([.day], from: todayStart, to: dayStart).day ?? 0
         switch diff {
-        case 0:   return "Today"
-        case 1:   return "Tomorrow"
-        case -1:  return "Yesterday"
-        case 2...7, -7 ..< -1:
-            let fmt = DateFormatter()
-            fmt.calendar = calendar
-            fmt.timeZone = calendar.timeZone
-            fmt.dateFormat = "EEEE"
-            return fmt.string(from: dayStart)
-        default:
-            let fmt = DateFormatter()
-            fmt.calendar = calendar
-            fmt.timeZone = calendar.timeZone
-            fmt.dateFormat = "MMM d"
-            return fmt.string(from: dayStart)
+        case 0:          return "Today"
+        case -1:         return "Yesterday"
+        case Int.min ..< -1: return "Earlier"
+        default:         return "Upcoming"
         }
     }
 
@@ -302,6 +388,7 @@ public final class SwitcherViewModel {
         switch item.kind {
         case .note(_, _, let d, _): return d
         case .event(let e):         return e.start
+        case .command:              return .distantFuture
         }
     }
 
@@ -313,6 +400,8 @@ public final class SwitcherViewModel {
         case .event(let e):
             if diacriticInsensitiveContains(e.title, query) { return true }
             return e.participants.contains { diacriticInsensitiveContains($0.name, query) }
+        case .command:
+            return false  // commands filtered separately
         }
     }
 

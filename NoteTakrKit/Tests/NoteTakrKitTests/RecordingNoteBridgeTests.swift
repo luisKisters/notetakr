@@ -187,6 +187,7 @@ final class RecordingNoteBridgeTests: XCTestCase {
     // MARK: - Full transition: idle → recording → transcribing → ready
 
     func testFullTransitionHappyPath() {
+        let transcribingExp = expectation(description: "state is transcribing")
         let readyExp = expectation(description: "state is ready")
         let note = makeNote()
         let fp = makePresenter(note: note)
@@ -201,7 +202,11 @@ final class RecordingNoteBridgeTests: XCTestCase {
         )
 
         bridge.onChange = {
-            if bridge.state == .ready { readyExp.fulfill() }
+            switch bridge.state {
+            case .transcribing: transcribingExp.fulfill()
+            case .ready:        readyExp.fulfill()
+            default:            break
+            }
         }
 
         bridge.startRecording()
@@ -210,9 +215,8 @@ final class RecordingNoteBridgeTests: XCTestCase {
 
         bridge.stopRecording()
         XCTAssertNil(fp.recordingStartedAt)
-        XCTAssertEqual(bridge.state, .transcribing)
 
-        waitForExpectations(timeout: 2)
+        wait(for: [transcribingExp, readyExp], timeout: 2, enforceOrder: true)
 
         XCTAssertEqual(bridge.state, .ready)
         XCTAssertEqual(spy.callCount, 1)

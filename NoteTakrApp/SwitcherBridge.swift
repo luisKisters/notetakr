@@ -22,8 +22,10 @@ final class SwitcherBridge: ObservableObject {
     var onOpenNote: ((String) -> Void)?
     /// Called when overlay dismisses — controller returns focus to the editor.
     var onEditorFocusRequest: (() -> Void)?
-    /// Called when ⌘N is pressed — controller creates a blank note.
+    /// Called when ⌘N is pressed or the New note command is activated.
     var onCreateBlankNote: (() -> Void)?
+    /// Called when the Open Settings command is activated from the switcher.
+    var onOpenSettings: (() -> Void)?
 
     init(viewModel: SwitcherViewModel) {
         self.viewModel = viewModel
@@ -66,7 +68,7 @@ final class SwitcherBridge: ObservableObject {
 
     // MARK: - Actions
 
-    /// Opens the selected note or creates one from a ghost calendar event.
+    /// Opens the selected note, creates one from a ghost calendar event, or executes a command.
     func openOrCreateSelected() {
         guard let item = viewModel.selectedItem else {
             dismiss()
@@ -80,6 +82,15 @@ final class SwitcherBridge: ObservableObject {
             if let note = try? viewModel.createNote(from: ev) {
                 onOpenNote?(note.id)
                 dismiss()
+            }
+        case .command(let cmd):
+            switch cmd.id {
+            case .openSettings:
+                dismiss()
+                onOpenSettings?()
+            case .newNote:
+                dismiss()
+                onCreateBlankNote?()
             }
         }
     }

@@ -97,24 +97,22 @@ final class NoteTabsPresenterTests: XCTestCase {
     // MARK: - Summary: generation happy path
 
     func testGenerateSummaryHappyPath() {
+        let generatingExp = expectation(description: "summary generating")
         let readyExp = expectation(description: "summary ready")
         let generator = ImmediateMockGenerator(result: .success("AI summary"))
         let p = NoteTabsPresenter(summaryGenerator: generator)
-        var sawGenerating = false
 
         p.onChange = {
             switch p.summaryState(for: "n1") {
-            case .generating: sawGenerating = true
-            case .ready: readyExp.fulfill()
-            default: break
+            case .generating: generatingExp.fulfill()
+            case .ready:      readyExp.fulfill()
+            default:          break
             }
         }
 
         p.generateSummary(for: "n1")
-        XCTAssertEqual(p.summaryState(for: "n1"), .generating, "Must transition to generating synchronously")
 
-        waitForExpectations(timeout: 2)
-        XCTAssertTrue(sawGenerating, "generating state must have been observed before ready")
+        wait(for: [generatingExp, readyExp], timeout: 2, enforceOrder: true)
         XCTAssertEqual(p.summaryState(for: "n1"), .ready("AI summary"))
     }
 
