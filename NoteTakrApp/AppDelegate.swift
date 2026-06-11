@@ -57,8 +57,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let registrar = CarbonHotkeyRegistrar(hotkeyID: 2)
         registrar.register(combo: combo) { [weak npc] in
             Task { @MainActor in
-                npc?.createNewNote()
-                npc?.show()
+                // Switcher handles ⌘N via its own SwiftUI shortcut; skip to avoid double creation.
+                guard let npc, !npc.switcherBridge.isVisible else { return }
+                npc.createNewNote()
+                npc.show()
             }
         }
         newNoteRegistrar = registrar

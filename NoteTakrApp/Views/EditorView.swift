@@ -9,6 +9,7 @@ struct EditorView: View {
     @ObservedObject var settingsBridge: SettingsSheetViewModel
     let recordPillMachine: RecordPillStateMachine
     @State private var pillState: RecordPillState = .idle
+    @FocusState private var isBodyFocused: Bool
 
     private var themeColors: ThemeColors {
         Theme.colors(for: settingsBridge.currentAppearance)
@@ -123,10 +124,22 @@ struct EditorView: View {
     private var tabContent: some View {
         switch tabsBridge.selectedTab {
         case .privateNotes:
-            MarkdownBodyView(
-                parsed: MarkdownBodyParser.parse(bridge.body)
-            )
-            .environment(\.themeColors, themeColors)
+            if isBodyFocused {
+                TextEditor(text: Binding(
+                    get: { bridge.body },
+                    set: { bridge.setBody($0) }
+                ))
+                .font(.system(size: 13.5))
+                .foregroundColor(themeColors.primaryText.swiftUIColor)
+                .focused($isBodyFocused)
+            } else {
+                MarkdownBodyView(
+                    parsed: MarkdownBodyParser.parse(bridge.body)
+                )
+                .environment(\.themeColors, themeColors)
+                .contentShape(Rectangle())
+                .onTapGesture { isBodyFocused = true }
+            }
         case .summary:
             SummaryView(
                 state: tabsBridge.summaryState,
