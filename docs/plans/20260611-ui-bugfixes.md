@@ -60,17 +60,17 @@ non-root user; Node, git, gh available; a live Swift-for-Linux toolchain is pres
 
 ### Task 1: Global shortcuts, Escape handling, and the Notes label
 
-- [ ] Rename the user-facing footer tab and any related label "Private Notes" to just
+- [x] Rename the user-facing footer tab and any related label "Private Notes" to just
       "Notes" everywhere in the UI (search the codebase for "Private Notes").
-- [ ] Register **⌘N** as a *global* shortcut that creates a new note, working regardless of
+- [x] Register **⌘N** as a *global* shortcut that creates a new note, working regardless of
       focus (not only while the ⌘K switcher is open). Reuse the existing global-hotkey
       registration mechanism used for the floating-note toggle.
-- [ ] Bind **⌘,** (Command-Comma) to open Settings from the main note window.
-- [ ] Make **Esc** dismiss the Settings surface and the ⌘K switcher / quick-switch overlay
+- [x] Bind **⌘,** (Command-Comma) to open Settings from the main note window.
+- [x] Make **Esc** dismiss the Settings surface and the ⌘K switcher / quick-switch overlay
       when either is open.
-- [ ] Factor key-command routing into a pure, Linux-testable type and add unit tests for:
+- [x] Factor key-command routing into a pure, Linux-testable type and add unit tests for:
       ⌘N → new-note intent, ⌘, → open-settings intent, Esc → dismiss intent for each overlay.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 2: Settings rows — whole-row hit target and correct hover
 
