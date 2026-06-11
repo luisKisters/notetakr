@@ -139,25 +139,25 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 5: ⌘K Switcher (overlay + full-window; rows + timeline)
-- [ ] Reproduce `switcher.html`'s four directions, all sharing the **same row rendering**:
+- [x] Reproduce `switcher.html`'s four directions, all sharing the **same row rendering**:
       (1) two-line rows as a **pop-up overlay over the dimmed/blurred note**, (2) two-line rows
       as a **full window**, (3) **agenda timeline** overlay, (4) **agenda timeline** full window.
       Ship the overlay-over-note as the primary; keep the full-window mode available.
-- [ ] Rows: monochrome **deterministic** icons (kind → fixed icon, all gray), title (+ subtitle
+- [x] Rows: monochrome **deterministic** icons (kind → fixed icon, all gray), title (+ subtitle
       on two-line), right-aligned time. **Soft hover with a hairline border.** Only the **current**
       meeting is flagged with a small "now" pill — **no scattered red dots**. Upcoming calendar
       events show a **small** dashed "+ Create" chip.
-- [ ] **Agenda timeline**: a single continuous vertical line that **fades at top & bottom**, with
+- [x] **Agenda timeline**: a single continuous vertical line that **fades at top & bottom**, with
       a **dot on every meeting** (current filled · upcoming ring · past faint). It must render
       cleanly (no broken line) in both overlay and full-window.
-- [ ] Typeable search filters rows live; **↑/↓** move the selection; **Enter** opens; **esc**
+- [x] Typeable search filters rows live; **↑/↓** move the selection; **Enter** opens; **esc**
       closes the overlay; **⌘K** toggles it. Typing "settings"/"new" surfaces **Open Settings
       (⌘,)** and **New note (⌘N)** command rows; Open Settings opens Settings.
-- [ ] Group by recency (Upcoming / Today / Yesterday / Earlier); merge upcoming calendar events
+- [x] Group by recency (Upcoming / Today / Yesterday / Earlier); merge upcoming calendar events
       with existing notes chronologically.
-- [ ] Extract filtering/grouping/selection into Linux-testable logic; unit-test query filtering,
+- [x] Extract filtering/grouping/selection into Linux-testable logic; unit-test query filtering,
       command surfacing, keyboard navigation wrap, and deterministic icon mapping.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 6: Transcript & Summary + diarization
 - [ ] Reproduce `transcript.html` (document layout): speaker as a bold lead-in, paragraphs,
