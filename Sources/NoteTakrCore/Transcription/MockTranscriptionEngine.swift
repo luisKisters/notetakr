@@ -1,4 +1,5 @@
 import Foundation
+import NoteTakrKit
 
 public final class MockTranscriptionEngine: TranscriptionEngine, @unchecked Sendable {
     public var fixtureSegments: [TranscriptSegment]

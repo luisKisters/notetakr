@@ -21,6 +21,12 @@ public final class AppSettingsStore {
     private var _hotkey: HotkeyCombo = try! HotkeyCombo.parse("⌃⌥⌘N")
     private var _launchAtLogin: Bool = false
     private var _notesFolderPath: String? = nil
+    private var _yourName: String = ""
+    private var _inferNamesFromCalendar: Bool = true
+    private var _micEnabled: Bool = true
+    private var _systemAudioEnabled: Bool = true
+    private var _autoCheckForUpdates: Bool = true
+    private var _autoDownloadUpdates: Bool = false
 
     public init(root: URL) {
         fileURL = root.appendingPathComponent("settings.json")
@@ -64,6 +70,36 @@ public final class AppSettingsStore {
         set { _notesFolderPath = newValue; saveToDisk() }
     }
 
+    public var yourName: String {
+        get { _yourName }
+        set { _yourName = newValue; saveToDisk() }
+    }
+
+    public var inferNamesFromCalendar: Bool {
+        get { _inferNamesFromCalendar }
+        set { _inferNamesFromCalendar = newValue; saveToDisk() }
+    }
+
+    public var micEnabled: Bool {
+        get { _micEnabled }
+        set { _micEnabled = newValue; saveToDisk() }
+    }
+
+    public var systemAudioEnabled: Bool {
+        get { _systemAudioEnabled }
+        set { _systemAudioEnabled = newValue; saveToDisk() }
+    }
+
+    public var autoCheckForUpdates: Bool {
+        get { _autoCheckForUpdates }
+        set { _autoCheckForUpdates = newValue; saveToDisk() }
+    }
+
+    public var autoDownloadUpdates: Bool {
+        get { _autoDownloadUpdates }
+        set { _autoDownloadUpdates = newValue; saveToDisk() }
+    }
+
     // MARK: - Persistence
 
     private struct Payload: Codable {
@@ -74,19 +110,31 @@ public final class AppSettingsStore {
         var hotkey: HotkeyCombo?
         var launchAtLogin: Bool?
         var notesFolderPath: String?
+        var yourName: String?
+        var inferNamesFromCalendar: Bool?
+        var micEnabled: Bool?
+        var systemAudioEnabled: Bool?
+        var autoCheckForUpdates: Bool?
+        var autoDownloadUpdates: Bool?
     }
 
     private func loadFromDisk() {
         guard let data = try? Data(contentsOf: fileURL),
               let payload = try? JSONDecoder().decode(Payload.self, from: data)
         else { return }
-        if let v = payload.transcribeByDefault { _transcribeByDefault = v }
-        if let v = payload.defaultLanguage     { _defaultLanguage = v }
-        if let v = payload.inPersonByDefault   { _inPersonByDefault = v }
-        if let v = payload.appearance          { _appearance = v }
-        if let v = payload.hotkey              { _hotkey = v }
-        if let v = payload.launchAtLogin       { _launchAtLogin = v }
-        _notesFolderPath = payload.notesFolderPath  // nil is valid
+        if let v = payload.transcribeByDefault   { _transcribeByDefault = v }
+        if let v = payload.defaultLanguage       { _defaultLanguage = v }
+        if let v = payload.inPersonByDefault     { _inPersonByDefault = v }
+        if let v = payload.appearance            { _appearance = v }
+        if let v = payload.hotkey                { _hotkey = v }
+        if let v = payload.launchAtLogin         { _launchAtLogin = v }
+        _notesFolderPath = payload.notesFolderPath
+        if let v = payload.yourName              { _yourName = v }
+        if let v = payload.inferNamesFromCalendar { _inferNamesFromCalendar = v }
+        if let v = payload.micEnabled            { _micEnabled = v }
+        if let v = payload.systemAudioEnabled    { _systemAudioEnabled = v }
+        if let v = payload.autoCheckForUpdates   { _autoCheckForUpdates = v }
+        if let v = payload.autoDownloadUpdates   { _autoDownloadUpdates = v }
     }
 
     private func saveToDisk() {
@@ -97,7 +145,13 @@ public final class AppSettingsStore {
             appearance: _appearance,
             hotkey: _hotkey,
             launchAtLogin: _launchAtLogin,
-            notesFolderPath: _notesFolderPath
+            notesFolderPath: _notesFolderPath,
+            yourName: _yourName,
+            inferNamesFromCalendar: _inferNamesFromCalendar,
+            micEnabled: _micEnabled,
+            systemAudioEnabled: _systemAudioEnabled,
+            autoCheckForUpdates: _autoCheckForUpdates,
+            autoDownloadUpdates: _autoDownloadUpdates
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: fileURL, options: .atomic)

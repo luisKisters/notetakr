@@ -29,6 +29,9 @@ final class RecordingNoteBridgeTests: XCTestCase {
             capturedNoteID = noteID
             capturedLanguage = language
             capturedVocabulary = vocabulary
+            // Yield so the caller can observe the intermediate .transcribing state
+            // before this task completes (Swift 6 schedules tasks eagerly).
+            await Task.yield()
             switch behavior {
             case .succeed(let segs): return segs
             case .fail(let err): throw err
@@ -45,6 +48,7 @@ final class RecordingNoteBridgeTests: XCTestCase {
         func transcribe(noteID: String, language: TranscribeLanguage, vocabulary: [String]) async throws -> [RawSegment] {
             let r = results[min(index, results.count - 1)]
             index += 1
+            await Task.yield()
             switch r {
             case .success(let segs): return segs
             case .failure(let err): throw err
@@ -183,6 +187,7 @@ final class RecordingNoteBridgeTests: XCTestCase {
     // MARK: - Full transition: idle → recording → transcribing → ready
 
     func testFullTransitionHappyPath() {
+        let transcribingExp = expectation(description: "state is transcribing")
         let readyExp = expectation(description: "state is ready")
         let note = makeNote()
         let fp = makePresenter(note: note)
@@ -197,7 +202,11 @@ final class RecordingNoteBridgeTests: XCTestCase {
         )
 
         bridge.onChange = {
-            if bridge.state == .ready { readyExp.fulfill() }
+            switch bridge.state {
+            case .transcribing: transcribingExp.fulfill()
+            case .ready:        readyExp.fulfill()
+            default:            break
+            }
         }
 
         bridge.startRecording()
@@ -206,9 +215,8 @@ final class RecordingNoteBridgeTests: XCTestCase {
 
         bridge.stopRecording()
         XCTAssertNil(fp.recordingStartedAt)
-        XCTAssertEqual(bridge.state, .transcribing)
 
-        waitForExpectations(timeout: 2)
+        wait(for: [transcribingExp, readyExp], timeout: 2, enforceOrder: true)
 
         XCTAssertEqual(bridge.state, .ready)
         XCTAssertEqual(spy.callCount, 1)

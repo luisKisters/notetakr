@@ -69,168 +69,168 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 ---
 
 ### Task 1: Design-system foundation (window shell, themes, tokens, chrome)
-- [ ] Add a shared design-tokens source (colors, text levels, hairlines, accent, radii, fonts)
+- [x] Add a shared design-tokens source (colors, text levels, hairlines, accent, radii, fonts)
       mirroring `kit.css` `:root` + the `.window.t-glass/.t-dark/.t-light` scoped vars.
-- [ ] Implement the three appearance themes (Glass / Dark / Light) as an app-wide Appearance
+- [x] Implement the three appearance themes (Glass / Dark / Light) as an app-wide Appearance
       setting; the whole window restyles to match `kit.css` for each theme.
-- [ ] Build the window chrome: traffic lights top-left (dimmed until hover), a gear top-right
+- [x] Build the window chrome: traffic lights top-left (dimmed until hover), a gear top-right
       that opens Settings, bound to **⌘,**.
-- [ ] Add reusable building blocks used across screens: the chip/`metastrip` preview row, the
+- [x] Add reusable building blocks used across screens: the chip/`metastrip` preview row, the
       `props` panel rows (key + right-aligned value), toggles, `kbd` pills, the SF icon set.
-- [ ] Add Linux-testable theme/token unit tests (e.g. each theme resolves the expected palette;
+- [x] Add Linux-testable theme/token unit tests (e.g. each theme resolves the expected palette;
       Appearance setting persists and reloads).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 2: The record control (monochrome pill + state machine + ⌘N)
-- [ ] Build the record pill exactly per `kit.css` `.recpill` + `recording.html`: a fixed,
+- [x] Build the record pill exactly per `kit.css` `.recpill` + `recording.html`: a fixed,
       monochrome pill where **only the indicator dot is colored** (gray idle, red recording,
       amber breathing when paused). Width stays constant; it never wraps.
-- [ ] State machine: **idle → click → recording** (ticking mm:ss) **→ click → paused**
+- [x] State machine: **idle → click → recording** (ticking mm:ss) **→ click → paused**
       (breathing) **→ click → menu**. The menu (borderless, soft shadow) has **Resume**,
       **Stop & Transcribe**, **Stop & Summarize**. Resume → recording; the Stop items end the
       recording. The menu opens **below** the pill, staying on-screen (left-anchored when the
       pill is on the left, right-anchored when on the right — see `.ralign`).
-- [ ] **Stop & Summarize** switches to the Summary tab and triggers summary generation.
-- [ ] When a recording finishes (transcript ready), the front-meta Transcript row swaps the pill
+- [x] **Stop & Summarize** switches to the Summary tab and triggers summary generation.
+- [x] When a recording finishes (transcript ready), the front-meta Transcript row swaps the pill
       for a **seekable audio player** (play/pause + scrubbable progress + `mm:ss / mm:ss`) — see
       `frontmatter.html` `.player`.
-- [ ] Register **⌘N** as a *global* new-note shortcut (reuse the floating-note hotkey mechanism).
-- [ ] Extract the state machine into a pure, Linux-testable type; unit-test every transition
+- [x] Register **⌘N** as a *global* new-note shortcut (reuse the floating-note hotkey mechanism).
+- [x] Extract the state machine into a pure, Linux-testable type; unit-test every transition
       (idle→rec→paused→resume→rec→stop), the timer pause/resume, and that Summarize signals the
       Summary+generate intent.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 3: Editor screen
-- [ ] Reproduce `editor.html`: title H1, then one quiet **preview line** = **record (first) ·
+- [x] Reproduce `editor.html`: title H1, then one quiet **preview line** = **record (first) ·
       time** only, with a clear (bordered) expand control on the right.
-- [ ] The **whole preview line** is the hit target — hovering highlights the entire strip and
+- [x] The **whole preview line** is the hit target — hovering highlights the entire strip and
       clicking expands the frontmatter panel (the record pill keeps its own click).
-- [ ] Render the note body as **formatted markdown** (headings, bullet/numbered lists, task
+- [x] Render the note body as **formatted markdown** (headings, bullet/numbered lists, task
       checkboxes, inline code, code blocks, blockquotes, hr, bold/italic, links). Use the `.md`
       styling from `kit.css`.
-- [ ] **No copy button**: selecting text and copying yields the **raw markdown source** (not the
+- [x] **No copy button**: selecting text and copying yields the **raw markdown source** (not the
       rendered output). Verify a round-trip: select-all → copy → clipboard equals the source.
-- [ ] Footer = three bare tabs **Notes · Summary · Transcript** (active = purple). Tab switching
+- [x] Footer = three bare tabs **Notes · Summary · Transcript** (active = purple). Tab switching
       swaps the body pane.
-- [ ] Summary tab **empty state**: a "Generate summary" button (sparkle icon) → spinner →
+- [x] Summary tab **empty state**: a "Generate summary" button (sparkle icon) → spinner →
       rendered markdown summary.
-- [ ] Put markdown→view conversion and copy-source extraction in Linux-testable types; unit-test
+- [x] Put markdown→view conversion and copy-source extraction in Linux-testable types; unit-test
       each construct renders and that copy returns the exact raw source.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 4: Frontmatter panel (editable, calendar-driven)
-- [ ] Reproduce `frontmatter.html`: the expandable panel with right-aligned values. Nothing
+- [x] Reproduce `frontmatter.html`: the expandable panel with right-aligned values. Nothing
       looks editable until **hover**; **click a field to edit** (date, time, location, link).
-- [ ] **Event**: a small inline chip showing the linked calendar event; a menu switches the
+- [x] **Event**: a small inline chip showing the linked calendar event; a menu switches the
       event and **auto-updates** title, date/time, location, link, and participants from it.
-- [ ] **People**: render participants as **initials circles** (single row, overflow-safe).
+- [x] **People**: render participants as **initials circles** (single row, overflow-safe).
       Hovering a circle swaps the initials for a red **✕** and shows a tooltip with **name,
       email, and "Click to remove"**; clicking opens a menu with **Remove from note** /
       **Remove from calendar**. An "+" circle adds a person inline.
-- [ ] **Location** = the calendar's actual location (free text; empty shows "No location").
+- [x] **Location** = the calendar's actual location (free text; empty shows "No location").
       **Meeting link** is its own editable field.
-- [ ] **In-person**: a toggle with a small **"?" explainer** ("In-person meetings are mic-only —
+- [x] **In-person**: a toggle with a small **"?" explainer** ("In-person meetings are mic-only —
       NoteTakr skips system-audio capture"). No "system audio off" inline text.
-- [ ] **Transcript row**: shows the record pill; once a recording is done it becomes the seekable
+- [x] **Transcript row**: shows the record pill; once a recording is done it becomes the seekable
       **player** (Task 2). No color picker anywhere.
-- [ ] Extract calendar-event → frontmatter mapping into a Linux-testable type; unit-test that
+- [x] Extract calendar-event → frontmatter mapping into a Linux-testable type; unit-test that
       selecting an event updates all fields, add/remove participant, location/link empty states,
       and that in-person disables the system-audio source.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 5: ⌘K Switcher (overlay + full-window; rows + timeline)
-- [ ] Reproduce `switcher.html`'s four directions, all sharing the **same row rendering**:
+- [x] Reproduce `switcher.html`'s four directions, all sharing the **same row rendering**:
       (1) two-line rows as a **pop-up overlay over the dimmed/blurred note**, (2) two-line rows
       as a **full window**, (3) **agenda timeline** overlay, (4) **agenda timeline** full window.
       Ship the overlay-over-note as the primary; keep the full-window mode available.
-- [ ] Rows: monochrome **deterministic** icons (kind → fixed icon, all gray), title (+ subtitle
+- [x] Rows: monochrome **deterministic** icons (kind → fixed icon, all gray), title (+ subtitle
       on two-line), right-aligned time. **Soft hover with a hairline border.** Only the **current**
       meeting is flagged with a small "now" pill — **no scattered red dots**. Upcoming calendar
       events show a **small** dashed "+ Create" chip.
-- [ ] **Agenda timeline**: a single continuous vertical line that **fades at top & bottom**, with
+- [x] **Agenda timeline**: a single continuous vertical line that **fades at top & bottom**, with
       a **dot on every meeting** (current filled · upcoming ring · past faint). It must render
       cleanly (no broken line) in both overlay and full-window.
-- [ ] Typeable search filters rows live; **↑/↓** move the selection; **Enter** opens; **esc**
+- [x] Typeable search filters rows live; **↑/↓** move the selection; **Enter** opens; **esc**
       closes the overlay; **⌘K** toggles it. Typing "settings"/"new" surfaces **Open Settings
       (⌘,)** and **New note (⌘N)** command rows; Open Settings opens Settings.
-- [ ] Group by recency (Upcoming / Today / Yesterday / Earlier); merge upcoming calendar events
+- [x] Group by recency (Upcoming / Today / Yesterday / Earlier); merge upcoming calendar events
       with existing notes chronologically.
-- [ ] Extract filtering/grouping/selection into Linux-testable logic; unit-test query filtering,
+- [x] Extract filtering/grouping/selection into Linux-testable logic; unit-test query filtering,
       command surfacing, keyboard navigation wrap, and deterministic icon mapping.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 6: Transcript & Summary + diarization
-- [ ] Reproduce `transcript.html` (document layout): speaker as a bold lead-in, paragraphs,
+- [x] Reproduce `transcript.html` (document layout): speaker as a bold lead-in, paragraphs,
       quiet collapse. **Merge consecutive same-speaker segments into one turn.** Collapsible
       turns with **Collapse all / Expand all**; collapsed shows a one-line preview.
-- [ ] **Merge the microphone and system-audio transcripts** into one chronological transcript,
+- [x] **Merge the microphone and system-audio transcripts** into one chronological transcript,
       ordered by each segment's **start time** (overlap → earlier start first).
-- [ ] **Speaker naming**: when exactly one speaker is detected per stream, name the **microphone**
+- [x] **Speaker naming**: when exactly one speaker is detected per stream, name the **microphone**
       speaker as the local user and the **system-audio** speaker as the other participant (from
       the linked calendar event when available, else "Speaker 2"). When uncertain, show
       **"Speaker · most likely <name>"**; clicking a name lets you **rename** it (updates all of
       that speaker's turns).
-- [ ] **In-person** meetings: capture/diarize the **microphone only** (no system stream).
-- [ ] Select-and-copy yields a **markdown** rendering of the transcript (`**Speaker:** text`).
-- [ ] A finished recording is playable via the seekable **player** (Task 2) where shown.
-- [ ] Implement merging/diarization/naming as pure, Linux-testable logic; unit-test same-speaker
+- [x] **In-person** meetings: capture/diarize the **microphone only** (no system stream).
+- [x] Select-and-copy yields a **markdown** rendering of the transcript (`**Speaker:** text`).
+- [x] A finished recording is playable via the seekable **player** (Task 2) where shown.
+- [x] Implement merging/diarization/naming as pure, Linux-testable logic; unit-test same-speaker
       merge, two-stream interleave ordering (incl. an overlap case), single-speaker-per-stream
       naming with/without calendar participants, the in-person mic-only path, rename propagation,
       and the copy-as-markdown output.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 7: Summary generation + speaker-inference prompt
-- [ ] Wire the **Generate summary** flow (empty state → generating → rendered markdown), using
+- [x] Wire the **Generate summary** flow (empty state → generating → rendered markdown), using
       the configured **Summary model** (Task 8).
-- [ ] The summary/note prompt instructs the model to **infer who each speaker is** from the
+- [x] The summary/note prompt instructs the model to **infer who each speaker is** from the
       participants and context, and when unsure to label **"Speaker N · most likely <name>"**
       rather than guessing a definite name. Pass participant names + the user's own name into the
       prompt context.
-- [ ] Unit-test (Linux) that the constructed prompt contains the speaker-inference instruction
+- [x] Unit-test (Linux) that the constructed prompt contains the speaker-inference instruction
       and the participant context, and that the selected summary model is honored.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 8: Settings
-- [ ] Reproduce `settings.html`: a sheet over the (blurred) note with icon tabs **This Meeting ·
+- [x] Reproduce `settings.html`: a sheet over the (blurred) note with icon tabs **This Meeting ·
       General · Recording · Vocabulary · Updates · Permissions**. **The whole row is the hit
       target** (clickable + hover) — not just the icon/text; hover ≠ selected. **Esc closes** the
       sheet; a quiet "Close" + `esc` pill in the footer.
-- [ ] **This Meeting**: a purple scope banner ("applies only to this note"), then per-meeting
+- [x] **This Meeting**: a purple scope banner ("applies only to this note"), then per-meeting
       Transcribe toggle (+ live timer), In-person, Language, Linked event, **and per-meeting
       "Word boosting · this meeting" custom vocabulary** (add/remove terms — must work).
-- [ ] **General**: defaults for new meetings (Transcribe, Language Auto-detect), a **Models**
+- [x] **General**: defaults for new meetings (Transcribe, Language Auto-detect), a **Models**
       group (**Transcription model**, **Summary model**), and App settings (floating-note hotkey,
       global **New note ⌘N**, Launch at login, Notes folder, **Appearance** Glass/Dark/Light).
-- [ ] **Recording**: Microphone + System-audio sources (System off for in-person), speaker-naming
+- [x] **Recording**: Microphone + System-audio sources (System off for in-person), speaker-naming
       ("Your name", infer-from-calendar).
-- [ ] **Vocabulary**: the global custom-vocabulary editor — **adding a term works** and persists
+- [x] **Vocabulary**: the global custom-vocabulary editor — **adding a term works** and persists
       and is passed to the transcription adapter (per the bug report).
-- [ ] **Updates**: a **"Check for Updates…"** action and an **"Automatically check for updates"**
+- [x] **Updates**: a **"Check for Updates…"** action and an **"Automatically check for updates"**
       toggle wired to **Sparkle**; current version + channel. Guard so Linux validation still
       passes; verify on the macOS runner.
-- [ ] **Permissions**: Microphone, Screen & system audio, Calendar — with granted/ask states.
-- [ ] Unit-test (Linux) vocabulary add/remove/persist for **both** the global and per-meeting
+- [x] **Permissions**: Microphone, Screen & system audio, Calendar — with granted/ask states.
+- [x] Unit-test (Linux) vocabulary add/remove/persist for **both** the global and per-meeting
       stores, the model selections persisting, and the whole-row hit-test/selection model.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 9: Motion, shortcuts & cross-screen polish
-- [ ] Add the animations the mockups imply: panel expand/collapse, record breathing while paused,
+- [x] Add the animations the mockups imply: panel expand/collapse, record breathing while paused,
       menu/tooltip fades, summary spinner, switcher open/close. Keep them subtle and smooth.
-- [ ] Confirm the global/window shortcuts end-to-end: **⌘N** (new note, global), **⌘,** (Settings),
+- [x] Confirm the global/window shortcuts end-to-end: **⌘N** (new note, global), **⌘,** (Settings),
       **⌘K** (switcher toggle), **esc** (closes Settings and the switcher), tab switching.
-- [ ] Replace any remaining "Private Notes" label with **Notes**; ensure copy = raw markdown
+- [x] Replace any remaining "Private Notes" label with **Notes**; ensure copy = raw markdown
       everywhere a note/transcript is copyable.
-- [ ] Verify all three themes look correct on every screen (spot-check against the mockups).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Verify all three themes look correct on every screen (spot-check against the mockups).
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 10: Final review & sign-off
-- [ ] Walk every screen against its `design/mockups/v5/*.html` counterpart and fix mismatches in
+- [x] Walk every screen against its `design/mockups/v5/*.html` counterpart and fix mismatches in
       layout, spacing, states, copy, and interactions.
-- [ ] Run all Linux-compatible tests and the full macOS workflow; fix every build failure, test
+- [x] Run all Linux-compatible tests and the full macOS workflow; fix every build failure, test
       failure, and actionable warning.
-- [ ] Confirm no cloud service, login flow, browser extension, Electron, or Tauri dependency was
+- [x] Confirm no cloud service, login flow, browser extension, Electron, or Tauri dependency was
       added; confirm unverified real-audio/Sparkle/EventKit paths are marked "verified only on
       macOS / physical Mac".
-- [ ] Write a concise completion report in `docs/agent-progress.md` mapping each implemented
+- [x] Write a concise completion report in `docs/agent-progress.md` mapping each implemented
       screen/behavior to its mockup, and listing what still needs a physical-Mac smoke test.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.

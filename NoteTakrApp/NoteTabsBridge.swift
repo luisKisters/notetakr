@@ -6,6 +6,7 @@ final class NoteTabsBridge: ObservableObject {
     @Published private(set) var selectedTab: NoteTab = .privateNotes
     @Published private(set) var summaryState: SummaryState = .missing
     @Published private(set) var transcriptState: TranscriptState = .empty
+    @Published private(set) var speakerResolutions: [String: SpeakerResolution] = [:]
 
     let presenter: NoteTabsPresenter
     private(set) var currentNoteID: String?
@@ -42,5 +43,6 @@ final class NoteTabsBridge: ObservableObject {
         selectedTab = presenter.selectedTab(for: id)
         summaryState = presenter.summaryState(for: id)
         transcriptState = presenter.transcriptState(for: id)
+        speakerResolutions = presenter.speakerResolutions(for: id)
     }
 }

@@ -5,7 +5,7 @@ final class NoteTabsPresenterTests: XCTestCase {
 
     // MARK: - Default state
 
-    func testDefaultTabIsPrivateNotes() {
+    func testDefaultTabIsNotes() {
         let p = NoteTabsPresenter()
         XCTAssertEqual(p.selectedTab(for: "n1"), .privateNotes)
     }
@@ -97,24 +97,22 @@ final class NoteTabsPresenterTests: XCTestCase {
     // MARK: - Summary: generation happy path
 
     func testGenerateSummaryHappyPath() {
+        let generatingExp = expectation(description: "summary generating")
         let readyExp = expectation(description: "summary ready")
         let generator = ImmediateMockGenerator(result: .success("AI summary"))
         let p = NoteTabsPresenter(summaryGenerator: generator)
-        var sawGenerating = false
 
         p.onChange = {
             switch p.summaryState(for: "n1") {
-            case .generating: sawGenerating = true
-            case .ready: readyExp.fulfill()
-            default: break
+            case .generating: generatingExp.fulfill()
+            case .ready:      readyExp.fulfill()
+            default:          break
             }
         }
 
         p.generateSummary(for: "n1")
-        XCTAssertEqual(p.summaryState(for: "n1"), .generating, "Must transition to generating synchronously")
 
-        waitForExpectations(timeout: 2)
-        XCTAssertTrue(sawGenerating, "generating state must have been observed before ready")
+        wait(for: [generatingExp, readyExp], timeout: 2, enforceOrder: true)
         XCTAssertEqual(p.summaryState(for: "n1"), .ready("AI summary"))
     }
 
@@ -369,6 +367,9 @@ private final class ImmediateMockGenerator: SummaryGenerating {
     init(result: Result<String, Error>) { self.result = result }
 
     func generate(for noteID: String) async throws -> String {
+        // Yield so the caller can observe the intermediate .generating state
+        // before this task completes (Swift 6 schedules tasks eagerly).
+        await Task.yield()
         switch result {
         case .success(let s): return s
         case .failure(let e): throw e

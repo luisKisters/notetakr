@@ -12,12 +12,20 @@ public enum Chip: Equatable {
 // MARK: - PropertyRow
 
 public enum PropertyRow: Equatable {
-    case date(Date)
-    case calendarEvent(String?)
-    case participants([Participant])
-    case location(Location?)
+    /// Linked calendar event chip — id is nil when nothing is linked.
+    case event(id: String?, title: String)
+    /// Date and optional end date (for displaying time range in the panel).
+    case dateTime(date: Date, end: Date?)
+    /// Participant circles.
+    case people([Participant])
+    /// Free-text location (nil = "No location").
+    case location(String?)
+    /// Meeting URL, nil = "No link".
+    case meetingLink(String?)
+    /// In-person toggle.
     case inPerson(Bool)
-    case transcribe(Bool?)
+    /// Transcript row — renders the record pill or player depending on recording state.
+    case transcript
 }
 
 // MARK: - LinkedEventInfo
@@ -26,11 +34,27 @@ public struct LinkedEventInfo: Equatable {
     public var eventID: String
     public var title: String
     public var participants: [Participant]
+    public var startDate: Date?
+    public var endDate: Date?
+    public var locationText: String?
+    public var meetingLink: String?
 
-    public init(eventID: String, title: String, participants: [Participant] = []) {
+    public init(
+        eventID: String,
+        title: String,
+        participants: [Participant] = [],
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        locationText: String? = nil,
+        meetingLink: String? = nil
+    ) {
         self.eventID = eventID
         self.title = title
         self.participants = participants
+        self.startDate = startDate
+        self.endDate = endDate
+        self.locationText = locationText
+        self.meetingLink = meetingLink
     }
 }
 
@@ -79,12 +103,13 @@ public final class FrontmatterPresenter {
 
     public var propertyRows: [PropertyRow] {
         [
-            .date(note.date),
-            .calendarEvent(note.calendarEvent),
-            .participants(note.participants),
-            .location(note.location),
+            .event(id: note.calendarEvent, title: note.title),
+            .dateTime(date: note.date, end: note.end),
+            .people(note.participants),
+            .location(note.locationText),
+            .meetingLink(note.meetingLink),
             .inPerson(note.inPerson ?? false),
-            .transcribe(note.transcribe)
+            .transcript
         ]
     }
 
@@ -99,6 +124,16 @@ public final class FrontmatterPresenter {
     public func linkEvent(_ event: LinkedEventInfo) throws {
         note.calendarEvent = event.eventID
         note.title = event.title
+        if let startDate = event.startDate {
+            note.date = startDate
+            note.end = event.endDate
+        }
+        if let lt = event.locationText {
+            note.locationText = lt.isEmpty ? nil : lt
+        }
+        if let ml = event.meetingLink {
+            note.meetingLink = ml.isEmpty ? nil : ml
+        }
         for p in event.participants where !note.participants.contains(p) {
             note.participants.append(p)
         }
@@ -113,6 +148,7 @@ public final class FrontmatterPresenter {
     }
 
     public func addParticipant(_ participant: Participant) throws {
+        guard !note.participants.contains(participant) else { return }
         note.participants.append(participant)
         try store.save(note)
         onChange?()
@@ -120,6 +156,27 @@ public final class FrontmatterPresenter {
 
     public func removeParticipant(_ participant: Participant) throws {
         note.participants.removeAll { $0 == participant }
+        try store.save(note)
+        onChange?()
+    }
+
+    public func setLocationText(_ text: String?) throws {
+        let trimmed = text?.trimmingCharacters(in: .whitespaces)
+        note.locationText = trimmed?.isEmpty == false ? trimmed : nil
+        try store.save(note)
+        onChange?()
+    }
+
+    public func setMeetingLink(_ link: String?) throws {
+        let trimmed = link?.trimmingCharacters(in: .whitespaces)
+        note.meetingLink = trimmed?.isEmpty == false ? trimmed : nil
+        try store.save(note)
+        onChange?()
+    }
+
+    public func setDate(_ date: Date, end: Date? = nil) throws {
+        note.date = date
+        note.end = end
         try store.save(note)
         onChange?()
     }
@@ -147,7 +204,7 @@ public final class FrontmatterPresenter {
     }
 
     public func removeVocabularyTerm(_ term: String) throws {
-        note.vocabulary.removeAll { $0 == term }
+        note.vocabulary.removeAll { $0.caseInsensitiveCompare(term) == .orderedSame }
         try store.save(note)
         onChange?()
     }
@@ -164,6 +221,10 @@ public final class FrontmatterPresenter {
     }
 
     private func locationLabel() -> String? {
+        // Prefer free-text location when set
+        if let text = note.locationText, !text.isEmpty {
+            return text
+        }
         guard let loc = note.location else {
             return note.inPerson == true ? "In person" : nil
         }

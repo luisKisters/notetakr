@@ -1,8 +1,9 @@
 import Foundation
+import NoteTakrKit
 
 /// Turns a transcribed session into a summary by prompting an OpenRouter model.
 /// The active template supplies the system instruction; the rendered transcript
-/// (plus any linked event title and participants) is the user message.
+/// (plus any linked event title, participants, and user name) is the user message.
 public final class SummarizationService: @unchecked Sendable {
     private let client: OpenRouterClient
 
@@ -14,54 +15,36 @@ public final class SummarizationService: @unchecked Sendable {
         session: MeetingSession,
         template: SummaryTemplate,
         modelSlug: String,
-        apiKey: String
+        apiKey: String,
+        userName: String? = nil
     ) async throws -> String {
         let messages = [
             OpenRouterMessage(role: "system", content: template.prompt),
-            OpenRouterMessage(role: "user", content: Self.renderUserMessage(for: session)),
+            OpenRouterMessage(role: "user", content: Self.renderUserMessage(for: session, userName: userName)),
         ]
         return try await client.complete(apiKey: apiKey, model: modelSlug, messages: messages)
     }
 
-    /// Renders the transcript and any meeting context into the user message.
-    static func renderUserMessage(for session: MeetingSession) -> String {
-        var lines: [String] = []
+    /// Renders the transcript and meeting context into the user message.
+    /// Delegates to SummarizationPromptBuilder so the logic is Linux-testable.
+    static func renderUserMessage(for session: MeetingSession, userName: String? = nil) -> String {
+        let title = session.linkedEventTitle?.isEmpty == false
+            ? session.linkedEventTitle!
+            : session.title
 
-        if let eventTitle = session.linkedEventTitle, !eventTitle.isEmpty {
-            lines.append("Meeting: \(eventTitle)")
-        } else if !session.title.isEmpty {
-            lines.append("Meeting: \(session.title)")
+        let kitParticipants = session.participants.map {
+            NoteTakrKit.Participant(name: $0.name, email: $0.email)
         }
 
-        if !session.participants.isEmpty {
-            let names = session.participants.map { participant -> String in
-                if let email = participant.email, !email.isEmpty {
-                    return "\(participant.name) <\(email)>"
-                }
-                return participant.name
-            }
-            lines.append("Participants: \(names.joined(separator: ", "))")
+        let segments = session.transcriptSegments.map {
+            SummarizationSegment(speaker: $0.speaker, timestamp: $0.timestamp, text: $0.text)
         }
 
-        if !lines.isEmpty {
-            lines.append("")
-        }
-
-        lines.append("Transcript:")
-        if session.transcriptSegments.isEmpty {
-            lines.append("(no speech was transcribed)")
-        } else {
-            for segment in session.transcriptSegments {
-                let total = Int(segment.timestamp)
-                let timestamp = String(format: "%d:%02d", total / 60, total % 60)
-                if let speaker = segment.speaker {
-                    lines.append("[\(timestamp)] \(speaker): \(segment.text)")
-                } else {
-                    lines.append("[\(timestamp)] \(segment.text)")
-                }
-            }
-        }
-
-        return lines.joined(separator: "\n")
+        return SummarizationPromptBuilder.buildUserMessage(
+            title: title,
+            participants: kitParticipants,
+            userName: userName,
+            segments: segments
+        )
     }
 }

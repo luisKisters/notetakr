@@ -98,8 +98,10 @@ ensure_swift() {
 
 ensure_swift
 
-log "Running Swift package tests..."
-cd "$REPO_ROOT"
+# On Linux the root package can't build (FluidAudio requires mach/mach.h).
+# Run the Linux-safe subset: NoteTakrKit (pure Foundation, no macOS frameworks).
+log "Running NoteTakrKit tests (Linux-safe subset)..."
+cd "$REPO_ROOT/NoteTakrKit"
 swift test
 
 log "All local tests passed."

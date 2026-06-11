@@ -115,7 +115,7 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         let bridge = FrontmatterPresenterBridge(store: spy)
         bridge.load(note: note)
 
-        XCTAssertEqual(bridge.propertyRows.count, 6)
+        XCTAssertEqual(bridge.propertyRows.count, 7)
     }
 
     // MARK: - isExpanded resets on load

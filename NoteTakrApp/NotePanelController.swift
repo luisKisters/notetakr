@@ -14,23 +14,27 @@ final class NotePanelController {
     let tabsBridge: NoteTabsBridge
     let switcherBridge: SwitcherBridge
     let settingsBridge: SettingsSheetViewModel
+    let recordPillMachine: RecordPillStateMachine
 
     private let sessionStore: SessionStore?
     private let calendarEventsProvider = CalendarEventsProvider()
     private let appSettings: AppSettingsStore
+    private let vocabularyStore: VocabularyStore?
 
     // Recording wiring
     private var recordingBridge: RecordingNoteBridge?
     private var transcriptionAdapter: TranscriptionRequestingAdapter?
     private var elapsedTimer: Timer?
+    private var pillTickTimer: Timer?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
         bridge = NoteEditorBridge(store: store)
         frontmatterBridge = FrontmatterPresenterBridge(store: store)
+        recordPillMachine = RecordPillStateMachine()
 
         let settingsRoot = notesRoot.deletingLastPathComponent()
-        let localAppSettings = AppSettingsStore(root: settingsRoot)
+        let localAppSettings = appModel?.appSettings ?? AppSettingsStore(root: settingsRoot)
         appSettings = localAppSettings
         settingsBridge = SettingsSheetViewModel(
             frontmatterBridge: frontmatterBridge,
@@ -50,9 +54,11 @@ final class NotePanelController {
             generator = adapter
             sessionStoreRef = appModel.store
             transcriptionAdapter = TranscriptionRequestingAdapter(appModel: appModel)
+            vocabularyStore = appModel.vocabularyStore
         } else {
             generator = nil
             sessionStoreRef = nil
+            vocabularyStore = nil
         }
         sessionStore = sessionStoreRef
 
@@ -78,17 +84,19 @@ final class NotePanelController {
             noteListProvider: noteListProvider,
             eventsProvider: calendarEventsProvider,
             now: { Date() },
-            store: store
+            store: store,
+            defaultsProvider: localAppSettings
         )
         switcherBridge = SwitcherBridge(viewModel: switcherVM)
 
         buildPanel()
         wireSwitcher()
+        wireRecordPill(appModel: appModel)
     }
 
     /// Updates calendar events in the switcher from an external snapshot.
     func refreshCalendarEvents(from events: [CalendarEvent]) {
-        calendarEventsProvider.events = events.map { ce in
+        let upcoming = events.map { ce in
             UpcomingEvent(
                 id: ce.id,
                 title: ce.title,
@@ -96,10 +104,17 @@ final class NotePanelController {
                 end: ce.endDate,
                 participants: ce.attendees.map { p in
                     .init(name: p.name, email: p.email)
-                }
+                },
+                locationText: ce.location,
+                meetingLink: ce.url?.absoluteString
             )
         }
+        calendarEventsProvider.events = upcoming
+        frontmatterBridge.availableEvents = upcoming
     }
+
+    /// Returns currently available upcoming events for the property panel event chip.
+    var availableEvents: [UpcomingEvent] { calendarEventsProvider.events }
 
     // MARK: - Recording lifecycle
 
@@ -117,7 +132,8 @@ final class NotePanelController {
 
         guard let presenter = frontmatterBridge.presenter else { return }
 
-        let settings = EffectiveMeetingSettings.resolve(note: presenter.note, defaults: appSettings)
+        let globalVocab = (try? vocabularyStore?.enabledEntries())?.map { $0.phrase } ?? []
+        let settings = EffectiveMeetingSettings.resolve(note: presenter.note, defaults: appSettings, globalVocabulary: globalVocab)
         let recBridge = RecordingNoteBridge(
             frontmatterPresenter: presenter,
             tabsPresenter: tabsBridge.presenter,
@@ -180,7 +196,8 @@ final class NotePanelController {
                 frontmatterBridge: frontmatterBridge,
                 tabsBridge: tabsBridge,
                 switcherBridge: switcherBridge,
-                settingsBridge: settingsBridge
+                settingsBridge: settingsBridge,
+                recordPillMachine: recordPillMachine
             )
         )
         self.panel = p
@@ -198,6 +215,55 @@ final class NotePanelController {
         loadNote(id: note.id)
     }
 
+    /// Creates a blank note and loads it into the editor. Used by the ⌘N global hotkey.
+    func createNewNote() {
+        if let note = try? store.create(title: "Untitled meeting", date: Date()) {
+            loadNote(id: note.id)
+        }
+    }
+
+    private func wireRecordPill(appModel: AppModel?) {
+        guard let appModel else { return }
+        let machine = recordPillMachine
+
+        machine.onStarted = { [weak self, weak appModel] in
+            guard let appModel else { return }
+            Task { @MainActor in
+                await appModel.startRecording(title: nil)
+                // Start pill tick timer
+                self?.startPillTickTimer()
+            }
+        }
+
+        machine.onStopped = { [weak self, weak appModel] intent in
+            guard let appModel else { return }
+            let stoppedNoteID = self?.frontmatterBridge.noteID ?? ""
+            Task { @MainActor in
+                self?.stopPillTickTimer()
+                await appModel.stopRecording()
+                guard let self, !stoppedNoteID.isEmpty,
+                      self.frontmatterBridge.noteID == stoppedNoteID else { return }
+                self.frontmatterBridge.hasCompletedRecording = true
+                if intent == .summarize, !stoppedNoteID.isEmpty {
+                    try? self.tabsBridge.presenter.selectTab(.summary, for: stoppedNoteID)
+                    self.tabsBridge.generateSummary()
+                }
+            }
+        }
+    }
+
+    private func startPillTickTimer() {
+        pillTickTimer?.invalidate()
+        pillTickTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.recordPillMachine.tick() }
+        }
+    }
+
+    private func stopPillTickTimer() {
+        pillTickTimer?.invalidate()
+        pillTickTimer = nil
+    }
+
     private func wireSwitcher() {
         switcherBridge.onOpenNote = { [weak self] noteID in
             self?.loadNote(id: noteID)
@@ -210,6 +276,9 @@ final class NotePanelController {
             if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
                 self.loadNote(id: note.id)
             }
+        }
+        switcherBridge.onOpenSettings = { [weak self] in
+            self?.settingsBridge.isVisible = true
         }
     }
 

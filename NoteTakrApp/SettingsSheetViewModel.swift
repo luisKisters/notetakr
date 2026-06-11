@@ -8,6 +8,7 @@ enum SettingsTab: CaseIterable, Equatable {
     case general
     case recording
     case vocabulary
+    case updates
     case permissions
 }
 
@@ -26,6 +27,10 @@ final class SettingsSheetViewModel: ObservableObject {
 
     /// Called when the user records a new hotkey so the coordinator can re-register.
     var onHotkeyChange: ((HotkeyCombo) -> Void)?
+    /// Called when the user toggles auto-check-for-updates so the live updater can be updated.
+    var onAutoCheckForUpdatesChange: ((Bool) -> Void)?
+    /// Called when the user toggles auto-download-updates so the live updater can be updated.
+    var onAutoDownloadUpdatesChange: ((Bool) -> Void)?
 
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
@@ -94,6 +99,32 @@ final class SettingsSheetViewModel: ObservableObject {
     func setHotkey(_ combo: HotkeyCombo) {
         appSettings.hotkey = combo
         onHotkeyChange?(combo)
+    }
+
+    func setYourName(_ name: String) {
+        appSettings.yourName = name
+    }
+
+    func setInferNamesFromCalendar(_ value: Bool) {
+        appSettings.inferNamesFromCalendar = value
+    }
+
+    func setMicEnabled(_ value: Bool) {
+        appSettings.micEnabled = value
+    }
+
+    func setSystemAudioEnabled(_ value: Bool) {
+        appSettings.systemAudioEnabled = value
+    }
+
+    func setAutoCheckForUpdates(_ value: Bool) {
+        appSettings.autoCheckForUpdates = value
+        onAutoCheckForUpdatesChange?(value)
+    }
+
+    func setAutoDownloadUpdates(_ value: Bool) {
+        appSettings.autoDownloadUpdates = value
+        onAutoDownloadUpdatesChange?(value)
     }
 
     // MARK: - Sheet lifecycle

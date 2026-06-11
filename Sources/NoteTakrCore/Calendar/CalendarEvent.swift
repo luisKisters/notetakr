@@ -5,6 +5,8 @@ public struct CalendarEvent: Equatable, Sendable, Identifiable {
     public let title: String
     public let startDate: Date
     public let endDate: Date
+    /// Physical location string from the calendar event (e.g. "Acme HQ · Room 4").
+    public let location: String?
     public let url: URL?
     public let notes: String?
     public let attendees: [Participant]
@@ -15,6 +17,7 @@ public struct CalendarEvent: Equatable, Sendable, Identifiable {
         title: String,
         startDate: Date,
         endDate: Date,
+        location: String? = nil,
         url: URL? = nil,
         notes: String? = nil,
         attendees: [Participant] = [],
@@ -24,6 +27,7 @@ public struct CalendarEvent: Equatable, Sendable, Identifiable {
         self.title = title
         self.startDate = startDate
         self.endDate = endDate
+        self.location = location
         self.url = url
         self.notes = notes
         self.attendees = attendees

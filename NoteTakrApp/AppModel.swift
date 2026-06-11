@@ -1,4 +1,5 @@
 import AppKit
+import NoteTakrKit
 import NoteTakrCore
 
 /// Single shared source of truth for the app: owns the session store, recorder,
@@ -14,6 +15,7 @@ final class AppModel: ObservableObject {
     let transcriptionSettingsStore: TranscriptionSettingsStore
     let summaryTemplateStore: SummaryTemplateStore
     let summarizationSettingsStore: SummarizationSettingsStore
+    let appSettings: AppSettingsStore
     let keychainStore: KeychainStore
     private let summarizationService = SummarizationService()
 
@@ -65,6 +67,7 @@ final class AppModel: ObservableObject {
         summarizationSettingsStore = SummarizationSettingsStore(
             fileURL: base.appendingPathComponent("NoteTakr/summarization-settings.json")
         )
+        appSettings = AppSettingsStore(root: base.appendingPathComponent("NoteTakr"))
         keychainStore = KeychainStore()
         recordingManager = RecordingManager(store: store, recorder: NativeAudioRecorder())
 
@@ -195,11 +198,13 @@ final class AppModel: ObservableObject {
 
         let latest = (try? store.load(id: session.id)) ?? session
         do {
+            let yourName = appSettings.yourName
             let summary = try await summarizationService.summarize(
                 session: latest,
                 template: template,
                 modelSlug: settings.selectedModelSlug,
-                apiKey: apiKey
+                apiKey: apiKey,
+                userName: yourName.isEmpty ? nil : yourName
             )
             var updated = latest
             updated.summary = summary

@@ -33,6 +33,12 @@ public enum FrontmatterSerializer {
         if let loc = note.location {
             lines.append("location: \(loc.rawValue)")
         }
+        if let lt = note.locationText {
+            lines.append("location_text: \(quoteIfNeeded(lt))")
+        }
+        if let ml = note.meetingLink {
+            lines.append("meeting_link: \(quoteIfNeeded(ml))")
+        }
         if let ip = note.inPerson {
             lines.append("in_person: \(ip ? "true" : "false")")
         }
@@ -90,13 +96,15 @@ public enum FrontmatterSerializer {
         var calendarEvent: String? = nil
         var participants: [Participant] = []
         var location: Location? = nil
+        var locationText: String? = nil
+        var meetingLink: String? = nil
         var inPerson: Bool? = nil
         var transcribe: Bool? = nil
         var language: TranscribeLanguage? = nil
         var vocabulary: [String] = []
         var unknownKeys: [(key: String, rawLine: String)] = []
 
-        let knownKeys: Set<String> = ["id","title","date","end","calendar_event","participants","location","in_person","transcribe","language","vocabulary"]
+        let knownKeys: Set<String> = ["id","title","date","end","calendar_event","participants","location","location_text","meeting_link","in_person","transcribe","language","vocabulary"]
 
         let lines = fm.components(separatedBy: "\n")
         var i = 0
@@ -157,6 +165,10 @@ public enum FrontmatterSerializer {
                     participants = parseList(valuePart).map { parseParticipant($0) }
                 case "location":
                     location = parseLocation(valuePart)
+                case "location_text":
+                    locationText = valuePart.isEmpty ? nil : unquote(valuePart)
+                case "meeting_link":
+                    meetingLink = valuePart.isEmpty ? nil : unquote(valuePart)
                 case "in_person":
                     inPerson = parseBool(valuePart)
                 case "transcribe":
@@ -185,6 +197,8 @@ public enum FrontmatterSerializer {
             calendarEvent: calendarEvent,
             participants: participants,
             location: location,
+            locationText: locationText,
+            meetingLink: meetingLink,
             inPerson: inPerson,
             transcribe: transcribe,
             language: language,

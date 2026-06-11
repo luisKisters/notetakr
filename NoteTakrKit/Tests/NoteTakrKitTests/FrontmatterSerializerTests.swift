@@ -309,4 +309,57 @@ final class FrontmatterSerializerTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - New fields: location_text and meeting_link
+
+    func testRoundTrip_locationText() {
+        let date = makeDate(2026, 6, 10, 14, 0)
+        let note = MeetingNote(
+            id: "LOC1", title: "Test",
+            date: date,
+            locationText: "Acme HQ · Room 4"
+        )
+        let rt = FrontmatterSerializer.parse(fileText: FrontmatterSerializer.render(note: note))
+        XCTAssertEqual(rt.locationText, "Acme HQ · Room 4")
+    }
+
+    func testRoundTrip_meetingLink() {
+        let date = makeDate(2026, 6, 10, 14, 0)
+        let note = MeetingNote(
+            id: "LINK1", title: "Test",
+            date: date,
+            meetingLink: "https://zoom.us/j/8421337"
+        )
+        let rt = FrontmatterSerializer.parse(fileText: FrontmatterSerializer.render(note: note))
+        XCTAssertEqual(rt.meetingLink, "https://zoom.us/j/8421337")
+    }
+
+    func testRoundTrip_bothNewFields() {
+        let date = makeDate(2026, 6, 10, 14, 0)
+        let note = MeetingNote(
+            id: "BOTH1", title: "Weekly Sync",
+            date: date,
+            locationText: "Café Nord",
+            meetingLink: "https://meet.google.com/abc-defg-hij"
+        )
+        let rt = FrontmatterSerializer.parse(fileText: FrontmatterSerializer.render(note: note))
+        XCTAssertEqual(rt.locationText, "Café Nord")
+        XCTAssertEqual(rt.meetingLink, "https://meet.google.com/abc-defg-hij")
+    }
+
+    func testRoundTrip_nilLocationTextAndLink() {
+        let date = makeDate(2026, 6, 10, 14, 0)
+        let note = MeetingNote(id: "NIL1", title: "Test", date: date)
+        let rt = FrontmatterSerializer.parse(fileText: FrontmatterSerializer.render(note: note))
+        XCTAssertNil(rt.locationText)
+        XCTAssertNil(rt.meetingLink)
+    }
+
+    func testRender_omitsLocationTextAndLinkWhenNil() {
+        let date = makeDate(2026, 6, 10, 14, 0)
+        let note = MeetingNote(id: "NIL2", title: "Test", date: date)
+        let rendered = FrontmatterSerializer.render(note: note)
+        XCTAssertFalse(rendered.contains("location_text"))
+        XCTAssertFalse(rendered.contains("meeting_link"))
+    }
 }

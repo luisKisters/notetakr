@@ -1,6 +1,7 @@
 import AppKit
 import Sparkle
 import SwiftUI
+import NoteTakrKit
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var notePanelController: NotePanelController?
     private var panelCoordinator: PanelToggleCoordinator?
     private var updaterController: SPUStandardUpdaterController?
+    private var newNoteRegistrar: CarbonHotkeyRegistrar?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -40,13 +42,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusBarController = StatusBarController(model: .shared, notePanelController: npc)
+        registerNewNoteHotkey(npc: npc)
         startUpdaterIfConfigured()
+
+        npc.settingsBridge.onAutoCheckForUpdatesChange = { [weak self] value in
+            self?.updaterController?.updater.automaticallyChecksForUpdates = value
+        }
+        npc.settingsBridge.onAutoDownloadUpdatesChange = { [weak self] value in
+            self?.updaterController?.updater.automaticallyDownloadsUpdates = value
+        }
+
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         notePanelController?.show()
         return true
+    }
+
+    private func registerNewNoteHotkey(npc: NotePanelController) {
+        guard let combo = try? HotkeyCombo(modifiers: .command, key: "N") else { return }
+        let registrar = CarbonHotkeyRegistrar(hotkeyID: 2)
+        registrar.register(combo: combo) { [weak npc] in
+            Task { @MainActor in
+                // Switcher handles ⌘N via its own SwiftUI shortcut; skip to avoid double creation.
+                guard let npc, !npc.switcherBridge.isVisible else { return }
+                npc.createNewNote()
+                npc.show()
+            }
+        }
+        newNoteRegistrar = registrar
     }
 
     private func startUpdaterIfConfigured() {
@@ -61,10 +86,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             userDriverDelegate: nil
         )
         updaterController = controller
+        let settings = notePanelController?.settingsBridge.appSettings
+        controller.updater.automaticallyChecksForUpdates = settings?.autoCheckForUpdates ?? true
+        controller.updater.automaticallyDownloadsUpdates = settings?.autoDownloadUpdates ?? false
         controller.startUpdater()
-        controller.updater.automaticallyChecksForUpdates = true
-        controller.updater.automaticallyDownloadsUpdates = true
         controller.updater.checkForUpdatesInBackground()
+
+        NotificationCenter.default.addObserver(
+            forName: .noteTakrCheckForUpdates,
+            object: nil,
+            queue: .main
+        ) { [weak controller] _ in
+            controller?.checkForUpdates(nil)
+        }
     }
 
     private var hasSparkleConfiguration: Bool {
@@ -82,4 +116,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && !trimmed.hasPrefix("$(")
     }
+}
+
+// MARK: - Notification names
+
+extension Notification.Name {
+    static let noteTakrCheckForUpdates = Notification.Name("NoteTakrCheckForUpdates")
 }

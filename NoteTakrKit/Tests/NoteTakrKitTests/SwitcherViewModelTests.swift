@@ -25,8 +25,10 @@ final class SwitcherViewModelTests: XCTestCase {
     }
 
     private func makeEvent(id: String, title: String, start: Date, end: Date? = nil,
-                           participants: [Participant] = []) -> UpcomingEvent {
-        UpcomingEvent(id: id, title: title, start: start, end: end, participants: participants)
+                           participants: [Participant] = [],
+                           meetingLink: String? = nil) -> UpcomingEvent {
+        UpcomingEvent(id: id, title: title, start: start, end: end,
+                      participants: participants, meetingLink: meetingLink)
     }
 
     private func makeVM(notes: [MeetingNote] = [], events: [UpcomingEvent] = [],
@@ -43,7 +45,7 @@ final class SwitcherViewModelTests: XCTestCase {
         return (vm, spy)
     }
 
-    // MARK: - Grouping: Today / Yesterday / Tomorrow
+    // MARK: - Grouping: 4-bucket recency labels
 
     func testTodayNoteAppearsInTodayGroup() {
         let note = makeNote(id: "1", title: "Standup", date: utcDate(2026, 6, 10, 9))
@@ -57,10 +59,30 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertTrue(vm.groups.contains { $0.label == "Yesterday" })
     }
 
-    func testTomorrowEventAppearsInTomorrowGroup() {
+    func testFutureEventAppearsInUpcomingGroup() {
         let event = makeEvent(id: "e1", title: "Kickoff", start: utcDate(2026, 6, 11, 10))
         let (vm, _) = makeVM(events: [event])
-        XCTAssertTrue(vm.groups.contains { $0.label == "Tomorrow" })
+        XCTAssertTrue(vm.groups.contains { $0.label == "Upcoming" }, "Expected 'Upcoming' label, got: \(vm.groups.map { $0.label })")
+    }
+
+    func testFarFutureEventAppearsInUpcomingGroup() {
+        // A week from now should still be "Upcoming"
+        let event = makeEvent(id: "e1", title: "Review", start: utcDate(2026, 6, 17, 10))
+        let (vm, _) = makeVM(events: [event])
+        XCTAssertTrue(vm.groups.contains { $0.label == "Upcoming" }, "Expected 'Upcoming' label for far-future event, got: \(vm.groups.map { $0.label })")
+    }
+
+    func testOlderPastNoteAppearsInEarlierGroup() {
+        // 2 days ago → "Earlier"
+        let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 6, 8, 10))
+        let (vm, _) = makeVM(notes: [note])
+        XCTAssertTrue(vm.groups.contains { $0.label == "Earlier" }, "Expected 'Earlier' label, got: \(vm.groups.map { $0.label })")
+    }
+
+    func testAncientNoteAppearsInEarlierGroup() {
+        let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 5, 1, 10))
+        let (vm, _) = makeVM(notes: [note])
+        XCTAssertTrue(vm.groups.contains { $0.label == "Earlier" }, "Expected 'Earlier' label, got: \(vm.groups.map { $0.label })")
     }
 
     func testFutureGroupsBeforeCurrentAndPastGroups() {
@@ -68,9 +90,9 @@ final class SwitcherViewModelTests: XCTestCase {
         let futureEvent = makeEvent(id: "e1", title: "Future", start: utcDate(2026, 6, 11, 10))
         let (vm, _) = makeVM(notes: [pastNote], events: [futureEvent])
         let labels = vm.groups.map { $0.label }
-        let tomorrowIdx = labels.firstIndex(of: "Tomorrow")!
+        let upcomingIdx = labels.firstIndex(of: "Upcoming")!
         let yesterdayIdx = labels.firstIndex(of: "Yesterday")!
-        XCTAssertLessThan(tomorrowIdx, yesterdayIdx, "Future groups must appear before past groups")
+        XCTAssertLessThan(upcomingIdx, yesterdayIdx, "Upcoming must appear before Yesterday")
     }
 
     func testTodayGroupBetweenFutureAndPast() {
@@ -79,31 +101,11 @@ final class SwitcherViewModelTests: XCTestCase {
         let futureEvent = makeEvent(id: "e1", title: "Future", start: utcDate(2026, 6, 11, 10))
         let (vm, _) = makeVM(notes: [todayNote, pastNote], events: [futureEvent])
         let labels = vm.groups.map { $0.label }
-        let tomorrowIdx = labels.firstIndex(of: "Tomorrow")!
+        let upcomingIdx = labels.firstIndex(of: "Upcoming")!
         let todayIdx = labels.firstIndex(of: "Today")!
         let yesterdayIdx = labels.firstIndex(of: "Yesterday")!
-        XCTAssertLessThan(tomorrowIdx, todayIdx)
+        XCTAssertLessThan(upcomingIdx, todayIdx)
         XCTAssertLessThan(todayIdx, yesterdayIdx)
-    }
-
-    func testWeekdayLabelForFutureDayIn2To7Range() {
-        // 2026-06-12 is a Friday
-        let event = makeEvent(id: "e1", title: "Review", start: utcDate(2026, 6, 12, 10))
-        let (vm, _) = makeVM(events: [event])
-        XCTAssertTrue(vm.groups.contains { $0.label == "Friday" }, "Expected 'Friday' label, got: \(vm.groups.map { $0.label })")
-    }
-
-    func testWeekdayLabelForPastDayIn2To7DaysAgo() {
-        // 2026-06-08 is a Monday (2 days ago)
-        let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 6, 8, 10))
-        let (vm, _) = makeVM(notes: [note])
-        XCTAssertTrue(vm.groups.contains { $0.label == "Monday" }, "Expected 'Monday' label, got: \(vm.groups.map { $0.label })")
-    }
-
-    func testOldDateUsesShortFormat() {
-        let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 5, 1, 10))
-        let (vm, _) = makeVM(notes: [note])
-        XCTAssertTrue(vm.groups.contains { $0.label == "May 1" }, "Expected 'May 1' label, got: \(vm.groups.map { $0.label })")
     }
 
     // MARK: - Ordering within groups
@@ -112,15 +114,15 @@ final class SwitcherViewModelTests: XCTestCase {
         let e1 = makeEvent(id: "e1", title: "First",  start: utcDate(2026, 6, 11, 9))
         let e2 = makeEvent(id: "e2", title: "Second", start: utcDate(2026, 6, 11, 14))
         let (vm, _) = makeVM(events: [e2, e1])  // intentionally reversed
-        guard let group = vm.groups.first(where: { $0.label == "Tomorrow" }) else {
-            return XCTFail("No Tomorrow group")
+        guard let group = vm.groups.first(where: { $0.label == "Upcoming" }) else {
+            return XCTFail("No Upcoming group")
         }
         let titles = group.items.map { itemTitle($0) }
         XCTAssertEqual(titles, ["First", "Second"])
     }
 
     func testPastGroupItemsDescending() {
-        let n1 = makeNote(id: "n1", title: "Morning", date: utcDate(2026, 6, 9, 9))
+        let n1 = makeNote(id: "n1", title: "Morning",   date: utcDate(2026, 6, 9, 9))
         let n2 = makeNote(id: "n2", title: "Afternoon", date: utcDate(2026, 6, 9, 14))
         let (vm, _) = makeVM(notes: [n1, n2])
         guard let group = vm.groups.first(where: { $0.label == "Yesterday" }) else {
@@ -165,7 +167,6 @@ final class SwitcherViewModelTests: XCTestCase {
         let event = makeEvent(id: "cal-1", title: "Standup", start: utcDate(2026, 6, 10, 9))
         let (vm, _) = makeVM(notes: [note], events: [event])
         let allItems = vm.groups.flatMap { $0.items }
-        // Only the note should appear, not the event
         XCTAssertEqual(allItems.count, 1)
         if case .note(let id, _, _, _) = allItems[0].kind {
             XCTAssertEqual(id, "n1")
@@ -254,6 +255,75 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertEqual(vm.groups.flatMap { $0.items }.count, 1, "Should match 'Café' with query 'cafe'")
     }
 
+    // MARK: - Command surfacing
+
+    func testSearchSettingsSurfacesOpenSettingsCommand() {
+        let (vm, _) = makeVM()
+        vm.searchQuery = "settings"
+        let allItems = vm.groups.flatMap { $0.items }
+        let cmdItems = allItems.filter {
+            if case .command(let c) = $0.kind { return c.id == .openSettings }
+            return false
+        }
+        XCTAssertEqual(cmdItems.count, 1, "Typing 'settings' must surface the Open Settings command")
+    }
+
+    func testSearchPreferencesSurfacesOpenSettingsCommand() {
+        let (vm, _) = makeVM()
+        vm.searchQuery = "pref"
+        let allItems = vm.groups.flatMap { $0.items }
+        let cmdItems = allItems.filter {
+            if case .command(let c) = $0.kind { return c.id == .openSettings }
+            return false
+        }
+        XCTAssertEqual(cmdItems.count, 1, "Typing 'pref' must surface Open Settings (prefix of 'preferences')")
+    }
+
+    func testSearchNewSurfacesNewNoteCommand() {
+        let (vm, _) = makeVM()
+        vm.searchQuery = "new"
+        let allItems = vm.groups.flatMap { $0.items }
+        let cmdItems = allItems.filter {
+            if case .command(let c) = $0.kind { return c.id == .newNote }
+            return false
+        }
+        XCTAssertEqual(cmdItems.count, 1, "Typing 'new' must surface the New note command")
+    }
+
+    func testCommandsGroupLabelIsCommands() {
+        let (vm, _) = makeVM()
+        vm.searchQuery = "settings"
+        XCTAssertTrue(vm.groups.contains { $0.label == "Commands" }, "Command rows must be in a 'Commands' group")
+    }
+
+    func testCommandsGroupLeadsOtherGroups() {
+        let note = makeNote(id: "n1", title: "Settings meeting", date: utcDate(2026, 6, 9, 10))
+        let (vm, _) = makeVM(notes: [note])
+        vm.searchQuery = "settings"
+        guard let firstGroup = vm.groups.first else { return XCTFail("No groups") }
+        XCTAssertEqual(firstGroup.label, "Commands", "Commands group must appear before meeting groups")
+    }
+
+    func testEmptyQueryDoesNotSurfaceCommands() {
+        let (vm, _) = makeVM()
+        vm.searchQuery = ""
+        let cmdItems = vm.groups.flatMap { $0.items }.filter {
+            if case .command = $0.kind { return true }
+            return false
+        }
+        XCTAssertTrue(cmdItems.isEmpty, "Commands must NOT appear when query is empty")
+    }
+
+    func testUnrelatedQueryDoesNotSurfaceCommands() {
+        let (vm, _) = makeVM()
+        vm.searchQuery = "standup"
+        let cmdItems = vm.groups.flatMap { $0.items }.filter {
+            if case .command = $0.kind { return true }
+            return false
+        }
+        XCTAssertTrue(cmdItems.isEmpty, "Unrelated query must not surface command rows")
+    }
+
     // MARK: - Selection and navigation
 
     func testInitialSelectionIsZero() {
@@ -319,6 +389,12 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertNil(vm.open(), "open() must return nil when a ghost event is selected")
     }
 
+    func testOpenReturnsNilWhenCommandSelected() {
+        let (vm, _) = makeVM()
+        vm.searchQuery = "settings"
+        XCTAssertNil(vm.open(), "open() must return nil when a command row is selected")
+    }
+
     func testSelectionClampedAfterSearchFiltersItems() {
         let notes = [
             makeNote(id: "n1", title: "Alpha", date: utcDate(2026, 6, 9, 14)),
@@ -328,6 +404,59 @@ final class SwitcherViewModelTests: XCTestCase {
         vm.moveDown()  // selectedIndex = 1
         vm.searchQuery = "alpha"  // only 1 item remains; index should clamp to 0
         XCTAssertEqual(vm.selectedIndex, 0)
+    }
+
+    // MARK: - Deterministic icon mapping
+
+    func testIconKindForGhostEventIsGhostEvent() {
+        let event = makeEvent(id: "e1", title: "Lunch", start: utcDate(2026, 6, 11, 12))
+        let item = SwitcherItem(kind: .event(event), dotState: .upcoming)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .ghostEvent)
+    }
+
+    func testIconKindForEventWithMeetingLinkIsVideoCall() {
+        let event = makeEvent(id: "e1", title: "Zoom call", start: utcDate(2026, 6, 11, 12),
+                              meetingLink: "https://zoom.us/j/123")
+        let item = SwitcherItem(kind: .event(event), dotState: .upcoming)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .videoCall)
+    }
+
+    func testIconKindForNoteWithNoParticipantsIsSoloNote() {
+        let note = makeNote(id: "n1", title: "Scratch", date: utcDate(2026, 6, 9, 10))
+        let item = SwitcherItem(kind: .note(id: "n1", title: "Scratch",
+                                            date: utcDate(2026, 6, 9, 10), participants: []),
+                                dotState: .past)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .soloNote)
+    }
+
+    func testIconKindForNoteWithOneParticipantIsOneOnOne() {
+        let item = SwitcherItem(kind: .note(id: "n1", title: "1:1",
+                                            date: utcDate(2026, 6, 9, 10),
+                                            participants: [Participant(name: "Alice")]),
+                                dotState: .past)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .oneOnOne)
+    }
+
+    func testIconKindForNoteWithTwoParticipantsIsGroupMeeting() {
+        let item = SwitcherItem(kind: .note(id: "n1", title: "Standup",
+                                            date: utcDate(2026, 6, 9, 10),
+                                            participants: [Participant(name: "Alice"), Participant(name: "Bob")]),
+                                dotState: .past)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .groupMeeting)
+    }
+
+    func testIconKindForOpenSettingsCommand() {
+        let cmd = SwitcherCommand(id: .openSettings, title: "Open Settings\u{2026}",
+                                  subtitle: "", shortcut: "\u{2318},")
+        let item = SwitcherItem(kind: .command(cmd), dotState: .past)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .openSettings)
+    }
+
+    func testIconKindForNewNoteCommand() {
+        let cmd = SwitcherCommand(id: .newNote, title: "New note",
+                                  subtitle: "", shortcut: "\u{2318}N")
+        let item = SwitcherItem(kind: .command(cmd), dotState: .past)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .newNote)
     }
 
     // MARK: - createNote(from:)
@@ -392,8 +521,7 @@ final class SwitcherViewModelTests: XCTestCase {
         let event = makeEvent(id: "e1", title: "Live Meeting",
                               start: utcDate(2026, 6, 10, 9),
                               end:   utcDate(2026, 6, 10, 11))
-        let (vm, spy) = makeVM()
-        // After createNote, the spy's listNotes() will return the new note
+        let (vm, _) = makeVM()
         let note = try vm.createNote(from: event)
         let allItems = vm.groups.flatMap { $0.items }
         XCTAssertTrue(allItems.contains { item in
@@ -450,6 +578,7 @@ final class SwitcherViewModelTests: XCTestCase {
         switch item.kind {
         case .note(_, let title, _, _): return title
         case .event(let e): return e.title
+        case .command(let c): return c.title
         }
     }
 }

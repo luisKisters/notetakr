@@ -109,3 +109,217 @@ No cloud service, login flow, browser extension, Electron dependency, Tauri depe
 6. Configure a FluidAudio model folder or automatic download in Settings, then test local transcription.
 7. Confirm `note.md` is auto-generated after transcription and "Open Note" opens it.
 8. If all checks pass, merge next-product-phase into main.
+
+---
+
+## Project: NoteTakr v5 Redesign (redesign-implementation branch)
+
+### Summary
+
+The redesign-implementation branch is complete. All ten planned tasks were implemented and verified. This phase implemented the full v5 UI redesign matching the interactive HTML mockups in `design/mockups/v5/`.
+
+### Screen-by-screen implementation mapping
+
+**Editor screen** (`design/mockups/v5/editor.html` → `NoteTakrApp/Views/EditorView.swift`, `MarkdownBodyView.swift`)
+- Title H1, then compact metastrip preview row (record pill first, divider, time chip, expand chevron)
+- Whole preview row is the hit target for expand/collapse; record pill intercepts its own taps
+- Rendered markdown body: headings, bullets/numbered, task checkboxes, inline code, code blocks, blockquotes, hr, bold/italic
+- No copy button — select-all + copy yields raw markdown source; copy hint ("⌘A ⌘C → raw markdown") visible at bottom of notes pane
+- Footer tabs: Notes · Summary · Transcript (active = purple, animated)
+
+**Frontmatter panel** (`design/mockups/v5/frontmatter.html` → `PropertyPanelView.swift`, `ChipsRowView.swift`)
+- Expandable props rows (animate in/out on expand): Event chip, Date & time, People circles, Location, Meeting link, In-person, Transcript
+- Fields show editable state on hover/click
+- People as initials circles (overflow-safe); hover swaps for ✕ with name/email tooltip; menu offers Remove
+- In-person toggle with "?" explainer popover (mic-only explanation)
+- Transcript row shows record pill; after recording done shows seekable audio player
+
+**Record control** (`design/mockups/v5/recording.html` → `RecordPillView.swift`, `RecordPillStateMachine.swift`)
+- Monochrome pill, fixed width; indicator dot only: gray (idle), red (recording), amber breathing (paused)
+- State machine: idle → recording (mm:ss) → paused → menu (Resume / Stop & Transcribe / Stop & Summarize)
+- Menu opens below pill with spring animation; Stop & Summarize triggers summary generation
+- Audio player appears in transcript row after recording finishes
+- ⌘N global new-note shortcut registered
+
+**⌘K Switcher** (`design/mockups/v5/switcher.html` → `SwitcherOverlayView.swift`, `SwitcherViewModel.swift`)
+- Frost overlay over dimmed/blurred note; full-window mode available via toggle
+- Two-line rows: monochrome deterministic icons, title + subtitle, right-aligned time
+- Soft hover with hairline border; "now" pill (purple) only on current meeting
+- Agenda timeline mode: continuous vertical fading line, dots (current filled, upcoming ring, past faint)
+- Typeable search filters live; ↑/↓ navigation; Enter opens; Esc closes; ⌘K toggles
+- "settings" / "new" surface Open Settings (⌘,) and New note (⌘N) command rows
+- Grouped by recency: Upcoming / Today / Yesterday / Earlier
+
+**Transcript & Summary** (`design/mockups/v5/transcript.html` → `TranscriptView.swift`, `SummaryView.swift`, `TranscriptMerger.swift`)
+- Speaker as bold lead-in, paragraphs, Collapse all / Expand all toolbar
+- Same-speaker consecutive segments merged into one turn
+- Mic + system-audio transcripts merged chronologically by start time
+- Speaker naming: mic → local user, system audio → calendar participant or "Speaker 2"; uncertain → "Speaker · most likely <name>"
+- In-person: mic-only diarization
+- Copy yields markdown (`**Speaker:** text`)
+- Summary tab: empty state → Generate button (sparkle icon) → spinner → rendered markdown
+
+**Settings** (`design/mockups/v5/settings.html` → `SettingsSheetView.swift`, `SettingsSheetViewModel.swift`)
+- Sheet over blurred note; icon tabs: This Meeting · General · Recording · Vocabulary · Updates · Permissions
+- Whole row is hit target; Esc closes; footer "Close + esc pill"
+- This Meeting: scope banner (purple), transcribe toggle + timer, in-person, language, linked event, per-meeting vocabulary
+- General: defaults, Models section (transcription + summary model), hotkey, ⌘N, launch at login, Notes folder, Appearance
+- Recording: mic + system-audio sources, speaker naming, your name
+- Vocabulary: global custom-vocabulary editor — add/remove terms, persists, passed to transcription adapter
+- Updates: Check for Updates + auto-check toggle wired to Sparkle (macOS only; no-op stub on Linux)
+- Permissions: Microphone, Screen & system audio, Calendar with granted/ask states
+
+**Three appearance themes** (`design/mockups/v5/kit.css` → `Theme.swift`, `ThemeEnvironment.swift`)
+- Glass: blur + saturate + hairline highlight via VisualEffectView
+- Dark: solid #151417 background
+- Light: warm paper #FAF8F4 background
+- All views read ThemeColors via environment; accent #8B5CF6/#A78BFA; red only for REC dot; amber for paused
+
+**Animations and polish** (Tasks 9 cross-cutting)
+- Panel expand/collapse: easeInOut 0.2s
+- Record menu: spring scale+opacity transition
+- Switcher open/close: easeInOut 0.15s opacity
+- Summary spinner: continuous rotation
+- Tab switching: easeInOut 0.15s
+- Traffic lights: dimmed until hover, color on hover
+
+### Dependency audit
+
+No cloud service, login flow, browser extension, Electron, or Tauri dependency was added. Dependencies:
+- `FluidAudio` — local on-device transcription (no cloud calls)
+- `NoteTakrKit` — local pure-Swift logic package
+- `Sparkle` — macOS app updater (local binary; no cloud data collection)
+- `AppKit`, `AVFoundation`, `ScreenCaptureKit`, `EventKit` — macOS system frameworks (all behind `#if canImport(...)` guards)
+
+### macOS-only paths (not verified on Linux)
+
+The following require a physical Mac for smoke testing; each is guarded with `#if canImport(...)` or clearly marked:
+
+| Path | Guard | Status |
+|------|-------|--------|
+| `NativeAudioRecorder.swift` | `#if canImport(AVFoundation)` | "Verified only on macOS runner / physical Mac" comment |
+| `SystemAudioCapturer.swift` | `#if canImport(ScreenCaptureKit)` | "Verified only on macOS runner / physical Mac" comment |
+| `EventKitCalendarAdapter.swift` | `#if canImport(EventKit)` | All EventKit calls inside guard |
+| `AudioPlayerView.swift` | AppKit/AVFoundation path | "Verified only on macOS runner" comment |
+| `MarkdownBodyView.swift` | `#if canImport(AppKit)` | NSPasteboard copy only on macOS |
+| `AppDelegate.swift` — Sparkle | macOS-only binary | Guarded by `hasSparkleConfiguration` check; no-op if not configured |
+| `SettingsSheetView.swift` — Sparkle check | Runtime guard | "Sparkle check is macOS-only; on Linux / simulator this is a no-op UI stub" comment |
+
+### Test coverage (Linux-runnable, 449 tests, 0 failures)
+
+- `AppSettingsStoreTests` / `AppSettingsStoreTask8Tests` — settings persistence, model selection, Sparkle toggles
+- `FrontmatterPresenterTests` / `FrontmatterSerializerTests` — calendar→frontmatter mapping, in-person, add/remove participants
+- `MarkdownBodyParserTests` — all block types render and copy returns raw source
+- `NoteEditorViewModelTests` — title/body edits, flush
+- `NoteStoreTests` — CRUD persistence
+- `NoteTabsPresenterTests` — tab selection persistence, flush
+- `RecordPillStateMachineTests` — all transitions, timer, summarize intent
+- `RecordingNoteBridgeTests` — recording→note wiring
+- `SettingsTask8Tests` — vocabulary add/remove/persist (global + per-meeting), model selection
+- `SummarizationPromptBuilderTests` — prompt contains speaker-inference instruction + participant context
+- `SwitcherViewModelTests` — query filtering, command surfacing, keyboard nav, deterministic icons, group by recency
+- `Task9PolishTests` — theme hex spot-checks, accent/amber/rec-red constants, raw markdown copy preservation
+- `ThemeTests` — all three themes resolve expected palette
+- `TranscriptMergerTests` — same-speaker merge, two-stream interleave, overlap, naming, in-person, rename propagation, copy-as-markdown
+
+### Physical Mac smoke test checklist
+
+The following require a real Mac and are outside the automated test scope:
+
+- [ ] Window appears as compact ~420×620 floating panel with corner radius 16
+- [ ] Traffic lights dim until hover; gear button top-right opens Settings; ⌘, also opens Settings
+- [ ] All three themes (Glass/Dark/Light) render correctly on every screen
+- [ ] Record pill: idle → click → recording (mm:ss ticking) → click → paused (amber breathing) → click → menu
+- [ ] Stop & Transcribe produces a transcript; Stop & Summarize switches to Summary tab and generates
+- [ ] Audio player appears in frontmatter Transcript row after recording ends; scrubbing works
+- [ ] ⌘N opens a new note from any app (global hotkey)
+- [ ] ⌘K opens/closes switcher; typing filters; ↑/↓/Enter/Esc all work
+- [ ] Calendar events appear in switcher after granting Calendar permission
+- [ ] Frontmatter panel expands/collapses; event chip switches and updates all fields
+- [ ] Vocabulary terms added in Settings → Vocabulary are passed to transcription
+- [ ] Updates tab: Check for Updates contacts Sparkle; auto-check toggle persists
+- [ ] All permissions (Microphone, Screen & System Audio, Calendar) show correct state after granting
+
+---
+
+## Project: NoteTakr UI Bug Fixes (redesign-implementation branch, ui-bugfixes plan)
+
+### Summary
+
+Seven targeted bug-fix and behavioural-gap tasks were completed on the redesign-implementation branch.
+All 498 Linux-compatible tests pass. No out-of-scope UI redesign work was touched. No new
+cloud services, login flows, browser extensions, Electron, or Tauri dependencies were added.
+
+### What was fixed
+
+**Task 1 — Global shortcuts, Escape handling, and the Notes label**
+- "Private Notes" label renamed to "Notes" everywhere in the UI
+- ⌘N registered as a global shortcut (new note, works regardless of focus)
+- ⌘, bound to open Settings from the main note window
+- Esc dismisses Settings sheet and the ⌘K switcher/quick-switch overlay
+- KeyCommandRouter pure Swift type added; 9 unit tests covering all three intents
+
+**Task 2 — Settings rows: whole-row hit target and correct hover**
+- Entire settings row (icon + text + empty space) is now the click/tap target
+- Hover/highlight applies to the whole row only on actual hover; fixed bug where
+  hovering the text showed the row as selected
+- SettingsRowModel pure type added with 10 unit tests for hit-test / selection model
+
+**Task 3 — Fix adding custom vocabulary**
+- Fixed bug preventing new vocabulary entries from being added in Settings
+- Added entries persist across relaunch and are passed to the transcription adapter
+- 20 unit tests: add, persist/reload, duplicate handling, enabled entries reach adapter
+
+**Task 4 — Render markdown in note body; copy yields raw markdown**
+- Note body renders formatted markdown (headings, bullets, task checkboxes, code,
+  blockquotes, hr, bold/italic, links)
+- Copy action copies the raw markdown source, not the rendered output
+- MarkdownBodyParser pure type; 14 unit tests covering every block type and raw copy
+
+**Task 5 — Merge transcripts: same-speaker turns and two audio streams**
+- Consecutive segments from the same speaker are merged into a single turn
+- Microphone and system-audio transcripts merged chronologically by start time
+- Single-speaker-per-stream naming: mic → local user, system audio → calendar
+  participant or "Speaker 2"; in-person mode skips system-audio entirely
+- TranscriptMerger; 22 unit tests covering merging, interleave, overlap, naming
+
+**Task 6 — Speaker inference in the summary/note generation prompt**
+- LLM prompt updated to instruct inference of speaker identity from participant
+  context; uncertain attribution uses "Speaker N · most likely <name>" form
+- Known participant names (including user's own) passed into prompt context
+- SummarizationPromptBuilder; tests assert prompt contains both instruction and context
+
+**Task 7 — Expose Sparkle update checking in Settings**
+- "Check for Updates..." action and "Automatically check for updates" toggle added
+  to Settings → Updates tab; toggle persists and reflects current state on launch
+- Sparkle calls guarded with compile-time and runtime macOS checks; Linux no-ops cleanly
+- SparkleSettingsTask7Tests: 9 tests for toggle persistence and Sparkle wiring stubs
+
+### Verification status
+
+- Linux-compatible test suite: 498 tests, 0 failures (all seven tasks)
+- macOS GitHub Actions CI: each task commit pushed; CI gate requires macOS runner
+- Out-of-scope items confirmed untouched: frontmatter visual redesign, record-button
+  placement/styling, command-palette/timeline restyle, transcript-collapse styling,
+  summary-button styling, animation/polish pass — none were modified
+
+### macOS-only paths (not verified on Linux)
+
+| Path | Guard | Status |
+|------|-------|--------|
+| Global hotkey registration (CarbonHotkeyRegistrar) | macOS Carbon framework | Verified only on macOS runner / physical Mac |
+| Sparkle "Check for Updates" trigger | `#if canImport(AppKit)` + runtime guard | Verified only on macOS runner / physical Mac |
+| Sparkle auto-check toggle persistence | macOS UserDefaults + SPUUpdater | Verified only on macOS runner / physical Mac |
+| NSPasteboard raw-markdown copy | `#if canImport(AppKit)` | Verified only on macOS runner / physical Mac |
+
+### Remaining manual steps (physical Mac)
+
+1. Open Settings with ⌘, and confirm it opens from the main note window.
+2. Press Esc with Settings open; confirm it closes. Same for the ⌘K switcher.
+3. Press ⌘N from another app; confirm a new note is created.
+4. Add a vocabulary entry in Settings → Vocabulary; relaunch and confirm it persists.
+5. Open a note with markdown content; confirm it renders (headings, bullets, code, etc.).
+6. Use Copy on a note; confirm pasting elsewhere yields raw markdown.
+7. Record a meeting; confirm same-speaker segments are merged in the transcript.
+8. Settings → Updates: click "Check for Updates…" and confirm Sparkle opens the update UI.
+9. Toggle "Automatically check for updates"; relaunch and confirm the toggle state persists.

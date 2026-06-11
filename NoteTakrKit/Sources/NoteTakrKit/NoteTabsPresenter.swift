@@ -30,11 +30,13 @@ public struct RawSegment {
     public var speaker: String?
     public var timestamp: TimeInterval
     public var text: String
+    public var source: TranscriptSource?
 
-    public init(speaker: String?, timestamp: TimeInterval, text: String) {
+    public init(speaker: String?, timestamp: TimeInterval, text: String, source: TranscriptSource? = nil) {
         self.speaker = speaker
         self.timestamp = timestamp
         self.text = text
+        self.source = source
     }
 }
 
@@ -64,6 +66,7 @@ public final class NoteTabsPresenter {
     private var tabByNoteID: [String: NoteTab] = [:]
     private var summaryByNoteID: [String: SummaryState] = [:]
     private var transcriptByNoteID: [String: TranscriptState] = [:]
+    private var speakerResolutionsByNoteID: [String: [String: SpeakerResolution]] = [:]
 
     private let summaryGenerator: (any SummaryGenerating)?
     private let editorFlush: () throws -> Void
@@ -136,6 +139,32 @@ public final class NoteTabsPresenter {
             transcriptByNoteID[noteID] = .segments(Self.groupSegments(rawSegments))
         }
         onChange?()
+    }
+
+    /// Two-stream variant: merges mic and system-audio chronologically, infers speaker names.
+    public func setSegments(
+        mic: [RawSegment],
+        systemAudio: [RawSegment],
+        userName: String? = nil,
+        participants: [Participant] = [],
+        inPerson: Bool = false,
+        for noteID: String
+    ) {
+        let merged = TranscriptMerger.merge(mic: mic, systemAudio: systemAudio, inPerson: inPerson)
+        let micForNaming = mic
+        let sysForNaming = inPerson ? [] : systemAudio
+        let resolutions = TranscriptMerger.inferSpeakerNames(
+            micSegments: micForNaming,
+            systemAudioSegments: sysForNaming,
+            userName: userName,
+            participants: participants
+        )
+        speakerResolutionsByNoteID[noteID] = resolutions
+        setSegments(merged, for: noteID)
+    }
+
+    public func speakerResolutions(for noteID: String) -> [String: SpeakerResolution] {
+        speakerResolutionsByNoteID[noteID] ?? [:]
     }
 
     // MARK: - Segment Grouping
