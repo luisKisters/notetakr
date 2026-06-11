@@ -117,7 +117,8 @@ struct EditorView: View {
     private var tabContent: some View {
         switch tabsBridge.selectedTab {
         case .privateNotes:
-            if isBodyFocused {
+            ZStack(alignment: .topLeading) {
+                // TextEditor stays mounted at all times so .focused() fires reliably on tap
                 TextEditor(text: Binding(
                     get: { bridge.body },
                     set: { bridge.setBody($0) }
@@ -126,15 +127,20 @@ struct EditorView: View {
                 .foregroundColor(themeColors.primaryText.swiftUIColor)
                 .scrollContentBackground(.hidden)
                 .padding(.horizontal, 16)
+                .opacity(isBodyFocused ? 1 : 0)
+                .allowsHitTesting(isBodyFocused)
                 .focused($isBodyFocused)
-            } else {
-                MarkdownBodyView(parsed: parsedBody)
-                    .environment(\.themeColors, themeColors)
-                    .contentShape(Rectangle())
-                    .onTapGesture { isBodyFocused = true }
-                    .onAppear { parsedBody = MarkdownBodyParser.parse(bridge.body) }
-                    .onChange(of: bridge.body) { parsedBody = MarkdownBodyParser.parse($0) }
+
+                // Rendered markdown overlay — hidden once user taps to edit
+                if !isBodyFocused {
+                    MarkdownBodyView(parsed: parsedBody)
+                        .environment(\.themeColors, themeColors)
+                        .contentShape(Rectangle())
+                        .onTapGesture { isBodyFocused = true }
+                }
             }
+            .onAppear { parsedBody = MarkdownBodyParser.parse(bridge.body) }
+            .onChange(of: bridge.body) { parsedBody = MarkdownBodyParser.parse($0) }
         case .summary:
             SummaryView(
                 state: tabsBridge.summaryState,

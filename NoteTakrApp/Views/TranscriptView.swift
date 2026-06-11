@@ -80,9 +80,6 @@ struct TranscriptView: View {
             miniButton("Collapse all") { collapsedIndices = Set(0..<segments.count) }
             miniButton("Expand all") { collapsedIndices = [] }
             Spacer()
-            Text("Select & copy \u{2192} markdown")
-                .font(.system(size: 11))
-                .foregroundStyle(theme.tertiaryText.swiftUIColor)
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)

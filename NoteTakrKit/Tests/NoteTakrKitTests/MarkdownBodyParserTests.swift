@@ -17,6 +17,25 @@ final class MarkdownBodyParserTests: XCTestCase {
         XCTAssertTrue(parsed.blocks.isEmpty)
     }
 
+    func testCopyRoundTripComplexDocument() {
+        // Simulates the ⌘C "copy raw markdown" path: rawSource must equal the original string exactly.
+        let md = "# Title\n\n## Heading\n\n- Item 1\n- Item 2\n\n- [x] Done\n- [ ] Pending\n\n> A blockquote\n\n```swift\nlet x = 1\n```\n\nParagraph text with **bold** and *italic*."
+        let parsed = MarkdownBodyParser.parse(md)
+        XCTAssertEqual(parsed.rawSource, md, "⌘C must copy the exact raw source verbatim, regardless of how blocks parse")
+    }
+
+    func testCopyRoundTripUnicode() {
+        let md = "## Meeting Notes\n\n- Action: Review PR #42 \u{2192} Done\n- Blocked: auth-service (team)"
+        let parsed = MarkdownBodyParser.parse(md)
+        XCTAssertEqual(parsed.rawSource, md)
+    }
+
+    func testCopyRoundTripMultilinePreservesNewlines() {
+        let md = "Line one\nLine two\n\nLine three"
+        let parsed = MarkdownBodyParser.parse(md)
+        XCTAssertEqual(parsed.rawSource, md)
+    }
+
     // MARK: - Headings h1–h6
 
     func testH1() {
