@@ -28,6 +28,8 @@ final class NotePanelController {
     private var elapsedTimer: Timer?
     private var pillTickTimer: Timer?
     private var pillPipelineCancellables = Set<AnyCancellable>()
+    private var calendarCancellables = Set<AnyCancellable>()
+    private weak var appModelRef: AppModel?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
@@ -94,23 +96,12 @@ final class NotePanelController {
         buildPanel()
         wireSwitcher()
         wireRecordPill(appModel: appModel)
+        wireCalendarSync(appModel: appModel)
     }
 
     /// Updates calendar events in the switcher from an external snapshot.
     func refreshCalendarEvents(from events: [CalendarEvent]) {
-        let upcoming = events.map { ce in
-            UpcomingEvent(
-                id: ce.id,
-                title: ce.title,
-                start: ce.startDate,
-                end: ce.endDate,
-                participants: ce.attendees.map { p in
-                    .init(name: p.name, email: p.email)
-                },
-                locationText: ce.location,
-                meetingLink: ce.url?.absoluteString
-            )
-        }
+        let upcoming = events.toUpcomingEvents()
         calendarEventsProvider.events = upcoming
         frontmatterBridge.availableEvents = upcoming
     }
@@ -165,6 +156,7 @@ final class NotePanelController {
         loadCurrentNote()
         panel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        Task { await appModelRef?.loadUpcomingEvents() }
     }
 
     // MARK: - Private
@@ -329,6 +321,17 @@ final class NotePanelController {
     private func stopPillTickTimer() {
         pillTickTimer?.invalidate()
         pillTickTimer = nil
+    }
+
+    private func wireCalendarSync(appModel: AppModel?) {
+        guard let appModel else { return }
+        appModelRef = appModel
+        appModel.$upcomingEvents
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] events in
+                self?.refreshCalendarEvents(from: events)
+            }
+            .store(in: &calendarCancellables)
     }
 
     private func wireSwitcher() {

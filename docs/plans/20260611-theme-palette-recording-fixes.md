@@ -196,14 +196,14 @@ Reproduce `design/mockups/v5/recording-final.html` exactly. `NoteTakrApp/Views/R
 ### Task 9: Calendar — show real upcoming events
 `NoteTakrApp/AppModel.swift`, `NoteTakrApp/NotePanelController.swift`,
 `NoteTakrApp/FrontmatterPresenterBridge.swift`, `NoteTakrApp/Calendar/EventKitCalendarAdapter.swift`.
-- [ ] Load upcoming events on launch / panel-show and SYNC `AppModel.upcomingEvents` →
+- [x] Load upcoming events on launch / panel-show and SYNC `AppModel.upcomingEvents` →
       `FrontmatterPresenterBridge.availableEvents` (call the existing-but-never-called
       `refreshCalendarEvents()`), so the event picker is actually populated (today it always shows
       "No upcoming events").
-- [ ] Accept macOS 14+ **limited** calendar access (don't require full access) so granted calendars
+- [x] Accept macOS 14+ **limited** calendar access (don't require full access) so granted calendars
       still return events.
-- [ ] Linux tests: AppModel→bridge event mapping/sync given a mock calendar adapter.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Linux tests: AppModel→bridge event mapping/sync given a mock calendar adapter.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 10: Escape handling
 `NoteTakrKit/Sources/NoteTakrKit/KeyCommandRouter.swift`, `NoteTakrApp/Views/SettingsSheetView.swift`,

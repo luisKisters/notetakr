@@ -10,6 +10,10 @@ public final class EventKitCalendarAdapter: CalendarAdapter {
     public var hasAccess: Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
         if #available(macOS 14.0, *) {
+            if #available(macOS 14.4, *) {
+                // .limited = user granted access to specific calendars only (macOS 14.4+)
+                return status == .fullAccess || status == .limited
+            }
             return status == .fullAccess
         } else {
             return status == .authorized
