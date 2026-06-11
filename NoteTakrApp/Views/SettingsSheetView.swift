@@ -958,10 +958,7 @@ struct SettingsSheetView: View {
     }
 
     private func triggerSparkleCheck() {
-        // Sparkle updater check — guarded so Linux / simulator builds are unaffected.
-        #if canImport(Sparkle)
-        SparkleUpdaterCoordinator.shared.checkForUpdates()
-        #endif
+        NotificationCenter.default.post(name: .noteTakrCheckForUpdates, object: nil)
     }
 }
 

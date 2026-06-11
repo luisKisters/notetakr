@@ -76,11 +76,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             userDriverDelegate: nil
         )
         updaterController = controller
-        SparkleUpdaterCoordinator.shared.configure(controller: controller)
         controller.startUpdater()
         controller.updater.automaticallyChecksForUpdates = true
         controller.updater.automaticallyDownloadsUpdates = true
         controller.updater.checkForUpdatesInBackground()
+
+        NotificationCenter.default.addObserver(
+            forName: .noteTakrCheckForUpdates,
+            object: nil,
+            queue: .main
+        ) { [weak controller] _ in
+            controller?.checkForUpdates(nil)
+        }
     }
 
     private var hasSparkleConfiguration: Bool {
@@ -98,4 +105,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && !trimmed.hasPrefix("$(")
     }
+}
+
+// MARK: - Notification names
+
+extension Notification.Name {
+    static let noteTakrCheckForUpdates = Notification.Name("NoteTakrCheckForUpdates")
 }
