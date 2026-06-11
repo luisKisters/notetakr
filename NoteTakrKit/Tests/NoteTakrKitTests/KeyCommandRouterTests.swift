@@ -45,9 +45,67 @@ final class KeyCommandRouterTests: XCTestCase {
         XCTAssertNil(KeyCommandRouter.intent(for: .escape, context: .editorFocused))
     }
 
+    // MARK: - Esc → .dismissOverlay when inline edit is active
+
+    func testEscape_inlineEditActive_returnsDismiss() {
+        XCTAssertEqual(KeyCommandRouter.intent(for: .escape, context: .inlineEditActive), .dismissOverlay)
+    }
+
     // MARK: - ⌘K → .toggleSwitcher
 
     func testCmdK_returnsToggleSwitcher() {
         XCTAssertEqual(KeyCommandRouter.intent(for: .cmdK, context: .editorFocused), .toggleSwitcher)
+    }
+
+    // MARK: - activeContext precedence (settings → switcher → inlineEdit → editor)
+
+    func testActiveContext_settingsBeatsAll() {
+        XCTAssertEqual(
+            KeyCommandRouter.activeContext(settingsVisible: true, switcherVisible: true, inlineEditActive: true),
+            .settingsVisible
+        )
+    }
+
+    func testActiveContext_switcherBeatsInlineAndEditor() {
+        XCTAssertEqual(
+            KeyCommandRouter.activeContext(settingsVisible: false, switcherVisible: true, inlineEditActive: true),
+            .switcherVisible
+        )
+    }
+
+    func testActiveContext_inlineEditBeatsEditor() {
+        XCTAssertEqual(
+            KeyCommandRouter.activeContext(settingsVisible: false, switcherVisible: false, inlineEditActive: true),
+            .inlineEditActive
+        )
+    }
+
+    func testActiveContext_nothingOpen_returnsEditorFocused() {
+        XCTAssertEqual(
+            KeyCommandRouter.activeContext(settingsVisible: false, switcherVisible: false, inlineEditActive: false),
+            .editorFocused
+        )
+    }
+
+    func testActiveContext_defaultInlineEditFalse() {
+        XCTAssertEqual(
+            KeyCommandRouter.activeContext(settingsVisible: false, switcherVisible: false),
+            .editorFocused
+        )
+    }
+
+    func testEscapePrecedence_settingsVisible_dismissesOverlay() {
+        let ctx = KeyCommandRouter.activeContext(settingsVisible: true, switcherVisible: false)
+        XCTAssertEqual(KeyCommandRouter.intent(for: .escape, context: ctx), .dismissOverlay)
+    }
+
+    func testEscapePrecedence_switcherVisible_dismissesOverlay() {
+        let ctx = KeyCommandRouter.activeContext(settingsVisible: false, switcherVisible: true)
+        XCTAssertEqual(KeyCommandRouter.intent(for: .escape, context: ctx), .dismissOverlay)
+    }
+
+    func testEscapePrecedence_editorFocused_returnsNil() {
+        let ctx = KeyCommandRouter.activeContext(settingsVisible: false, switcherVisible: false)
+        XCTAssertNil(KeyCommandRouter.intent(for: .escape, context: ctx))
     }
 }

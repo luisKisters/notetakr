@@ -323,3 +323,105 @@ cloud services, login flows, browser extensions, Electron, or Tauri dependencies
 7. Record a meeting; confirm same-speaker segments are merged in the transcript.
 8. Settings → Updates: click "Check for Updates…" and confirm Sparkle opens the update UI.
 9. Toggle "Automatically check for updates"; relaunch and confirm the toggle state persists.
+
+---
+
+## Project: Theme Consistency, ⌘K Palette, Recording Control & UI Bug-Fixes (theme-palette-recording-fixes branch)
+
+### Summary
+
+The theme-palette-recording-fixes branch is complete. All eleven planned tasks were implemented and verified. This phase locked in the final recording control and ⌘K command palette (matching the `-final` HTML mockups), neutralized the three themes to eliminate purple tint from all surfaces, and fixed a broad set of recording-control, frontmatter, transcript/summary, calendar, and ESC-handling bugs.
+
+### Screen-by-screen fix mapping (per mockup / big rule)
+
+**Theme tokens** (`kit.css` big rules → `Theme.swift`, `ThemedSurface.swift`)
+- Glass background: near-transparent white@0.015 only — VisualEffectView provides the blur; no purple tint added.
+- Dark background: #0D0D0F (was #151417 purple-leaning).
+- Light background: #F7F7F8 neutral (was #FAF8F4 warm); ink neutralized to #161618 (was (30,27,36) purple-leaning); hover = black@0.05 (was purple-leaning black@0.05 with purple base).
+- `accent` (#A78BFA glass/dark, #8B5CF6 light) is the ONLY purple — all surfaces are neutral.
+- `ThemedSurface.swift` wraps `VisualEffectView` (Glass) / solid fill (Dark/Light); shared across window body, ⌘K palette, settings, menus — identical blur strength everywhere.
+
+**⌘K command palette** (`switcher-final.html` → `SwitcherOverlayView.swift`)
+- Pure backdrop blur only, no scrim or dark overlay on top of the note.
+- Rounded search field, no magnifying-glass icon, dropped to heading position.
+- Result rows float as cards over the blur; no single bordered container panel.
+- List fades at top and bottom with a mask gradient; no overscroll.
+- Hover = subtle gray; purple marks the selected row ONLY (no purple hover stacked on purple selection).
+- Click-outside / ESC dismisses; ⌘K toggles; ↑/↓ navigates; Enter opens.
+- All three themes respected via `themeColors` environment.
+
+**Window chrome** (`WindowChromeView.swift`, `NotePanelController.swift`)
+- Fake traffic-light dots removed; only the native macOS close button is present.
+- Gear stays top-right, opens Settings (⌘,).
+- Chrome uses shared `ThemedSurface` — blur is identical to the window body.
+
+**Settings** (`SettingsSheetView.swift`)
+- Adopts active theme via `ThemedSurface`; no hardcoded dark-purple panel background.
+- Full-row grey hover removed — only subtle hover on actually-clickable rows.
+- ESC closes Settings reliably; whole row is the hit target.
+- Light-theme readable (no hardcoded `Color.white.opacity`).
+
+**Note editor** (`EditorView.swift`, `MarkdownBodyView.swift`, `TranscriptView.swift`)
+- Clicking the note body focuses the editable TextEditor; Cmd+A/Cmd+C work.
+- "→ raw markdown" / "Select & copy → markdown" hint text removed.
+
+**Recording control** (`recording-final.html` → `RecordPillView.swift`, `RecordPillStateMachine.swift`)
+- Split badge: neutral pill, white text in every state, ONLY the dot is colored (red recording / amber paused / green transcribing+summarizing / green done).
+- States: idle · recording · paused · transcribing · summarizing · done(summarized) · doneTranscript.
+- Main tap = Stop & summarize while recording (auto: transcribe → summarize); paused tap = Resume; done taps open Summary/Transcript tab.
+- Caret menu only while recording/paused; no caret on done states.
+- Transcribe→summarize pipeline wired through `NotePanelController` (was dropped).
+
+**Recording frontmatter bugs** (`RecordPillView.swift`, `PropertyPanelView.swift`, `ChipsRowView.swift`)
+- Record badge hover no longer bleeds into the time/clock chip.
+- Chips don't jump left when entering edit — display and edit states share the same alignment.
+- Record menu dismisses on click-outside + ESC; uses shared blur surface; does not stretch the pill or change row height.
+- People/participants input normalized to the same alignment pass.
+
+**Transcript & Summary tabs** (`SummaryView.swift`, `TranscriptView.swift`, `NoteTabsBridge.swift`, `NoteTabsPresenter.swift`)
+- Each tab's empty state is a single centered button with nothing else cluttering it.
+- Generate transcript action + `.generating` state added to Transcript tab.
+- Summary tab without transcript shows "Transcribe & summarize" CTA.
+- In-progress transcription reflected in the recording badge (green "Transcribing…/Summarizing…").
+
+**Calendar** (`AppModel.swift`, `EventKitCalendarAdapter.swift`, `FrontmatterPresenterBridge.swift`)
+- Events loaded on launch/panel-show; `AppModel.upcomingEvents` → `FrontmatterPresenterBridge.availableEvents` synced.
+- macOS 14+ limited calendar access accepted (not requiring full access).
+
+**ESC handling** (`KeyCommandRouter.swift`, `SettingsSheetView.swift`, `NotePanelController.swift`)
+- Centralized precedence: settings → switcher → inline edit → (only then) hide panel.
+- ESC dismisses topmost overlay first; never closes the window while an overlay is open.
+
+### Verification status
+
+- Linux-compatible test suite: 551 tests, 0 failures (all eleven tasks)
+- macOS GitHub Actions CI: passed on the theme-palette-recording-fixes branch
+
+### macOS-only paths (not verified on Linux)
+
+The following require a physical Mac for smoke testing:
+
+| Path | Guard | Status |
+|------|-------|--------|
+| `VisualEffectView` / glass blur rendering | AppKit | Verified only on macOS runner / physical Mac |
+| `RecordPillView` animation / breathing dot | SwiftUI rendering | Verified only on macOS runner / physical Mac |
+| `NativeAudioRecorder.swift` | `#if canImport(AVFoundation)` | Verified only on macOS runner / physical Mac |
+| `SystemAudioCapturer.swift` | `#if canImport(ScreenCaptureKit)` | Verified only on macOS runner / physical Mac |
+| `EventKitCalendarAdapter.swift` | `#if canImport(EventKit)` | Verified only on macOS runner / physical Mac |
+| NSPasteboard raw-markdown copy | `#if canImport(AppKit)` | Verified only on macOS runner / physical Mac |
+
+### Physical Mac smoke test checklist (remaining manual steps)
+
+- [ ] Glass blur: window body, ⌘K palette, settings, and menus all share identical blur strength and NO whitening/lightening of the content behind
+- [ ] No purple tint on any background in Glass / Dark / Light themes; purple appears only on selected/active states and certain icons
+- [ ] Hover on switcher rows is subtle gray; selected row is purple; hovering a selected row does NOT stack purple on purple
+- [ ] Record pill: idle (gray dot) → tap → recording (red dot, ticking mm:ss) → tap → Stop & summarize triggers transcription then summary
+- [ ] Caret menu while recording: Pause / Stop without summarizing / Restart recording / Discard
+- [ ] Caret menu while paused: Stop & summarize / Stop without summarizing / Restart recording / Discard
+- [ ] Done states show "Summarized →" / "Transcribed →" with right arrow; no caret; tap opens correct tab
+- [ ] Hovering the record badge does NOT restyle the time/clock chip
+- [ ] Chips (location, meeting link) do NOT jump left when entering edit mode
+- [ ] ESC precedence: settings open → ESC closes settings; switcher open → ESC closes switcher; neither closes the window
+- [ ] Calendar events appear in the event picker after granting Calendar permission
+- [ ] Summary tab with no transcript shows "Transcribe & summarize" CTA, not an empty/confusing state
+- [ ] Transcript tab: "Generate transcript" button works independently of recording

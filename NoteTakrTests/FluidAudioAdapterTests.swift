@@ -1,6 +1,7 @@
 import XCTest
 import FluidAudio
 import NoteTakrCore
+import NoteTakrKit
 @testable import NoteTakr
 
 final class FluidAudioAdapterTests: XCTestCase {

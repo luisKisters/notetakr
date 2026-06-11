@@ -31,21 +31,24 @@ final class ThemeTests: XCTestCase {
 
     func testDarkBackground() {
         let bg = Theme.dark.background
-        XCTAssertEqual(bg, RGBA(red: 21, green: 20, blue: 23))
+        XCTAssertEqual(bg, RGBA(red: 13, green: 13, blue: 15))    // #0D0D0F
         XCTAssertEqual(bg.a, 1.0)
     }
 
     func testLightBackground() {
         let bg = Theme.light.background
-        XCTAssertEqual(bg, RGBA(red: 250, green: 248, blue: 244))
+        XCTAssertEqual(bg, RGBA(red: 247, green: 247, blue: 248)) // #F7F7F8
         XCTAssertEqual(bg.a, 1.0)
     }
 
-    func testGlassBackgroundIsSemiTransparent() {
+    func testGlassBackgroundIsNearTransparentWhite() {
         let bg = Theme.glass.background
         XCTAssertGreaterThan(bg.a, 0.0)
-        XCTAssertLessThan(bg.a, 1.0)
-        XCTAssertEqual(bg, RGBA(red: 46, green: 44, blue: 54, alpha: 0.44))
+        XCTAssertLessThan(bg.a, 0.1)
+        XCTAssertEqual(bg.r, 1.0, accuracy: 1e-9)
+        XCTAssertEqual(bg.g, 1.0, accuracy: 1e-9)
+        XCTAssertEqual(bg.b, 1.0, accuracy: 1e-9)
+        XCTAssertEqual(bg.a, 0.015, accuracy: 1e-9)
     }
 
     func testDarkAndLightBackgroundsAreOpaque() {
@@ -194,6 +197,51 @@ final class ThemeTests: XCTestCase {
 
     func testLightAvatarRingMatchesBackground() {
         XCTAssertEqual(Theme.light.avatarRing, Theme.light.background)
+    }
+
+    // MARK: - Neutralized token tests (Task 1)
+
+    func testLightPrimaryTextBaseIsNeutral() {
+        let txt = Theme.light.primaryText
+        // #161618 = (22, 22, 24)
+        XCTAssertEqual(txt.r, 22.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(txt.g, 22.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(txt.b, 24.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(txt.a, 0.92, accuracy: 1e-9)
+    }
+
+    func testLightSecondaryAndTertiaryTextShareNeutralBase() {
+        let sec = Theme.light.secondaryText
+        let ter = Theme.light.tertiaryText
+        XCTAssertEqual(sec.r, 22.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(ter.r, 22.0 / 255.0, accuracy: 1e-6)
+    }
+
+    func testLightHoverFillIsNeutralBlack() {
+        let hover = Theme.light.hoverFill
+        XCTAssertEqual(hover.r, 0.0, accuracy: 1e-9)
+        XCTAssertEqual(hover.g, 0.0, accuracy: 1e-9)
+        XCTAssertEqual(hover.b, 0.0, accuracy: 1e-9)
+        XCTAssertEqual(hover.a, 0.05, accuracy: 1e-9)
+    }
+
+    func testDarkBackgroundIsNeutralNotPurpleTinted() {
+        let bg = Theme.dark.background
+        // #0D0D0F: r=g=13, b=15 — equal R/G channels confirm no purple tint
+        XCTAssertEqual(bg.r, 13.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(bg.g, 13.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(bg.b, 15.0 / 255.0, accuracy: 1e-6)
+    }
+
+    func testAccentIsPurpleInAllThemes() {
+        // accent must always be purple; never a neutral
+        XCTAssertEqual(Theme.glass.accent, RGBA(red: 167, green: 139, blue: 250))
+        XCTAssertEqual(Theme.dark.accent, RGBA(red: 167, green: 139, blue: 250))
+        XCTAssertEqual(Theme.light.accent, RGBA(red: 139, green: 92, blue: 246))
+        for appearance in Appearance.allCases {
+            let c = Theme.colors(for: appearance)
+            XCTAssertGreaterThan(c.accent.b, c.accent.r, "\(appearance) accent should have blue > red (purple hue)")
+        }
     }
 
     func testGlassAvatarRingIsNearBlack() {

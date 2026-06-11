@@ -16,7 +16,6 @@ struct MarkdownBodyView: View {
                 ForEach(Array(parsed.blocks.enumerated()), id: \.offset) { _, block in
                     blockView(block)
                 }
-                copyHint
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -186,39 +185,6 @@ struct MarkdownBodyView: View {
             }
         }
         .frame(width: 15, height: 15)
-    }
-
-    // MARK: - Copy hint
-
-    private var copyHint: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "doc.on.doc")
-                .font(.system(size: 10.5, weight: .light))
-                .foregroundStyle(theme.tertiaryText.swiftUIColor)
-            Text("Select & copy")
-                .font(.system(size: 10.5))
-                .foregroundStyle(theme.tertiaryText.swiftUIColor)
-            kbdPill("⌘A")
-            kbdPill("⌘C")
-            Text("→ raw markdown")
-                .font(.system(size: 10.5))
-                .foregroundStyle(theme.tertiaryText.swiftUIColor)
-        }
-        .padding(.top, 12)
-    }
-
-    private func kbdPill(_ label: String) -> some View {
-        Text(label)
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
-            .foregroundStyle(theme.secondaryText.swiftUIColor)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(theme.kbdBackground.swiftUIColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(theme.kbdBorder.swiftUIColor, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     // MARK: - Clipboard

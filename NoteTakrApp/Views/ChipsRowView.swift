@@ -10,7 +10,9 @@ struct ChipsRowView: View {
     let pillState: RecordPillState
     @Environment(\.themeColors) private var theme
 
-    @State private var isHovering = false
+    // Tracks hover only over the chips area — NOT over the RecordPillView.
+    // This prevents the record badge's hover from restyling the time/clock chip.
+    @State private var isChipsAreaHovering = false
 
     var body: some View {
         // The outer button covers the whole row for expand toggle.
@@ -35,6 +37,7 @@ struct ChipsRowView: View {
                         chipView(chip)
                     }
                 }
+                .onHover { isChipsAreaHovering = $0 }
 
                 Spacer(minLength: 0)
 
@@ -45,7 +48,6 @@ struct ChipsRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
         .padding(.bottom, 2)
     }
 
@@ -60,15 +62,15 @@ struct ChipsRowView: View {
     private func chipView(_ chip: Chip) -> some View {
         switch chip {
         case .timeRange(let label):
-            TimeChip(label: label, theme: theme, isRowHovered: isHovering)
+            TimeChip(label: label, theme: theme, isRowHovered: isChipsAreaHovering)
         case .location(let label):
-            LocationChip(label: label, theme: theme, isRowHovered: isHovering)
+            LocationChip(label: label, theme: theme, isRowHovered: isChipsAreaHovering)
         case .participants(let label):
             ParticipantsChip(
                 label: label,
                 participants: bridge.participants,
                 theme: theme,
-                isRowHovered: isHovering
+                isRowHovered: isChipsAreaHovering
             )
         case .recording:
             EmptyView()

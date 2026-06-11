@@ -1,93 +1,61 @@
 import SwiftUI
 import NoteTakrKit
 
-private let kAccent  = Color(red: 0.545, green: 0.361, blue: 0.965)   // #8B5CF6
-private let kAccentLight  = Color(red: 0.655, green: 0.545, blue: 0.980)   // #A78BFA
-
-// MARK: - Display mode
-
-enum SwitcherDisplayMode: String, CaseIterable {
-    case rows
-    case timeline
-}
-
 // MARK: - SwitcherOverlayView
 
-/// Full-size frost overlay shown over the editor when ⌘K is pressed.
-/// Primary mode: two-line rows (title + subtitle). Secondary: timeline rail with dots.
+/// Full-size palette overlay shown over the editor when ⌘K is pressed.
+/// Rows float as cards over a pure backdrop blur — no scrim, no dark tint.
 struct SwitcherOverlayView: View {
     @ObservedObject var bridge: SwitcherBridge
+    @Environment(\.themeColors) private var themeColors
     @FocusState private var searchFocused: Bool
-
-    @State private var displayMode: SwitcherDisplayMode = .rows
-
-    private let gutterLeft: CGFloat = 14
+    @State private var hoveredIndex: Int? = nil
 
     var body: some View {
         ZStack {
-            // Frost backdrop
+            // Pure blur — NO scrim, NO dark overlay.
+            // .ultraThinMaterial adapts to system appearance and provides
+            // the blur without adding a heavy tint on top of the note content.
             Rectangle()
                 .fill(.ultraThinMaterial)
-                .overlay(Color.black.opacity(0.22))
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 searchBar
-                    .padding(.horizontal, 14)
-                    .padding(.top, 12)
-                    .padding(.bottom, 6)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
 
-                if displayMode == .timeline {
-                    timelineList
-                } else {
-                    rowList
-                }
+                rowList
 
                 hintsFooter
             }
+            .padding(.top, 46)
         }
         .onAppear { searchFocused = true }
         .background(keyboardButtons)
     }
 
-    // MARK: - Search bar
+    // MARK: - Search bar (rounded, NO magnifying-glass icon)
 
     private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .light))
-                .foregroundColor(Color.white.opacity(0.40))
-
-            TextField("Search meetings\u{2026}", text: $bridge.searchQuery)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundColor(.white)
-                .focused($searchFocused)
-                .onKeyPress(.upArrow)    { bridge.moveUp();                  return .handled }
-                .onKeyPress(.downArrow)  { bridge.moveDown();                return .handled }
-
-            // Toggle rows ↔ timeline
-            Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    displayMode = displayMode == .rows ? .timeline : .rows
-                }
-            } label: {
-                Image(systemName: displayMode == .rows ? "calendar" : "list.bullet")
-                    .font(.system(size: 11, weight: .light))
-                    .foregroundColor(Color.white.opacity(0.40))
-            }
-            .buttonStyle(.plain)
-            .help("Toggle between rows and timeline view")
-
-            kbdBadge("⌘K")
-        }
-        .padding(.horizontal, 11)
-        .frame(height: 36)
-        .background(Color.white.opacity(0.07))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.13), lineWidth: 1))
-        .cornerRadius(10)
+        TextField("Search meetings\u{2026}", text: $bridge.searchQuery)
+            .textFieldStyle(.plain)
+            .font(.system(size: 15))
+            .foregroundColor(themeColors.primaryText.swiftUIColor)
+            .focused($searchFocused)
+            .onKeyPress(.upArrow)   { bridge.moveUp();   return .handled }
+            .onKeyPress(.downArrow) { bridge.moveDown(); return .handled }
+            .padding(.horizontal, 15)
+            .padding(.vertical, 11)
+            .background(themeColors.fieldFill.swiftUIColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 13)
+                    .stroke(themeColors.fieldBorder.swiftUIColor, lineWidth: 1)
+            )
+            .cornerRadius(13)
     }
 
-    // MARK: - Two-line row list (primary)
+    // MARK: - Row list with fade mask
 
     private var rowList: some View {
         ScrollViewReader { proxy in
@@ -98,14 +66,17 @@ struct SwitcherOverlayView: View {
                     }
                     if bridge.groups.isEmpty {
                         Text("No meetings match your search.")
-                            .font(.system(size: 12))
-                            .foregroundColor(Color.white.opacity(0.38))
+                            .font(.system(size: 12.5))
+                            .foregroundColor(themeColors.tertiaryText.swiftUIColor)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
+                            .padding(.vertical, 28)
+                            .padding(.horizontal, 20)
+                            .multilineTextAlignment(.center)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 14)
             }
             .mask(
                 LinearGradient(
@@ -130,12 +101,12 @@ struct SwitcherOverlayView: View {
     @ViewBuilder
     private func rowGroupSection(group: SwitcherGroup) -> some View {
         Text(group.label.uppercased())
-            .font(.system(size: 9.5, weight: .bold))
-            .foregroundColor(Color.white.opacity(0.38))
-            .tracking(1.3)
-            .padding(.horizontal, 10)
-            .padding(.top, 11)
-            .padding(.bottom, 4)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(themeColors.tertiaryText.swiftUIColor)
+            .tracking(1.0)
+            .padding(.horizontal, 8)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
 
         ForEach(Array(group.items.enumerated()), id: \.offset) { offset, item in
@@ -148,80 +119,91 @@ struct SwitcherOverlayView: View {
     @ViewBuilder
     private func twoLineRow(item: SwitcherItem, flatIndex: Int) -> some View {
         let isSelected = bridge.selectedIndex == flatIndex
+        // Hover must NOT be purple when the row is selected — never stack purple on purple.
+        let isHovering = !isSelected && hoveredIndex == flatIndex
         let isGhost = isGhostItem(item)
         let isCommand = isCommandItem(item)
 
         Button {
             tap(item: item)
         } label: {
-            twoLineRowLabel(item: item, isSelected: isSelected, isGhost: isGhost, isCommand: isCommand)
+            rowCard(item: item, isSelected: isSelected, isHovering: isHovering,
+                    isGhost: isGhost, isCommand: isCommand)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 2)
-        .padding(.bottom, 1)
-    }
-
-    @ViewBuilder
-    private func twoLineRowLabel(item: SwitcherItem, isSelected: Bool, isGhost: Bool, isCommand: Bool) -> some View {
-        HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(Color.white.opacity(isSelected ? 0.12 : 0.06))
-                    .frame(width: 26, height: 26)
-                Image(systemName: sfIconName(for: item))
-                    .font(.system(size: 13, weight: .light))
-                    .foregroundColor(Color.white.opacity(isSelected ? 0.9 : 0.50))
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(itemTitle(item))
-                    .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
-                    .foregroundColor(isGhost ? Color.white.opacity(0.65) : Color.white.opacity(isSelected ? 1 : 0.88))
-                    .lineLimit(1)
-                if !isCommand {
-                    Text(itemSubtitle(item))
-                        .font(.system(size: 10.5))
-                        .foregroundColor(Color.white.opacity(0.38))
-                        .lineLimit(1)
-                } else {
-                    Text(commandSubtitle(item))
-                        .font(.system(size: 10.5))
-                        .foregroundColor(Color.white.opacity(0.38))
-                        .lineLimit(1)
-                }
-            }
-            Spacer()
-            twoLineRowAccessory(item: item, isGhost: isGhost, isCommand: isCommand)
+        .padding(.bottom, 7)
+        .onHover { isHov in
+            hoveredIndex = isHov ? flatIndex : (hoveredIndex == flatIndex ? nil : hoveredIndex)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowBackground(isSelected: isSelected, isGhost: isGhost))
-        .cornerRadius(9)
-        .overlay(
-            isGhost
-                ? RoundedRectangle(cornerRadius: 9).stroke(kAccent.opacity(0.38), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                : nil
-        )
-        .overlay(
-            !isGhost
-                ? RoundedRectangle(cornerRadius: 9).stroke(isSelected ? kAccent.opacity(0.26) : Color.white.opacity(0.0), lineWidth: 1)
-                : nil
-        )
     }
 
     @ViewBuilder
-    private func twoLineRowAccessory(item: SwitcherItem, isGhost: Bool, isCommand: Bool) -> some View {
+    private func rowCard(item: SwitcherItem, isSelected: Bool, isHovering: Bool,
+                         isGhost: Bool, isCommand: Bool) -> some View {
+        HStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(themeColors.primaryText.swiftUIColor.opacity(0.08))
+                    .frame(width: 30, height: 30)
+                Image(systemName: sfIconName(for: item))
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(themeColors.secondaryText.swiftUIColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(itemTitle(item))
+                    .font(.system(size: 13))
+                    .foregroundColor(themeColors.primaryText.swiftUIColor)
+                    .lineLimit(1)
+                Text(isCommand ? commandSubtitle(item) : itemSubtitle(item))
+                    .font(.system(size: 11))
+                    .foregroundColor(themeColors.tertiaryText.swiftUIColor)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            rowAccessory(item: item, isGhost: isGhost, isCommand: isCommand)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardBackground(isSelected: isSelected, isHovering: isHovering))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(cardBorderColor(isSelected: isSelected, isGhost: isGhost), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(isSelected ? 0.22 : 0.16),
+                radius: isSelected ? 7 : 4.5, x: 0, y: 2)
+    }
+
+    private func cardBackground(isSelected: Bool, isHovering: Bool) -> Color {
+        if isSelected  { return themeColors.accent.swiftUIColor.opacity(0.16) }
+        if isHovering  { return themeColors.hoverFill.swiftUIColor }
+        return themeColors.fieldFill.swiftUIColor
+    }
+
+    private func cardBorderColor(isSelected: Bool, isGhost: Bool) -> Color {
+        if isSelected { return themeColors.accent.swiftUIColor.opacity(0.34) }
+        if isGhost    { return themeColors.accent.swiftUIColor.opacity(0.38) }
+        return themeColors.hairline.swiftUIColor
+    }
+
+    @ViewBuilder
+    private func rowAccessory(item: SwitcherItem, isGhost: Bool, isCommand: Bool) -> some View {
         if isGhost {
             HStack(spacing: 3) {
                 Image(systemName: "plus").font(.system(size: 9, weight: .semibold))
                 Text("Create")
             }
             .font(.system(size: 9.5, weight: .semibold))
-            .foregroundColor(kAccentLight)
+            .foregroundColor(themeColors.accent.swiftUIColor)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(kAccent.opacity(0.14))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(kAccent.opacity(0.34), lineWidth: 1))
+            .background(themeColors.accent.swiftUIColor.opacity(0.14))
+            .overlay(RoundedRectangle(cornerRadius: 6)
+                .stroke(themeColors.accent.swiftUIColor.opacity(0.34), lineWidth: 1))
             .cornerRadius(6)
         } else if isCommand {
             kbdBadge(commandShortcut(item))
@@ -232,167 +214,17 @@ struct SwitcherOverlayView: View {
                         .font(.system(size: 8.5, weight: .bold))
                         .tracking(0.06)
                         .textCase(.uppercase)
-                        .foregroundColor(kAccentLight)
+                        .foregroundColor(themeColors.accent.swiftUIColor)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(kAccent.opacity(0.14))
-                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(kAccent.opacity(0.30), lineWidth: 1))
+                        .background(themeColors.accent.swiftUIColor.opacity(0.15))
+                        .overlay(RoundedRectangle(cornerRadius: 5)
+                            .stroke(themeColors.accent.swiftUIColor.opacity(0.32), lineWidth: 1))
                         .cornerRadius(5)
                 }
                 Text(timeString(for: item))
-                    .font(.system(size: 10.5))
-                    .foregroundColor(Color.white.opacity(0.38))
-                    .monospacedDigit()
-            }
-        }
-    }
-
-    // MARK: - Timeline list (secondary)
-
-    private var timelineList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                ZStack(alignment: .topLeading) {
-                    timelineLine
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(bridge.groups, id: \.label) { group in
-                            timelineGroupSection(group: group)
-                        }
-                    }
-                    .padding(.leading, gutterLeft * 2 + 16)
-                }
-                .padding(.bottom, 10)
-            }
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.04),
-                        .init(color: .black, location: 0.96),
-                        .init(color: .clear, location: 1),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .onChange(of: bridge.selectedIndex) { idx in
-                withAnimation(.easeOut(duration: 0.1)) {
-                    proxy.scrollTo("tl-row-\(idx)", anchor: .center)
-                }
-            }
-        }
-    }
-
-    private var timelineLine: some View {
-        GeometryReader { geo in
-            Rectangle()
-                .fill(Color.white.opacity(0.09))
-                .frame(width: 1, height: geo.size.height)
-                .offset(x: gutterLeft + 7)
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black, location: 0.05),
-                            .init(color: .black, location: 0.95),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-        }
-        .allowsHitTesting(false)
-    }
-
-    @ViewBuilder
-    private func timelineGroupSection(group: SwitcherGroup) -> some View {
-        Text(group.label.uppercased())
-            .font(.system(size: 9.5, weight: .bold))
-            .foregroundColor(Color.white.opacity(0.38))
-            .tracking(1.3)
-            .padding(.horizontal, 8)
-            .padding(.top, 11)
-            .padding(.bottom, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-        ForEach(Array(group.items.enumerated()), id: \.offset) { offset, item in
-            let flatIdx = flatIndex(group: group, itemOffset: offset)
-            timelineRow(item: item, flatIndex: flatIdx)
-                .id("tl-row-\(flatIdx)")
-        }
-    }
-
-    @ViewBuilder
-    private func timelineRow(item: SwitcherItem, flatIndex: Int) -> some View {
-        let isSelected = bridge.selectedIndex == flatIndex
-        let isGhost = isGhostItem(item)
-        Button {
-            tap(item: item)
-        } label: {
-            timelineRowLabel(item: item, isSelected: isSelected, isGhost: isGhost)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 10)
-        .padding(.bottom, 3)
-    }
-
-    @ViewBuilder
-    private func timelineRowLabel(item: SwitcherItem, isSelected: Bool, isGhost: Bool) -> some View {
-        HStack(spacing: 10) {
-            nodeDot(for: item.dotState)
-                .frame(width: gutterLeft * 2, height: 14, alignment: .center)
-                .offset(x: -(gutterLeft * 2 + 16))
-            Image(systemName: sfIconName(for: item))
-                .font(.system(size: 13, weight: .light))
-                .foregroundColor(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.40))
-                .frame(width: 16)
-                .offset(x: -(gutterLeft * 2 + 16))
-            Text(itemTitle(item))
-                .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
-                .foregroundColor(isGhost ? Color.white.opacity(0.65) : Color.white.opacity(isSelected ? 1 : 0.88))
-                .lineLimit(1)
-                .offset(x: -(gutterLeft * 2 + 16))
-            Spacer()
-            timelineRowAccessory(item: item, isGhost: isGhost)
-        }
-        .padding(.horizontal, 10)
-        .padding(.leading, gutterLeft)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowBackground(isSelected: isSelected, isGhost: isGhost))
-        .cornerRadius(9)
-        .overlay(
-            isGhost ? RoundedRectangle(cornerRadius: 9).stroke(kAccentLight.opacity(0.38), style: StrokeStyle(lineWidth: 1, dash: [4, 3])) : nil
-        )
-    }
-
-    @ViewBuilder
-    private func timelineRowAccessory(item: SwitcherItem, isGhost: Bool) -> some View {
-        if isGhost {
-            HStack(spacing: 3) {
-                Image(systemName: "plus").font(.system(size: 9, weight: .semibold))
-                Text("Create")
-            }
-            .font(.system(size: 9.5, weight: .semibold))
-            .foregroundColor(kAccentLight)
-        } else {
-            HStack(spacing: 6) {
-                if item.dotState == .current {
-                    Text("now")
-                        .font(.system(size: 8.5, weight: .bold))
-                        .tracking(0.06)
-                        .textCase(.uppercase)
-                        .foregroundColor(kAccentLight)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(kAccent.opacity(0.14))
-                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(kAccent.opacity(0.30), lineWidth: 1))
-                        .cornerRadius(5)
-                }
-                Text(timeString(for: item))
-                    .font(.system(size: 10.5))
-                    .foregroundColor(Color.white.opacity(0.38))
+                    .font(.system(size: 11))
+                    .foregroundColor(themeColors.tertiaryText.swiftUIColor)
                     .monospacedDigit()
             }
         }
@@ -404,33 +236,36 @@ struct SwitcherOverlayView: View {
         HStack(spacing: 6) {
             kbdBadge("↩")
             Text("Open")
-                .font(.system(size: 11))
-                .foregroundColor(Color.white.opacity(0.38))
+                .font(.system(size: 10.5))
+                .foregroundColor(themeColors.tertiaryText.swiftUIColor)
             Text("·")
-                .font(.system(size: 11))
-                .foregroundColor(Color.white.opacity(0.25))
-                .padding(.horizontal, 2)
+                .font(.system(size: 10.5))
+                .foregroundColor(themeColors.tertiaryText.swiftUIColor.opacity(0.5))
+                .padding(.horizontal, 1)
             kbdBadge("⌘N")
             Text("New")
-                .font(.system(size: 11))
-                .foregroundColor(Color.white.opacity(0.38))
+                .font(.system(size: 10.5))
+                .foregroundColor(themeColors.tertiaryText.swiftUIColor)
             Text("·")
-                .font(.system(size: 11))
-                .foregroundColor(Color.white.opacity(0.25))
-                .padding(.horizontal, 2)
+                .font(.system(size: 10.5))
+                .foregroundColor(themeColors.tertiaryText.swiftUIColor.opacity(0.5))
+                .padding(.horizontal, 1)
             kbdBadge("esc")
+            Text("Close")
+                .font(.system(size: 10.5))
+                .foregroundColor(themeColors.tertiaryText.swiftUIColor)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 34)
+        .frame(height: 30)
         .overlay(
             Rectangle()
-                .fill(Color.white.opacity(0.09))
+                .fill(themeColors.hairline.swiftUIColor)
                 .frame(height: 1),
             alignment: .top
         )
     }
 
-    // MARK: - Keyboard shortcut buttons (invisible, always active while overlay is shown)
+    // MARK: - Keyboard shortcuts (hidden, always active while overlay is shown)
 
     private var keyboardButtons: some View {
         Group {
@@ -451,54 +286,24 @@ struct SwitcherOverlayView: View {
     private func kbdBadge(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundColor(Color.white.opacity(0.55))
+            .foregroundColor(themeColors.secondaryText.swiftUIColor)
             .padding(.horizontal, 5)
             .padding(.vertical, 3)
-            .background(Color.white.opacity(0.10))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.white.opacity(0.16), lineWidth: 1))
+            .background(themeColors.kbdBackground.swiftUIColor)
+            .overlay(RoundedRectangle(cornerRadius: 4)
+                .stroke(themeColors.kbdBorder.swiftUIColor, lineWidth: 1))
             .cornerRadius(4)
     }
 
-    @ViewBuilder
-    private func nodeDot(for state: DotState) -> some View {
-        switch state {
-        case .upcoming:
-            Circle()
-                .stroke(kAccentLight, lineWidth: 1.5)
-                .frame(width: 7, height: 7)
-        case .current:
-            Circle()
-                .fill(kAccent)
-                .frame(width: 7, height: 7)
-                .shadow(color: kAccent.opacity(0.5), radius: 3)
-        case .past:
-            Circle()
-                .fill(Color.white.opacity(0.4))
-                .frame(width: 4, height: 4)
-                .opacity(0.5)
-        }
-    }
-
-    private func rowBackground(isSelected: Bool, isGhost: Bool) -> some View {
-        Group {
-            if isSelected {
-                kAccent.opacity(0.11)
-            } else {
-                Color.clear
-            }
-        }
-    }
-
-    /// Deterministic SF Symbol name derived from the item kind.
     private func sfIconName(for item: SwitcherItem) -> String {
         switch SwitcherViewModel.iconKind(for: item) {
-        case .videoCall:     return "video"
-        case .groupMeeting:  return "person.2"
-        case .oneOnOne:      return "person"
-        case .soloNote:      return "doc.text"
-        case .ghostEvent:    return "calendar"
-        case .openSettings:  return "gearshape"
-        case .newNote:       return "plus.square"
+        case .videoCall:    return "video"
+        case .groupMeeting: return "person.2"
+        case .oneOnOne:     return "person"
+        case .soloNote:     return "doc.text"
+        case .ghostEvent:   return "calendar"
+        case .openSettings: return "gearshape"
+        case .newNote:      return "plus.square"
         }
     }
 
@@ -510,29 +315,26 @@ struct SwitcherOverlayView: View {
         }
     }
 
-    /// Subtitle for meeting rows (participants · platform hint).
     private func itemSubtitle(_ item: SwitcherItem) -> String {
         switch item.kind {
-        case .note(_, _, let date, let participants):
-            var parts: [String] = []
+        case .note(_, _, _, let participants):
             let count = participants.count
-            if count == 1 { parts.append("2 people") }
-            else if count > 1 { parts.append("\(count + 1) people") }
-            return parts.isEmpty ? timeString(for: item) : parts.joined(separator: " \u{B7} ")
+            if count == 1 { return "2 people" }
+            if count > 1  { return "\(count + 1) people" }
+            return ""
         case .event(let ev):
             var parts: [String] = []
             let count = ev.participants.count
-            if count == 1 { parts.append("1 person") }
-            else if count > 1 { parts.append("\(count) people") }
+            if count == 1      { parts.append("1 person") }
+            else if count > 1  { parts.append("\(count) people") }
             if let link = ev.meetingLink {
-                if link.contains("zoom") { parts.append("Zoom") }
+                if link.contains("zoom")        { parts.append("Zoom") }
                 else if link.contains("meet.google") { parts.append("Meet") }
-                else if link.contains("teams") { parts.append("Teams") }
+                else if link.contains("teams")  { parts.append("Teams") }
             }
             if let loc = ev.locationText, !loc.isEmpty { parts.append(loc) }
-            return parts.isEmpty ? "" : parts.joined(separator: " \u{B7} ")
-        case .command:
-            return ""
+            return parts.joined(separator: " \u{B7} ")
+        case .command: return ""
         }
     }
 
@@ -547,15 +349,21 @@ struct SwitcherOverlayView: View {
     }
 
     private func timeString(for item: SwitcherItem) -> String {
-        let date: Date
         switch item.kind {
-        case .note(_, _, let d, _): date = d
-        case .event(let ev):        date = ev.start
+        case .note(_, _, let d, _): return HHmm(d)
+        case .event(let ev):        return HHmm(ev.start)
         case .command:              return ""
         }
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        return fmt.string(from: date)
+    }
+
+    private static let hhmmFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
+    private func HHmm(_ date: Date) -> String {
+        Self.hhmmFormatter.string(from: date)
     }
 
     private func isGhostItem(_ item: SwitcherItem) -> Bool {
@@ -571,9 +379,7 @@ struct SwitcherOverlayView: View {
     private func flatIndex(group: SwitcherGroup, itemOffset: Int) -> Int {
         var idx = 0
         for g in bridge.groups {
-            if g.label == group.label {
-                return idx + itemOffset
-            }
+            if g.label == group.label { return idx + itemOffset }
             idx += g.items.count
         }
         return idx + itemOffset

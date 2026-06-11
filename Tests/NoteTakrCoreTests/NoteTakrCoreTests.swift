@@ -3,6 +3,6 @@ import XCTest
 
 final class NoteTakrCoreTests: XCTestCase {
     func testVersionIsNotEmpty() {
-        XCTAssertFalse(NoteTakrCore.version.isEmpty)
+        XCTAssertFalse(NoteTakrCoreVersion.version.isEmpty)
     }
 }

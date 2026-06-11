@@ -1,5 +1,6 @@
 import XCTest
 @testable import NoteTakrCore
+import NoteTakrKit
 
 final class TranscriptionStateTests: XCTestCase {
 

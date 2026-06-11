@@ -25,6 +25,7 @@ struct EditorView: View {
             // ⌘K switcher overlay (sits over the entire editor when visible)
             if switcherBridge.isVisible {
                 SwitcherOverlayView(bridge: switcherBridge)
+                    .environment(\.themeColors, themeColors)
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                     .zIndex(10)
             }
@@ -32,6 +33,7 @@ struct EditorView: View {
             // Settings sheet overlay
             if settingsBridge.isVisible {
                 SettingsSheetView(viewModel: settingsBridge)
+                    .environment(\.themeColors, themeColors)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .animation(.easeInOut(duration: 0.22), value: settingsBridge.isVisible)
                     .zIndex(20)
@@ -107,26 +109,16 @@ struct EditorView: View {
         )
     }
 
-    @ViewBuilder
     private var panelBackground: some View {
-        switch settingsBridge.currentAppearance {
-        case .glass:
-            ZStack {
-                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                Color.white.opacity(0.02)
-            }
-        case .dark:
-            Theme.dark.background.swiftUIColor
-        case .light:
-            Theme.light.background.swiftUIColor
-        }
+        ThemedSurface(appearance: settingsBridge.currentAppearance)
     }
 
     @ViewBuilder
     private var tabContent: some View {
         switch tabsBridge.selectedTab {
         case .privateNotes:
-            if isBodyFocused {
+            ZStack(alignment: .topLeading) {
+                // TextEditor stays mounted at all times so .focused() fires reliably on tap
                 TextEditor(text: Binding(
                     get: { bridge.body },
                     set: { bridge.setBody($0) }
@@ -135,25 +127,34 @@ struct EditorView: View {
                 .foregroundColor(themeColors.primaryText.swiftUIColor)
                 .scrollContentBackground(.hidden)
                 .padding(.horizontal, 16)
+                .opacity(isBodyFocused ? 1 : 0)
+                .allowsHitTesting(isBodyFocused)
                 .focused($isBodyFocused)
-            } else {
-                MarkdownBodyView(parsed: parsedBody)
-                    .environment(\.themeColors, themeColors)
-                    .contentShape(Rectangle())
-                    .onTapGesture { isBodyFocused = true }
-                    .onAppear { parsedBody = MarkdownBodyParser.parse(bridge.body) }
-                    .onChange(of: bridge.body) { parsedBody = MarkdownBodyParser.parse($0) }
+
+                // Rendered markdown overlay — hidden once user taps to edit
+                if !isBodyFocused {
+                    MarkdownBodyView(parsed: parsedBody)
+                        .environment(\.themeColors, themeColors)
+                        .contentShape(Rectangle())
+                        .onTapGesture { isBodyFocused = true }
+                }
             }
+            .onAppear { parsedBody = MarkdownBodyParser.parse(bridge.body) }
+            .onChange(of: bridge.body) { parsedBody = MarkdownBodyParser.parse($0) }
         case .summary:
             SummaryView(
                 state: tabsBridge.summaryState,
-                onGenerate: { tabsBridge.generateSummary() }
+                onGenerate: { tabsBridge.generateSummary() },
+                onTranscribeAndSummarize: tabsBridge.canGenerateTranscript
+                    ? { tabsBridge.transcribeAndSummarize() } : nil
             )
             .environment(\.themeColors, themeColors)
         case .transcript:
             TranscriptView(
                 state: tabsBridge.transcriptState,
-                speakerResolutions: tabsBridge.speakerResolutions
+                speakerResolutions: tabsBridge.speakerResolutions,
+                onGenerate: tabsBridge.canGenerateTranscript
+                    ? { tabsBridge.generateTranscript() } : nil
             )
             .environment(\.themeColors, themeColors)
         }

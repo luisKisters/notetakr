@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import NoteTakrKit
 import NoteTakrCore
@@ -26,6 +27,9 @@ final class NotePanelController {
     private var transcriptionAdapter: TranscriptionRequestingAdapter?
     private var elapsedTimer: Timer?
     private var pillTickTimer: Timer?
+    private var pillPipelineCancellables = Set<AnyCancellable>()
+    private var calendarCancellables = Set<AnyCancellable>()
+    private weak var appModelRef: AppModel?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
@@ -92,23 +96,12 @@ final class NotePanelController {
         buildPanel()
         wireSwitcher()
         wireRecordPill(appModel: appModel)
+        wireCalendarSync(appModel: appModel)
     }
 
     /// Updates calendar events in the switcher from an external snapshot.
     func refreshCalendarEvents(from events: [CalendarEvent]) {
-        let upcoming = events.map { ce in
-            UpcomingEvent(
-                id: ce.id,
-                title: ce.title,
-                start: ce.startDate,
-                end: ce.endDate,
-                participants: ce.attendees.map { p in
-                    .init(name: p.name, email: p.email)
-                },
-                locationText: ce.location,
-                meetingLink: ce.url?.absoluteString
-            )
-        }
+        let upcoming = events.toUpcomingEvents()
         calendarEventsProvider.events = upcoming
         frontmatterBridge.availableEvents = upcoming
     }
@@ -163,6 +156,7 @@ final class NotePanelController {
         loadCurrentNote()
         panel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        Task { await appModelRef?.loadUpcomingEvents() }
     }
 
     // MARK: - Private
@@ -187,6 +181,7 @@ final class NotePanelController {
         p.isOpaque = false
         p.backgroundColor = .clear
         p.minSize = NSSize(width: 300, height: 400)
+        p.standardWindowButton(.closeButton)?.isHidden = false
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.center()
@@ -200,6 +195,26 @@ final class NotePanelController {
                 recordPillMachine: recordPillMachine
             )
         )
+        // Wire ESC precedence: settings → switcher → hide panel.
+        // This is a safety-net in case SwiftUI keyboard shortcuts don't consume the event
+        // (e.g. focus is on an AppKit control rather than a SwiftUI view).
+        p.cancelHandler = { [weak self] in
+            guard let self else { return false }
+            let context = KeyCommandRouter.activeContext(
+                settingsVisible: self.settingsBridge.isVisible,
+                switcherVisible: self.switcherBridge.isVisible
+            )
+            switch context {
+            case .settingsVisible:
+                self.settingsBridge.close()
+                return true
+            case .switcherVisible:
+                self.switcherBridge.dismiss()
+                return true
+            case .inlineEditActive, .editorFocused:
+                return false
+            }
+        }
         self.panel = p
     }
 
@@ -230,25 +245,103 @@ final class NotePanelController {
             guard let appModel else { return }
             Task { @MainActor in
                 await appModel.startRecording(title: nil)
-                // Start pill tick timer
                 self?.startPillTickTimer()
             }
         }
 
         machine.onStopped = { [weak self, weak appModel] intent in
+            guard let self, let appModel else { return }
+            let stoppedNoteID = self.frontmatterBridge.noteID
+            Task { @MainActor in
+                self.stopPillTickTimer()
+                await appModel.stopRecording()
+                guard !stoppedNoteID.isEmpty,
+                      self.frontmatterBridge.noteID == stoppedNoteID else { return }
+                self.recordPillMachine.beginTranscribing()
+                self.frontmatterBridge.hasCompletedRecording = true
+                self.drivePostStopPipeline(noteID: stoppedNoteID, intent: intent)
+            }
+        }
+
+        machine.onRestarted = { [weak self, weak appModel] in
             guard let appModel else { return }
-            let stoppedNoteID = self?.frontmatterBridge.noteID ?? ""
+            Task { @MainActor in
+                self?.pillPipelineCancellables.removeAll()
+                await appModel.stopRecording()
+                await appModel.startRecording(title: nil)
+                self?.startPillTickTimer()
+            }
+        }
+
+        machine.onDiscarded = { [weak self, weak appModel] in
+            guard let appModel else { return }
             Task { @MainActor in
                 self?.stopPillTickTimer()
+                self?.pillPipelineCancellables.removeAll()
                 await appModel.stopRecording()
-                guard let self, !stoppedNoteID.isEmpty,
-                      self.frontmatterBridge.noteID == stoppedNoteID else { return }
-                self.frontmatterBridge.hasCompletedRecording = true
-                if intent == .summarize, !stoppedNoteID.isEmpty {
-                    try? self.tabsBridge.presenter.selectTab(.summary, for: stoppedNoteID)
-                    self.tabsBridge.generateSummary()
-                }
             }
+        }
+
+        machine.onViewSummary = { [weak self] in
+            self?.tabsBridge.selectTab(.summary)
+        }
+
+        machine.onViewTranscript = { [weak self] in
+            self?.tabsBridge.selectTab(.transcript)
+        }
+    }
+
+    // Drive the pill state machine through transcribing → summarizing → done
+    // after audio stops. Uses Combine to watch NoteTabsBridge's published states.
+    private func drivePostStopPipeline(noteID: String, intent: StopIntent) {
+        pillPipelineCancellables.removeAll()
+
+        // If transcription already completed (e.g. no transcription service → empty), handle now
+        if case .segments(let segs) = tabsBridge.presenter.transcriptState(for: noteID), !segs.isEmpty {
+            handleTranscriptComplete(noteID: noteID, intent: intent)
+            return
+        }
+
+        // If there's no transcription adapter, no segments will ever arrive — go idle
+        guard transcriptionAdapter != nil else {
+            recordPillMachine.finishAsDoneTranscript()
+            return
+        }
+
+        tabsBridge.$transcriptState
+            .receive(on: DispatchQueue.main)
+            .compactMap { state -> [DisplaySegment]? in
+                if case .segments(let segs) = state, !segs.isEmpty { return segs }
+                return nil
+            }
+            .first()
+            .sink { [weak self] _ in
+                self?.handleTranscriptComplete(noteID: noteID, intent: intent)
+            }
+            .store(in: &pillPipelineCancellables)
+    }
+
+    private func handleTranscriptComplete(noteID: String, intent: StopIntent) {
+        if intent == .transcribe {
+            recordPillMachine.finishAsDoneTranscript()
+            tabsBridge.selectTab(.transcript)
+        } else {
+            recordPillMachine.beginSummarizing()
+            tabsBridge.selectTab(.summary)
+            tabsBridge.generateSummary()
+
+            tabsBridge.$summaryState
+                .receive(on: DispatchQueue.main)
+                .filter {
+                    if case .ready = $0 { return true }
+                    if case .failed = $0 { return true }
+                    return false
+                }
+                .first()
+                .sink { [weak self] _ in
+                    self?.recordPillMachine.finishAsDone()
+                }
+                .store(in: &pillPipelineCancellables)
         }
     }
 
@@ -262,6 +355,17 @@ final class NotePanelController {
     private func stopPillTickTimer() {
         pillTickTimer?.invalidate()
         pillTickTimer = nil
+    }
+
+    private func wireCalendarSync(appModel: AppModel?) {
+        guard let appModel else { return }
+        appModelRef = appModel
+        appModel.$upcomingEvents
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] events in
+                self?.refreshCalendarEvents(from: events)
+            }
+            .store(in: &calendarCancellables)
     }
 
     private func wireSwitcher() {
@@ -284,6 +388,8 @@ final class NotePanelController {
 
     /// Loads a note by ID into all bridges (editor, frontmatter, tabs).
     func loadNote(id: String) {
+        pillPipelineCancellables.removeAll()
+        recordPillMachine.cancelBusyPipeline()
         guard let note = try? store.load(id: id) else { return }
         try? bridge.viewModel.load(noteID: id)
         frontmatterBridge.load(note: note)
@@ -308,7 +414,12 @@ final class NotePanelController {
 private final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
+    /// Called by the controller after the panel is built to wire the overlay checks.
+    /// Return `true` to consume the ESC and prevent the panel from hiding.
+    var cancelHandler: (() -> Bool)?
+
     override func cancelOperation(_ sender: Any?) {
+        if let handler = cancelHandler, handler() { return }
         orderOut(nil)
     }
 }

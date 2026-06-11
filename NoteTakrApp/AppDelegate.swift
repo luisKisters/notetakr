@@ -53,6 +53,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.activate(ignoringOtherApps: true)
+
+        // Populate the calendar event picker on launch if access was already granted.
+        Task { await AppModel.shared.loadUpcomingEvents() }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

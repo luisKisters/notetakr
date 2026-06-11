@@ -19,3 +19,4 @@ extension EnvironmentValues {
 extension RGBA {
     var swiftUIColor: Color { Color(red: r, green: g, blue: b, opacity: a) }
 }
+

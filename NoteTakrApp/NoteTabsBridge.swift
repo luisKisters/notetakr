@@ -4,12 +4,14 @@ import NoteTakrKit
 @MainActor
 final class NoteTabsBridge: ObservableObject {
     @Published private(set) var selectedTab: NoteTab = .privateNotes
-    @Published private(set) var summaryState: SummaryState = .missing
+    @Published private(set) var summaryState: SummaryState = .needsTranscript
     @Published private(set) var transcriptState: TranscriptState = .empty
     @Published private(set) var speakerResolutions: [String: SpeakerResolution] = [:]
 
     let presenter: NoteTabsPresenter
     private(set) var currentNoteID: String?
+
+    var canGenerateTranscript: Bool { presenter.hasTranscriptGenerator }
 
     init(presenter: NoteTabsPresenter) {
         self.presenter = presenter
@@ -36,6 +38,16 @@ final class NoteTabsBridge: ObservableObject {
     func generateSummary() {
         guard let id = currentNoteID else { return }
         presenter.generateSummary(for: id)
+    }
+
+    func generateTranscript() {
+        guard let id = currentNoteID else { return }
+        presenter.generateTranscript(for: id)
+    }
+
+    func transcribeAndSummarize() {
+        guard let id = currentNoteID else { return }
+        presenter.transcribeAndSummarize(for: id)
     }
 
     private func refresh() {

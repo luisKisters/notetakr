@@ -1,5 +1,6 @@
 import XCTest
 import NoteTakrCore
+import NoteTakrKit
 @testable import NoteTakr
 
 // Automated tests covering MVP-polish flows:

@@ -6,84 +6,178 @@ public enum RecordPillState: Equatable {
     case idle
     case recording(elapsed: Int)
     case paused(elapsed: Int)
-    case showingMenu(elapsed: Int)
+    case transcribing
+    case summarizing
+    case done           // summarized (auto pipeline complete)
+    case doneTranscript // stop-without-summarizing complete
 }
 
 // MARK: - StopIntent
 
 public enum StopIntent: Equatable {
-    case transcribe
-    case summarize
+    case summarize      // stop → transcribe → summarize → done
+    case transcribe     // stop → transcribe → doneTranscript
 }
 
 // MARK: - RecordPillStateMachine
 
 /// Pure state machine for the record pill. Has no timer — callers invoke `tick()`
-/// each second while the machine is in the `.recording` state. All callbacks fire
-/// synchronously on the calling thread; the app layer is responsible for dispatch.
+/// each second while in the `.recording` state. All callbacks fire synchronously
+/// on the calling thread; the app layer is responsible for dispatch.
+///
+/// The SPLIT BADGE design (per recording-final.html):
+///   • Main tap:  idle → start; recording → stop & summarize; paused → resume;
+///                done/doneTranscript → view; transcribing/summarizing → no-op.
+///   • Caret tap: (controlled by view) recording/paused only — shows per-state menu.
+///   • Pipeline:  after onStopped fires, the controller drives state through
+///                beginTranscribing → beginSummarizing → finishAsDone (or finishAsDoneTranscript).
 public final class RecordPillStateMachine {
 
     public private(set) var state: RecordPillState = .idle
 
+    // MARK: - Callbacks
+
     /// Fires on every state transition with the new state.
     public var onStateChanged: ((RecordPillState) -> Void)?
 
-    /// Fires when the machine leaves `.idle` and enters `.recording`.
-    /// Use this to start actual audio recording.
+    /// Fires when entering recording from idle (new session start).
     public var onStarted: (() -> Void)?
 
-    /// Fires when the machine returns to `.idle` via a Stop menu action.
-    /// The intent tells the caller whether to transcribe or switch to Summary + summarize.
+    /// Fires when the user restarts mid-session (caret menu → Restart).
+    /// Unlike onStarted, the controller must stop the current audio session before starting a new one.
+    public var onRestarted: (() -> Void)?
+
+    /// Fires when the user triggers a stop. Controller calls beginTranscribing() etc. afterwards.
     public var onStopped: ((StopIntent) -> Void)?
+
+    /// Fires when the recording is discarded (no transcription).
+    public var onDiscarded: (() -> Void)?
+
+    /// Fires when the done-badge is tapped → open Summary tab.
+    public var onViewSummary: (() -> Void)?
+
+    /// Fires when the doneTranscript-badge is tapped → open Transcript tab.
+    public var onViewTranscript: (() -> Void)?
 
     public init() {}
 
-    // MARK: - Actions
+    // MARK: - View actions
 
-    /// Tap on the pill body (not inside the open menu).
-    /// Transitions: idle → recording(0); recording → paused; paused → showingMenu; showingMenu → paused (dismisses).
+    /// Main badge tap.
+    ///   idle            → recording(0), fires onStarted
+    ///   recording       → fires onStopped(.summarize) [controller drives the rest]
+    ///   paused          → recording(elapsed) [resume]
+    ///   transcribing    → no-op (busy)
+    ///   summarizing     → no-op (busy)
+    ///   done            → fires onViewSummary
+    ///   doneTranscript  → fires onViewTranscript
     public func tap() {
         switch state {
         case .idle:
             transition(to: .recording(elapsed: 0))
             onStarted?()
-        case .recording(let elapsed):
-            transition(to: .paused(elapsed: elapsed))
+        case .recording:
+            transition(to: .transcribing)
+            onStopped?(.summarize)
         case .paused(let elapsed):
-            transition(to: .showingMenu(elapsed: elapsed))
-        case .showingMenu(let elapsed):
-            transition(to: .paused(elapsed: elapsed))
+            transition(to: .recording(elapsed: elapsed))
+        case .transcribing, .summarizing:
+            break
+        case .done:
+            onViewSummary?()
+        case .doneTranscript:
+            onViewTranscript?()
         }
     }
 
-    /// Advance the elapsed counter by one second. No-op unless currently `.recording`.
+    /// Advance the elapsed counter by one second. No-op unless `.recording`.
     public func tick() {
         guard case .recording(let elapsed) = state else { return }
         transition(to: .recording(elapsed: elapsed + 1))
     }
 
-    /// Menu "Resume" — returns from showingMenu back to recording, keeping elapsed intact.
-    public func menuResume() {
-        guard case .showingMenu(let elapsed) = state else { return }
-        transition(to: .recording(elapsed: elapsed))
+    // MARK: - Caret menu actions (recording / paused only)
+
+    /// Caret menu: Pause — recording → paused.
+    public func menuPause() {
+        guard case .recording(let elapsed) = state else { return }
+        transition(to: .paused(elapsed: elapsed))
     }
 
-    /// Menu "Stop & Transcribe" — returns to idle and signals the transcribe intent.
-    public func menuStopAndTranscribe() {
-        guard case .showingMenu = state else { return }
-        transition(to: .idle)
-        onStopped?(.transcribe)
-    }
-
-    /// Menu "Stop & Summarize" — returns to idle and signals the summarize intent,
-    /// which the caller should use to switch to the Summary tab and start generation.
+    /// Caret menu: Stop & summarize — fires onStopped(.summarize).
     public func menuStopAndSummarize() {
-        guard case .showingMenu = state else { return }
+        guard isActiveRecording else { return }
+        fireStop(.summarize)
+    }
+
+    /// Caret menu: Stop without summarizing — fires onStopped(.transcribe).
+    public func menuStopOnly() {
+        guard isActiveRecording else { return }
+        fireStop(.transcribe)
+    }
+
+    /// Caret menu: Restart recording — back to recording(0), fires onRestarted.
+    /// The controller must stop the in-flight audio session before starting a new one.
+    public func menuRestart() {
+        guard isActiveRecording else { return }
+        transition(to: .recording(elapsed: 0))
+        onRestarted?()
+    }
+
+    /// Caret menu: Discard — back to idle, fires onDiscarded.
+    public func menuDiscard() {
+        guard isActiveRecording else { return }
         transition(to: .idle)
-        onStopped?(.summarize)
+        onDiscarded?()
+    }
+
+    // MARK: - Controller-driven pipeline state pushes
+
+    /// Called by controller after audio stops and transcription begins.
+    public func beginTranscribing() {
+        guard isActiveRecording else { return }
+        transition(to: .transcribing)
+    }
+
+    /// Called by controller when transcription finishes and summarization begins.
+    public func beginSummarizing() {
+        guard state == .transcribing else { return }
+        transition(to: .summarizing)
+    }
+
+    /// Called by controller when the full summarize pipeline completes.
+    public func finishAsDone() {
+        guard state == .summarizing else { return }
+        transition(to: .done)
+    }
+
+    /// Called by controller when transcription-only pipeline completes.
+    public func finishAsDoneTranscript() {
+        guard state == .transcribing else { return }
+        transition(to: .doneTranscript)
+    }
+
+    /// Resets to idle if the machine is mid-pipeline (transcribing or summarizing).
+    /// Call when the pipeline is cancelled (e.g., user switches notes).
+    public func cancelBusyPipeline() {
+        if state == .transcribing || state == .summarizing {
+            transition(to: .idle)
+        }
     }
 
     // MARK: - Private
+
+    private var isActiveRecording: Bool {
+        if case .recording = state { return true }
+        if case .paused = state { return true }
+        return false
+    }
+
+    private func fireStop(_ intent: StopIntent) {
+        guard isActiveRecording else { return }
+        transition(to: .transcribing)
+        onStopped?(intent)
+    }
 
     private func transition(to newState: RecordPillState) {
         state = newState
