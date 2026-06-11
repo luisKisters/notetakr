@@ -69,17 +69,17 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 ---
 
 ### Task 1: Design-system foundation (window shell, themes, tokens, chrome)
-- [ ] Add a shared design-tokens source (colors, text levels, hairlines, accent, radii, fonts)
+- [x] Add a shared design-tokens source (colors, text levels, hairlines, accent, radii, fonts)
       mirroring `kit.css` `:root` + the `.window.t-glass/.t-dark/.t-light` scoped vars.
-- [ ] Implement the three appearance themes (Glass / Dark / Light) as an app-wide Appearance
+- [x] Implement the three appearance themes (Glass / Dark / Light) as an app-wide Appearance
       setting; the whole window restyles to match `kit.css` for each theme.
-- [ ] Build the window chrome: traffic lights top-left (dimmed until hover), a gear top-right
+- [x] Build the window chrome: traffic lights top-left (dimmed until hover), a gear top-right
       that opens Settings, bound to **⌘,**.
-- [ ] Add reusable building blocks used across screens: the chip/`metastrip` preview row, the
+- [x] Add reusable building blocks used across screens: the chip/`metastrip` preview row, the
       `props` panel rows (key + right-aligned value), toggles, `kbd` pills, the SF icon set.
-- [ ] Add Linux-testable theme/token unit tests (e.g. each theme resolves the expected palette;
+- [x] Add Linux-testable theme/token unit tests (e.g. each theme resolves the expected palette;
       Appearance setting persists and reloads).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 2: The record control (monochrome pill + state machine + ⌘N)
 - [ ] Build the record pill exactly per `kit.css` `.recpill` + `recording.html`: a fixed,
