@@ -107,14 +107,14 @@ Reproduce `design/mockups/v5/switcher-final.html` exactly. `NoteTakrApp/Views/Sw
 
 ### Task 3: Window chrome — one real close button, no fake dots, gear top-right
 `NoteTakrApp/Views/WindowChromeView.swift` + `NoteTakrApp/NotePanelController.swift`.
-- [ ] Delete the three FAKE traffic-light circles in `WindowChromeView.swift`.
-- [ ] Keep ONLY the real native close button (top-left); ensure it's visible and hittable
+- [x] Delete the three FAKE traffic-light circles in `WindowChromeView.swift`.
+- [x] Keep ONLY the real native close button (top-left); ensure it's visible and hittable
       (`p.standardWindowButton(.closeButton)?.isHidden = false`); zoom/miniaturize stay hidden; keep
       that corner free of overlapping tappable SwiftUI views.
-- [ ] Gear stays top-right and opens Settings (⌘,); fall back to bottom-right only if it clashes.
-- [ ] No separate `.background()` on the chrome — the top-bar blur is identical to the body (shared
+- [x] Gear stays top-right and opens Settings (⌘,); fall back to bottom-right only if it clashes.
+- [x] No separate `.background()` on the chrome — the top-bar blur is identical to the body (shared
       surface).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 4: Settings follows the theme (no purple panel, no full-row grey hover)
 `NoteTakrApp/Views/SettingsSheetView.swift`.
