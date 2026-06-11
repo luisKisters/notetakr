@@ -134,6 +134,7 @@ public final class RecordPillStateMachine {
 
     /// Called by controller after audio stops and transcription begins.
     public func beginTranscribing() {
+        guard isActiveRecording else { return }
         transition(to: .transcribing)
     }
 

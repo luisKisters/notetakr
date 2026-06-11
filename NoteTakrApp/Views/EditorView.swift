@@ -145,14 +145,16 @@ struct EditorView: View {
             SummaryView(
                 state: tabsBridge.summaryState,
                 onGenerate: { tabsBridge.generateSummary() },
-                onTranscribeAndSummarize: { tabsBridge.transcribeAndSummarize() }
+                onTranscribeAndSummarize: tabsBridge.canGenerateTranscript
+                    ? { tabsBridge.transcribeAndSummarize() } : nil
             )
             .environment(\.themeColors, themeColors)
         case .transcript:
             TranscriptView(
                 state: tabsBridge.transcriptState,
                 speakerResolutions: tabsBridge.speakerResolutions,
-                onGenerate: { tabsBridge.generateTranscript() }
+                onGenerate: tabsBridge.canGenerateTranscript
+                    ? { tabsBridge.generateTranscript() } : nil
             )
             .environment(\.themeColors, themeColors)
         }

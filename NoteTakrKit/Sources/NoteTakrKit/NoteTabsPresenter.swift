@@ -80,6 +80,8 @@ public final class NoteTabsPresenter {
     private let transcriptGenerator: (any TranscriptGenerating)?
     private let editorFlush: () throws -> Void
 
+    public var hasTranscriptGenerator: Bool { transcriptGenerator != nil }
+
     public var onPersistSummary: ((String, String) -> Void)?
     public var onPersistTranscript: ((String, [RawSegment]) -> Void)?
     public var onChange: (() -> Void)?

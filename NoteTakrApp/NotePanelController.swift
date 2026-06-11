@@ -266,6 +266,7 @@ final class NotePanelController {
         machine.onRestarted = { [weak self, weak appModel] in
             guard let appModel else { return }
             Task { @MainActor in
+                self?.pillPipelineCancellables.removeAll()
                 await appModel.stopRecording()
                 await appModel.startRecording(title: nil)
                 self?.startPillTickTimer()
@@ -387,6 +388,7 @@ final class NotePanelController {
 
     /// Loads a note by ID into all bridges (editor, frontmatter, tabs).
     func loadNote(id: String) {
+        pillPipelineCancellables.removeAll()
         guard let note = try? store.load(id: id) else { return }
         try? bridge.viewModel.load(noteID: id)
         frontmatterBridge.load(note: note)

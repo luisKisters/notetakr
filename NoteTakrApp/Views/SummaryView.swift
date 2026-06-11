@@ -11,8 +11,14 @@ struct SummaryView: View {
         switch state {
         case .needsTranscript:
             centeredContent {
-                generateButton(label: "Transcribe & summarize", isDisabled: false, spinning: false) {
-                    onTranscribeAndSummarize?()
+                if let action = onTranscribeAndSummarize {
+                    generateButton(label: "Transcribe & summarize", isDisabled: false, spinning: false) {
+                        action()
+                    }
+                } else {
+                    Text("No transcript yet")
+                        .font(.system(size: 13))
+                        .foregroundStyle(theme.secondaryText.swiftUIColor.opacity(0.5))
                 }
             }
         case .missing:

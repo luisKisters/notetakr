@@ -71,7 +71,13 @@ struct TranscriptView: View {
 
     private var emptyView: some View {
         VStack {
-            generateButton(label: "Generate transcript", isDisabled: false, spinning: false)
+            if onGenerate != nil {
+                generateButton(label: "Generate transcript", isDisabled: false, spinning: false)
+            } else {
+                Text("No transcript yet")
+                    .font(.system(size: 13))
+                    .foregroundStyle(theme.secondaryText.swiftUIColor.opacity(0.5))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, 40)
