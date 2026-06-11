@@ -224,13 +224,13 @@ a live Swift toolchain at `/usr/local/bin/swift`). Rules:
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 10: Final review & sign-off
-- [ ] Walk every screen against its `design/mockups/v5/*.html` counterpart and fix mismatches in
+- [x] Walk every screen against its `design/mockups/v5/*.html` counterpart and fix mismatches in
       layout, spacing, states, copy, and interactions.
-- [ ] Run all Linux-compatible tests and the full macOS workflow; fix every build failure, test
+- [x] Run all Linux-compatible tests and the full macOS workflow; fix every build failure, test
       failure, and actionable warning.
-- [ ] Confirm no cloud service, login flow, browser extension, Electron, or Tauri dependency was
+- [x] Confirm no cloud service, login flow, browser extension, Electron, or Tauri dependency was
       added; confirm unverified real-audio/Sparkle/EventKit paths are marked "verified only on
       macOS / physical Mac".
-- [ ] Write a concise completion report in `docs/agent-progress.md` mapping each implemented
+- [x] Write a concise completion report in `docs/agent-progress.md` mapping each implemented
       screen/behavior to its mockup, and listing what still needs a physical-Mac smoke test.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
