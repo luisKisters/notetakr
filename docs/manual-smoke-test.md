@@ -6,7 +6,7 @@ Run these steps after every significant change to audio capture or transcription
 ## Prerequisites
 
 - macOS 14 (Sonoma) or later
-- Downloaded `NoteTakr-signed-dmg` artifact from a successful `Release DMG`
+- Downloaded `NoteTakr-dmg` artifact from a successful `Release DMG`
   workflow run, or Xcode 16 or later installed for local app builds
 - A calendar account configured in System Settings > Internet Accounts
 - A browser open with a tab that plays audio (e.g. YouTube)
@@ -16,13 +16,17 @@ Run these steps after every significant change to audio capture or transcription
 For release-style manual testing, use the GitHub-built DMG:
 
 1. Open the successful GitHub Actions `Release DMG` run.
-2. Download the `NoteTakr-signed-dmg` artifact.
+2. Download the `NoteTakr-dmg` artifact.
 3. Mount the `NoteTakr-<version>-<build>.dmg` file.
 4. Drag `NoteTakr.app` into `/Applications`.
 5. Open `/Applications/NoteTakr.app`.
 
-The CI DMG is Developer ID signed, notarized, and stapled. Gatekeeper should
-allow it to open normally after download.
+Unless the Developer ID signing secrets are configured, the CI DMG is ad-hoc
+signed and **not** notarized. Gatekeeper blocks the first launch; allow it via
+**System Settings → Privacy & Security → Open Anyway**, or install through
+Homebrew (`brew install --cask notetakr`), which strips the quarantine flag and
+opens without a prompt. When the signing secrets are present the DMG is
+Developer ID signed, notarized, and stapled, and opens normally.
 
 ## Sparkle Update Check
 

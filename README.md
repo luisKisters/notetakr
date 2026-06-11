@@ -21,13 +21,49 @@ generates structured notes — no cloud, no account required.
 - Xcode 16 or later for local app builds, previews, archives, and XCTest
 - Swift 5.9 or later
 
+## Install
+
+### Homebrew (recommended)
+
+```
+brew tap luiskisters/notetakr https://github.com/luisKisters/notetakr
+brew install --cask notetakr
+```
+
+Homebrew strips the download quarantine attribute on install, so the app launches
+**without any Gatekeeper prompt** — even though the current builds are only
+ad-hoc signed (see below). Update later with `brew upgrade --cask notetakr`.
+
+### Direct download (.dmg)
+
+Download the latest `.dmg` from the [Releases page](https://github.com/luisKisters/notetakr/releases),
+open it, and drag **NoteTakr** into Applications.
+
+Because the build is ad-hoc signed and **not notarized** (Apple notarization
+requires a paid Apple Developer Program membership), macOS blocks the first
+launch with a message like *"Apple could not verify NoteTakr is free of malware."*
+To allow it — **only needed for direct downloads, not for Homebrew installs:**
+
+1. Double-click the app once; macOS blocks it.
+2. Open **System Settings → Privacy & Security** and scroll to the Security section.
+3. Click **Open Anyway** next to the NoteTakr message, then confirm **Open Anyway** again.
+
+This is a one-time step per installed version.
+
 ## GitHub release DMG
 
 The canonical app bundle and DMG are built by GitHub Actions on macOS runners.
-Every push to `main` runs the `Release DMG` workflow, signs and notarizes the
-DMG, uploads it as a workflow artifact, and publishes it to a GitHub Release.
+Every push to `main` runs the `Release DMG` workflow, builds the DMG, publishes
+it to a GitHub Release, and updates the Homebrew cask. When the signing secrets
+below are present it signs with a Developer ID certificate, notarizes the DMG,
+and publishes the in-app Sparkle update feed; when they are absent it falls back
+to an **ad-hoc signature** (no notarization, no Sparkle feed) so the build still
+succeeds and remains installable via Homebrew. Adding the secrets later flips the
+same workflow to the full signed-and-notarized path with no other changes.
 
-The release workflow requires these repository secrets:
+The signed-and-notarized release path requires these repository secrets (a paid
+Apple Developer Program membership and a Developer ID Application certificate are
+needed to produce them):
 
 | Secret | Purpose |
 |--------|---------|
@@ -44,9 +80,11 @@ The release workflow requires these repository secrets:
 The DMG does not bundle FluidAudio model files. Configure the model in Settings
 after installing the app.
 
-Sparkle automatic updates are enabled in release builds. Each published release
-generates a signed `appcast.xml` that points at the GitHub Release DMG, then
-publishes that feed to:
+In-app Sparkle automatic updates turn on only when the signing secrets are
+present (the public key must be embedded at build time and the appcast must be
+EdDSA-signed). Until then, update through Homebrew. When enabled, each published
+release generates a signed `appcast.xml` that points at the GitHub Release DMG,
+then publishes that feed to:
 
 ```
 https://raw.githubusercontent.com/luiskisters/notetakr/gh-pages/appcast.xml

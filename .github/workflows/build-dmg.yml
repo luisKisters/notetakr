@@ -23,7 +23,7 @@ env:
 
 jobs:
   dmg:
-    name: Build, sign, notarize, and release .dmg
+    name: Build .dmg (ad-hoc by default; signs, notarizes & releases when signing secrets exist)
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -56,7 +56,7 @@ jobs:
             ~/Library/Caches/org.swift.swiftpm
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
 
-      - name: Validate signing secrets
+      - name: Detect signing configuration
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -84,13 +84,18 @@ jobs:
             fi
           done
 
-          if [[ ${#missing[@]} -gt 0 ]]; then
-            printf 'Missing required signing/notarization secrets:\n'
+          if [[ ${#missing[@]} -eq 0 ]]; then
+            echo "SIGNING_ENABLED=true" >> "$GITHUB_ENV"
+            echo "All signing/notarization secrets present: building a signed, notarized release."
+          else
+            echo "SIGNING_ENABLED=false" >> "$GITHUB_ENV"
+            echo "::warning::Signing/notarization secrets missing; building an AD-HOC signed (not notarized) DMG and skipping notarization and the in-app Sparkle feed. The DMG is still released and installable via Homebrew."
+            printf 'Missing signing/notarization secrets (full Developer ID path disabled):\n'
             printf '  - %s\n' "${missing[@]}"
-            exit 1
           fi
 
       - name: Import Developer ID certificate
+        if: env.SIGNING_ENABLED == 'true'
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -143,7 +148,7 @@ jobs:
           echo "Release: $RELEASE_TAG"
           echo "Sparkle feed: $SPARKLE_FEED_URL"
 
-      - name: Archive (Release, signed)
+      - name: Archive (Release)
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
@@ -151,45 +156,69 @@ jobs:
         run: |
           set -euo pipefail
           set -o pipefail
-          SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
-          xcodebuild archive \
-            -project "$XCODEPROJ" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -archivePath "$PWD/build/$APP_NAME.xcarchive" \
-            -destination 'generic/platform=macOS' \
-            CODE_SIGN_IDENTITY="$SIGNING_IDENTITY" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            MARKETING_VERSION="$MARKETING_VERSION" \
-            SPARKLE_FEED_URL="$SPARKLE_FEED_URL" \
-            SPARKLE_PUBLIC_ED_KEY="$SPARKLE_PUBLIC_ED_KEY" \
-            MACOSX_DEPLOYMENT_TARGET=14.0 \
-            OTHER_CODE_SIGN_FLAGS="--timestamp" \
-            | tee /tmp/archive.log
+          ARCHIVE_ARGS=(
+            -project "$XCODEPROJ"
+            -scheme "$SCHEME"
+            -configuration Release
+            -archivePath "$PWD/build/$APP_NAME.xcarchive"
+            -destination 'generic/platform=macOS'
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+            MARKETING_VERSION="$MARKETING_VERSION"
+            SPARKLE_FEED_URL="$SPARKLE_FEED_URL"
+            MACOSX_DEPLOYMENT_TARGET=14.0
+          )
+          if [[ "${SIGNING_ENABLED:-false}" == "true" ]]; then
+            SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
+            ARCHIVE_ARGS+=(
+              CODE_SIGN_IDENTITY="$SIGNING_IDENTITY"
+              CODE_SIGN_STYLE=Manual
+              DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+              SPARKLE_PUBLIC_ED_KEY="$SPARKLE_PUBLIC_ED_KEY"
+              OTHER_CODE_SIGN_FLAGS="--timestamp"
+            )
+          else
+            # Free path: ad-hoc signature ("-"). Required for the app to launch on
+            # Apple Silicon; not trusted by Gatekeeper, so installs need Homebrew
+            # (strips quarantine) or a one-time "Open Anyway". No Sparkle public key
+            # is embedded, so in-app updates stay off until the Developer ID path is on.
+            ARCHIVE_ARGS+=(
+              CODE_SIGN_IDENTITY="-"
+              CODE_SIGN_STYLE=Manual
+              CODE_SIGNING_REQUIRED=YES
+              CODE_SIGNING_ALLOWED=YES
+              DEVELOPMENT_TEAM=""
+            )
+          fi
+          xcodebuild archive "${ARCHIVE_ARGS[@]}" | tee /tmp/archive.log
 
-      - name: Create signed .dmg
+      - name: Create .dmg
         env:
           APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
         run: |
           set -euo pipefail
-          SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
           APP=$(find "$PWD/build/$APP_NAME.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)
           echo "App bundle: $APP"
           test -n "$APP"
-
-          codesign --verify --deep --strict --verbose=2 "$APP"
 
           rm -rf dmg-staging && mkdir -p dmg-staging
           cp -R "$APP" dmg-staging/
           ln -s /Applications dmg-staging/Applications
           hdiutil create -volname "$APP_NAME" -srcfolder dmg-staging -ov -format UDZO "$DMG_NAME"
-          codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$DMG_NAME"
-          codesign --verify --verbose=2 "$DMG_NAME"
+
+          if [[ "${SIGNING_ENABLED:-false}" == "true" ]]; then
+            SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$DMG_NAME"
+            codesign --verify --verbose=2 "$DMG_NAME"
+          else
+            echo "Ad-hoc build: verifying ad-hoc signature and ad-hoc signing the .dmg."
+            codesign --verify --verbose=2 "$APP"
+            codesign --force --sign - "$DMG_NAME"
+          fi
           ls -lh "$DMG_NAME"
 
       - name: Notarize and staple .dmg
+        if: env.SIGNING_ENABLED == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -207,7 +236,7 @@ jobs:
       - name: Upload .dmg artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NoteTakr-signed-dmg
+          name: NoteTakr-dmg
           path: ${{ env.DMG_NAME }}
           if-no-files-found: error
 
@@ -217,13 +246,76 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [[ "${SIGNING_ENABLED:-false}" == "true" ]]; then
+            NOTES="Signed and notarized macOS DMG built from ${GITHUB_SHA}."
+          else
+            NOTES="$(cat <<NOTE
+          Ad-hoc signed (not notarized) macOS DMG built from ${GITHUB_SHA}.
+
+          **Install with Homebrew (no Gatekeeper prompt):**
+          \`\`\`
+          brew tap luiskisters/notetakr https://github.com/${GITHUB_REPOSITORY}
+          brew install --cask notetakr
+          \`\`\`
+
+          **Or download the .dmg directly:** open it, drag NoteTakr to Applications, then launch it. macOS will block the first launch ("Apple could not verify ... is free of malware"). Open **System Settings -> Privacy & Security**, scroll down, and click **Open Anyway**, then confirm. This one-time step is only needed for direct downloads -- Homebrew installs skip it.
+          NOTE
+          )"
+          fi
           gh release create "$RELEASE_TAG" "$DMG_NAME" \
             --target "$GITHUB_SHA" \
             --title "$APP_NAME $MARKETING_VERSION ($BUILD_NUMBER)" \
-            --notes "Signed and notarized macOS DMG built from $GITHUB_SHA."
+            --notes "$NOTES"
+
+      - name: Update Homebrew cask
+        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DMG_SHA256="$(shasum -a 256 "$DMG_NAME" | awk '{print $1}')"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main:refs/remotes/origin/main
+          rm -rf cask-publish
+          git worktree add cask-publish refs/remotes/origin/main
+          mkdir -p cask-publish/Casks
+
+          cat > cask-publish/Casks/notetakr.rb <<RUBY
+          cask "notetakr" do
+            version "${MARKETING_VERSION},${BUILD_NUMBER}"
+            sha256 "${DMG_SHA256}"
+
+            url "https://github.com/${GITHUB_REPOSITORY}/releases/download/v#{version.csv.first}-#{version.csv.second}/${APP_NAME}-#{version.csv.first}-#{version.csv.second}.dmg",
+                verified: "github.com/${GITHUB_REPOSITORY}/"
+            name "${APP_NAME}"
+            desc "Menu-bar meeting recorder with on-device transcription"
+            homepage "https://github.com/${GITHUB_REPOSITORY}"
+
+            app "${APP_NAME}.app"
+
+            zap trash: [
+              "~/Library/Application Support/${APP_NAME}",
+              "~/Library/Caches/${BUNDLE_ID}",
+              "~/Library/HTTPStorages/${BUNDLE_ID}",
+              "~/Library/Preferences/${BUNDLE_ID}.plist",
+              "~/Library/Saved Application State/${BUNDLE_ID}.savedState",
+            ]
+          end
+          RUBY
+
+          cd cask-publish
+          git add Casks/notetakr.rb
+          if git diff --cached --quiet; then
+            echo "Cask already up to date."
+            exit 0
+          fi
+          git commit -m "Update Homebrew cask for ${RELEASE_TAG} [skip ci]"
+          git push origin HEAD:main
 
       - name: Download Sparkle tools
-        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
         run: |
           set -euo pipefail
           curl -fsSL \
@@ -235,7 +327,7 @@ jobs:
           echo "SPARKLE_TOOLS_DIR=$RUNNER_TEMP/Sparkle" >> "$GITHUB_ENV"
 
       - name: Generate Sparkle appcast
-        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
         env:
           SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
         run: |
@@ -256,7 +348,7 @@ jobs:
           test -s appcast.xml
 
       - name: Publish Sparkle appcast
-        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
