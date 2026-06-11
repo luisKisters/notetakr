@@ -33,6 +33,7 @@ struct EditorView: View {
             // Settings sheet overlay
             if settingsBridge.isVisible {
                 SettingsSheetView(viewModel: settingsBridge)
+                    .environment(\.themeColors, themeColors)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .animation(.easeInOut(duration: 0.22), value: settingsBridge.isVisible)
                     .zIndex(20)

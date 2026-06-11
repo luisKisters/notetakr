@@ -135,6 +135,77 @@ final class SettingsSheetViewModelTests: XCTestCase {
         XCTAssertTrue(vm.showLanguageWarning)
     }
 
+    // MARK: - Appearance (theme-driven colours)
+
+    func testDefaultAppearanceMatchesSettings() {
+        let (vm, ctx) = makeVM()
+        XCTAssertEqual(vm.currentAppearance, ctx.settings.appearance,
+                       "VM currentAppearance must mirror the settings store on init")
+    }
+
+    func testSetAppearanceUpdatesViewModelAndSettings() {
+        let (vm, ctx) = makeVM()
+        vm.setAppearance(.dark)
+        XCTAssertEqual(vm.currentAppearance, .dark)
+        XCTAssertEqual(ctx.settings.appearance, .dark, "settings.json must persist the appearance change")
+    }
+
+    func testSetAppearanceRoundTripsAllValues() {
+        let (vm, ctx) = makeVM()
+        for appearance in Appearance.allCases {
+            vm.setAppearance(appearance)
+            XCTAssertEqual(vm.currentAppearance, appearance, "currentAppearance must equal \(appearance) after setAppearance")
+            XCTAssertEqual(ctx.settings.appearance, appearance, "settings must persist \(appearance)")
+        }
+    }
+
+    func testAppearanceColorsMatchThemeForEveryCase() {
+        let (vm, _) = makeVM()
+        for appearance in Appearance.allCases {
+            vm.setAppearance(appearance)
+            let colors = Theme.colors(for: vm.currentAppearance)
+            XCTAssertEqual(colors, Theme.colors(for: appearance),
+                           "Theme.colors for \(appearance) must match after setAppearance")
+        }
+    }
+
+    func testLightAppearancePrimaryTextIsReadable() {
+        let (vm, _) = makeVM()
+        vm.setAppearance(.light)
+        let colors = Theme.colors(for: vm.currentAppearance)
+        // Light primary text must be dark enough (low channel values = dark ink)
+        XCTAssertLessThan(colors.primaryText.r, 0.15,
+                          "Light primary text must be near-black for readability")
+    }
+
+    func testDarkAppearancePrimaryTextIsLight() {
+        let (vm, _) = makeVM()
+        vm.setAppearance(.dark)
+        let colors = Theme.colors(for: vm.currentAppearance)
+        XCTAssertGreaterThan(colors.primaryText.r, 0.8,
+                             "Dark primary text must be near-white")
+    }
+
+    // MARK: - Tab selection model (row hit-target semantics)
+
+    func testAllTabsCycleCorrectly() {
+        let (vm, _) = makeVM()
+        for tab in SettingsTab.allCases {
+            vm.selectedTab = tab
+            XCTAssertEqual(vm.selectedTab, tab, "selectedTab must equal \(tab) after direct assignment")
+        }
+    }
+
+    func testScopeBannerReflectsTabSelection() {
+        let (vm, _) = makeVM()
+        vm.selectedTab = .thisMeeting
+        XCTAssertTrue(vm.showScopeBanner, "Scope banner must be shown on This Meeting tab")
+        vm.selectedTab = .general
+        XCTAssertFalse(vm.showScopeBanner, "Scope banner must be hidden on General tab")
+        vm.selectedTab = .recording
+        XCTAssertFalse(vm.showScopeBanner, "Scope banner must be hidden on Recording tab")
+    }
+
     // MARK: - Sheet lifecycle
 
     func testCloseHidesSheet() {

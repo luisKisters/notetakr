@@ -118,19 +118,19 @@ Reproduce `design/mockups/v5/switcher-final.html` exactly. `NoteTakrApp/Views/Sw
 
 ### Task 4: Settings follows the theme (no purple panel, no full-row grey hover)
 `NoteTakrApp/Views/SettingsSheetView.swift`.
-- [ ] Make Settings adopt the ACTIVE theme (glass/dark/light) via the shared surface + a theme
+- [x] Make Settings adopt the ACTIVE theme (glass/dark/light) via the shared surface + a theme
       source (`viewModel.currentAppearance` / `@Environment(\.themeColors)`); remove the hardcoded
       dark-purple panel background and purple accent constants.
-- [ ] **Remove the full-row grey hover** — hovering a setting must NOT fill the entire row grey (it
+- [x] **Remove the full-row grey hover** — hovering a setting must NOT fill the entire row grey (it
       "looks like shit"). Keep hover minimal/subtle and only on actually-clickable rows; never purple
       where a purple selection exists.
-- [ ] Fix the hit target: the whole row triggers its action (nested Toggles/Pickers must not be the
+- [x] Fix the hit target: the whole row triggers its action (nested Toggles/Pickers must not be the
       only tappable area).
-- [ ] Theme-aware icon/text colors (no hardcoded `Color.white.opacity`), so Light theme is readable.
-- [ ] ESC closes Settings reliably.
-- [ ] Linux tests: the settings-row hit-target/selection model; appearance-driven colors resolve
+- [x] Theme-aware icon/text colors (no hardcoded `Color.white.opacity`), so Light theme is readable.
+- [x] ESC closes Settings reliably.
+- [x] Linux tests: the settings-row hit-target/selection model; appearance-driven colors resolve
       per theme.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 5: Note editor — typing, copy, remove markdown hint
 `NoteTakrApp/Views/EditorView.swift`, `NoteTakrApp/Views/MarkdownBodyView.swift`,

@@ -22,6 +22,7 @@ private let languageOptions: [(value: String, label: String)] = [
 
 struct SettingsSheetView: View {
     @ObservedObject var viewModel: SettingsSheetViewModel
+    @Environment(\.themeColors) private var theme
     @StateObject private var permissions = AudioPermissionManager()
     @StateObject private var vocab = VocabularyViewModel()
     @StateObject private var summarization = SummarizationViewModel()
@@ -30,14 +31,12 @@ struct SettingsSheetView: View {
     @State private var newPerMeetingTerm: String = ""
     @State private var yourNameDraft: String = ""
 
-    private let sheetBg = Color(red: 0.110, green: 0.102, blue: 0.128)
-    private let hairline = Color.white.opacity(0.08)
-    private let accent = Color(red: 0.545, green: 0.361, blue: 0.965)
-    private let textPrimary = Color(red: 0.937, green: 0.929, blue: 0.952)
-    private let textSecondary = Color(red: 0.659, green: 0.643, blue: 0.702)
-    private let textTertiary = Color(red: 0.471, green: 0.455, blue: 0.486)
-    private let controlBg = Color.white.opacity(0.09)
-    private let hoverFill = Color.white.opacity(0.05)
+    private var hairline: Color { theme.hairline.swiftUIColor }
+    private var accent: Color { theme.accent.swiftUIColor }
+    private var textPrimary: Color { theme.primaryText.swiftUIColor }
+    private var textSecondary: Color { theme.secondaryText.swiftUIColor }
+    private var textTertiary: Color { theme.tertiaryText.swiftUIColor }
+    private var controlBg: Color { theme.elevatedFill.swiftUIColor }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -64,7 +63,9 @@ struct SettingsSheetView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 527) // ~85% of 620
-            .background(sheetBg)
+            .background {
+                ThemedSurface(appearance: viewModel.currentAppearance)
+            }
             .clipShape(
                 .rect(
                     topLeadingRadius: 16,
@@ -75,7 +76,7 @@ struct SettingsSheetView: View {
             )
             .overlay(alignment: .top) {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.12))
+                    .fill(hairline)
                     .frame(height: 1)
                     .frame(maxWidth: .infinity)
                     .offset(y: 0)
@@ -112,7 +113,7 @@ struct SettingsSheetView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 9)
-        .background(sheetBg)
+        .background(Color.clear)
     }
 
     private func tabButton(_ tab: SettingsTab, icon: String, label: String) -> some View {
@@ -196,7 +197,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setTranscribeThisMeeting($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "waveform").iconStyle()
+                        Image(systemName: "waveform").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Transcribe this meeting").font(.system(size: 13)).foregroundColor(textPrimary)
                         }
@@ -210,7 +211,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "globe")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 Text("Language").font(.system(size: 13)).foregroundColor(textPrimary)
                 Spacer()
                 Picker("", selection: Binding(
@@ -232,7 +233,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setInPersonThisMeeting($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "person.fill").iconStyle()
+                        Image(systemName: "person.fill").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
                             Text("Mic only — skips system audio")
@@ -250,7 +251,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "link")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Linked calendar event").font(.system(size: 13)).foregroundColor(textPrimary)
                     if let event = viewModel.frontmatterBridge.noteCalendarEvent {
@@ -327,7 +328,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setTranscribeByDefault($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "waveform").iconStyle()
+                        Image(systemName: "waveform").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Transcribe meetings").font(.system(size: 13)).foregroundColor(textPrimary)
                             Text("Every new meeting starts transcribing")
@@ -344,7 +345,7 @@ struct SettingsSheetView: View {
             VStack(alignment: .leading, spacing: 7) {
                 settingsRow {
                     Image(systemName: "globe")
-                        .iconStyle()
+                        .iconStyle(color: textTertiary)
                     Text("Transcription language").font(.system(size: 13)).foregroundColor(textPrimary)
                     Spacer()
                     Picker("", selection: Binding(
@@ -382,7 +383,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setInPersonByDefault($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "person.fill").iconStyle()
+                        Image(systemName: "person.fill").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
                             Text("Mic only — skips system audio")
@@ -400,7 +401,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "waveform")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Transcription model").font(.system(size: 13)).foregroundColor(textPrimary)
                     Text("On-device · FluidAudio")
@@ -422,7 +423,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "sparkles")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Summary model").font(.system(size: 13)).foregroundColor(textPrimary)
                     Text("Used for Generate summary")
@@ -446,7 +447,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "keyboard")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 Text("Global hotkey").font(.system(size: 13)).foregroundColor(textPrimary)
                 Spacer()
                 HotkeyRecorderView(
@@ -462,7 +463,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setLaunchAtLogin($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "power").iconStyle()
+                        Image(systemName: "power").iconStyle(color: textTertiary)
                         Text("Launch at login").font(.system(size: 13)).foregroundColor(textPrimary)
                         Spacer()
                     }
@@ -474,7 +475,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "circle.lefthalf.filled")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 Text("Appearance").font(.system(size: 13)).foregroundColor(textPrimary)
                 Spacer()
                 Picker("", selection: Binding(
@@ -491,7 +492,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "folder")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Notes folder").font(.system(size: 13)).foregroundColor(textPrimary)
                     Text(viewModel.appSettings.notesFolderPath ?? "~/Library/Application Support/NoteTakr")
@@ -509,7 +510,7 @@ struct SettingsSheetView: View {
                     .background(controlBg)
                     .cornerRadius(6.5)
                     .overlay(RoundedRectangle(cornerRadius: 6.5)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                        .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
             }
         }
     }
@@ -526,7 +527,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setMicEnabled($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "mic").iconStyle()
+                        Image(systemName: "mic").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Microphone").font(.system(size: 13)).foregroundColor(textPrimary)
                             Text("Your voice — assigned to you")
@@ -546,7 +547,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setSystemAudioEnabled($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "speaker.wave.2").iconStyle()
+                        Image(systemName: "speaker.wave.2").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("System audio").font(.system(size: 13)).foregroundColor(textPrimary)
                             Text("Other participants · off for in-person")
@@ -564,7 +565,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "person")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Your name").font(.system(size: 13)).foregroundColor(textPrimary)
                     Text("Used for the microphone speaker")
@@ -588,7 +589,7 @@ struct SettingsSheetView: View {
                     set: { viewModel.setInferNamesFromCalendar($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "calendar.badge.checkmark").iconStyle()
+                        Image(systemName: "calendar.badge.checkmark").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Infer names from calendar").font(.system(size: 13)).foregroundColor(textPrimary)
                             Text("Auto-name the other speaker when 1:1")
@@ -715,7 +716,7 @@ struct SettingsSheetView: View {
                         .background(controlBg)
                         .cornerRadius(7)
                         .overlay(RoundedRectangle(cornerRadius: 7)
-                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                            .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
                     .disabled(isCheckingForUpdates)
@@ -730,7 +731,7 @@ struct SettingsSheetView: View {
                         set: { viewModel.setAutoCheckForUpdates($0) }
                     )) {
                         HStack(alignment: .center, spacing: 10) {
-                            Image(systemName: "clock.arrow.circlepath").iconStyle()
+                            Image(systemName: "clock.arrow.circlepath").iconStyle(color: textTertiary)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Automatically check for updates").font(.system(size: 13)).foregroundColor(textPrimary)
                                 Text("Via Sparkle").font(.system(size: 11)).foregroundColor(textTertiary)
@@ -749,7 +750,7 @@ struct SettingsSheetView: View {
                         set: { viewModel.setAutoDownloadUpdates($0) }
                     )) {
                         HStack(alignment: .center, spacing: 10) {
-                            Image(systemName: "arrow.down.circle").iconStyle()
+                            Image(systemName: "arrow.down.circle").iconStyle(color: textTertiary)
                             Text("Automatically download updates").font(.system(size: 13)).foregroundColor(textPrimary)
                             Spacer()
                         }
@@ -764,7 +765,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Image(systemName: "clock")
-                    .iconStyle()
+                    .iconStyle(color: textTertiary)
                 Text("Release channel").font(.system(size: 13)).foregroundColor(textPrimary)
                 Spacer()
                 Text("Stable")
@@ -909,7 +910,7 @@ struct SettingsSheetView: View {
                             .background(controlBg)
                             .cornerRadius(4.5)
                             .overlay(RoundedRectangle(cornerRadius: 4.5)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                                .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 3.5)
@@ -926,7 +927,7 @@ struct SettingsSheetView: View {
 
     @ViewBuilder
     private func settingsRow<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
-        SettingsRowView(hairline: hairline, hoverFill: hoverFill) {
+        SettingsRowView(hairline: hairline) {
             content()
         }
     }
@@ -978,18 +979,14 @@ struct SettingsSheetView: View {
 /// hovering a row's text never incorrectly shows the row as "selected".
 private struct SettingsRowView<Content: View>: View {
     let hairline: Color
-    let hoverFill: Color
     @ViewBuilder let content: () -> Content
-    @State private var isHovering = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             content()
         }
         .frame(maxWidth: .infinity, minHeight: 42)
-        .background(isHovering ? hoverFill : Color.clear)
         .contentShape(Rectangle())
-        .onHover { isHovering = $0 }
         .overlay(alignment: .bottom) {
             Rectangle().fill(hairline).frame(height: 1)
         }
@@ -1040,10 +1037,10 @@ private struct FlowLayout: Layout {
 // MARK: - Icon style modifier
 
 private extension Image {
-    func iconStyle() -> some View {
+    func iconStyle(color: Color) -> some View {
         self.font(.system(size: 14, weight: .light))
             .frame(width: 15, height: 15)
-            .foregroundColor(Color.white.opacity(0.4))
+            .foregroundColor(color)
     }
 }
 
