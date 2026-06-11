@@ -106,20 +106,26 @@ final class HotkeyComboTests: XCTestCase {
     func testModifierOnlyNoKeyReject() {
         XCTAssertThrowsError(try HotkeyCombo.parse("⌘")) { error in
             // No key character after modifier → unknownKey("")
-            if case let HotkeyCombo.ParseError.unknownKey(k) = error as! HotkeyCombo.ParseError {
+            guard let parseError = error as? HotkeyCombo.ParseError else {
+                XCTFail("Expected HotkeyCombo.ParseError, got \(error)"); return
+            }
+            if case let .unknownKey(k) = parseError {
                 XCTAssertEqual(k, "")
             } else {
-                XCTFail("Expected unknownKey, got \(error)")
+                XCTFail("Expected unknownKey, got \(parseError)")
             }
         }
     }
 
     func testUnknownKeyChessKnight() {
         XCTAssertThrowsError(try HotkeyCombo.parse("⌃⌥⌘♞")) { error in
-            if case let HotkeyCombo.ParseError.unknownKey(k) = error as! HotkeyCombo.ParseError {
+            guard let parseError = error as? HotkeyCombo.ParseError else {
+                XCTFail("Expected HotkeyCombo.ParseError, got \(error)"); return
+            }
+            if case let .unknownKey(k) = parseError {
                 XCTAssertEqual(k, "♞")
             } else {
-                XCTFail("Expected unknownKey, got \(error)")
+                XCTFail("Expected unknownKey, got \(parseError)")
             }
         }
     }

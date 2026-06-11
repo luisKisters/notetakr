@@ -100,6 +100,10 @@ public final class AppSettingsStore {
             notesFolderPath: _notesFolderPath
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try? data.write(to: fileURL, options: .atomic)
     }
 }

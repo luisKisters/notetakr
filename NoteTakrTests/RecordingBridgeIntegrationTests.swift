@@ -124,6 +124,7 @@ final class RecordingBridgeIntegrationTests: XCTestCase {
         XCTAssertEqual(bridge.state, .ready)
         XCTAssertEqual(transcriptionWithWrite.callCount, 1)
         XCTAssertEqual(transcriptionWithWrite.receivedNoteIDs.first, noteID)
+        XCTAssertTrue(trackingStore.savedNoteIDs.contains(noteID), "NoteStore must receive a save for the transcribed note")
     }
 
     // MARK: - 3. transcribe:false short-circuits
@@ -164,7 +165,7 @@ final class RecordingBridgeIntegrationTests: XCTestCase {
                 try await Task.sleep(nanoseconds: 50_000_000) // 50ms
             }
         }
-        // Still not ready/failed after timeout
+        XCTFail("waitForBridgeReady timed out — bridge state: \(bridge.state)")
     }
 
     private func makeTempDir() -> URL {

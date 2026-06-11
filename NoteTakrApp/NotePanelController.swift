@@ -78,7 +78,8 @@ final class NotePanelController {
             noteListProvider: noteListProvider,
             eventsProvider: calendarEventsProvider,
             now: { Date() },
-            store: store
+            store: store,
+            defaultsProvider: localAppSettings
         )
         switcherBridge = SwitcherBridge(viewModel: switcherVM)
 
@@ -144,7 +145,11 @@ final class NotePanelController {
     }
 
     func show() {
-        loadCurrentNote()
+        // Don't reload the note while recording — recordingBridge holds a live FrontmatterPresenter
+        // reference; replacing it would orphan the REC chip and elapsed-time state.
+        if recordingBridge == nil {
+            loadCurrentNote()
+        }
         panel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
