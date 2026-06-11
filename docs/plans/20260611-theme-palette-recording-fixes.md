@@ -87,23 +87,23 @@ Do not proceed to the next task until:
 ### Task 2: ⌘K command palette — final (floating rows over a pure blur)
 Reproduce `design/mockups/v5/switcher-final.html` exactly. `NoteTakrApp/Views/SwitcherOverlayView.swift`
 (rendered as a ZStack sibling in `EditorView.swift`).
-- [ ] Replace the full-bounds frosted rectangle + dark overlay with a **pure backdrop blur, NO
+- [x] Replace the full-bounds frosted rectangle + dark overlay with a **pure backdrop blur, NO
       scrim/tint overlay** — it only blurs the note behind and does NOT lighten it. Because the blur
       spans the whole window, the top bar/navbar is blurred by the same surface (no separate
       top-bar treatment, no "lighter" palette blur).
-- [ ] Search = a **rounded field with NO magnifying-glass icon**, positioned **on the heading line**
+- [x] Search = a **rounded field with NO magnifying-glass icon**, positioned **on the heading line**
       (dropped down from the very top, not pinned under the traffic lights).
-- [ ] Result rows **float as cards** directly on the blur (no single bordered container panel);
+- [x] Result rows **float as cards** directly on the blur (no single bordered container panel);
       roomier padding/spacing than today (see the mockup's `.krow`).
-- [ ] The list **fades at the top & bottom** while scrolling (mask gradient) and **cannot overscroll**
+- [x] The list **fades at the top & bottom** while scrolling (mask gradient) and **cannot overscroll**
       past the last meeting.
-- [ ] Hover = subtle gray; **purple ONLY marks the selected row** (no purple hover over the purple
+- [x] Hover = subtle gray; **purple ONLY marks the selected row** (no purple hover over the purple
       selection).
-- [ ] Click-outside dismisses; ESC dismisses; ⌘K toggles; ↑/↓ move selection; Enter opens.
-- [ ] Thread `themeColors` through so rows render correctly in all three themes (no hardcoded
+- [x] Click-outside dismisses; ESC dismisses; ⌘K toggles; ↑/↓ move selection; Enter opens.
+- [x] Thread `themeColors` through so rows render correctly in all three themes (no hardcoded
       white).
-- [ ] Linux tests: query filtering, keyboard-nav wrap, grouping/selection.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Linux tests: query filtering, keyboard-nav wrap, grouping/selection.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 3: Window chrome — one real close button, no fake dots, gear top-right
 `NoteTakrApp/Views/WindowChromeView.swift` + `NoteTakrApp/NotePanelController.swift`.

@@ -25,6 +25,7 @@ struct EditorView: View {
             // ⌘K switcher overlay (sits over the entire editor when visible)
             if switcherBridge.isVisible {
                 SwitcherOverlayView(bridge: switcherBridge)
+                    .environment(\.themeColors, themeColors)
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                     .zIndex(10)
             }
