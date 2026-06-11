@@ -347,6 +347,7 @@ private struct SpeakerNameCell: View {
     }
 
     private func commit(keep: Bool) {
+        guard isRenaming else { return }
         isRenaming = false
         isFocused = false
         let trimmed = renameText.trimmingCharacters(in: .whitespaces)

@@ -688,13 +688,6 @@ struct SettingsSheetView: View {
                             Text("NoteTakr \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(textPrimary)
-                            Text("Up to date")
-                                .font(.system(size: 10.5, weight: .semibold))
-                                .foregroundColor(accent)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1)
-                                .background(accent.opacity(0.15))
-                                .cornerRadius(4)
                         }
                         Text(updateCheckStatus)
                             .font(.system(size: 11))

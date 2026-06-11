@@ -297,6 +297,7 @@ private struct DateTimeValue: View {
     let theme: ThemeColors
 
     @State private var showDatePicker = false
+    @State private var isHoveringDate = false
 
     private var dateLabel: String {
         let f = DateFormatter()
@@ -320,9 +321,10 @@ private struct DateTimeValue: View {
                 Text(dateLabel)
                     .font(.system(size: 12))
                     .foregroundStyle(theme.primaryText.swiftUIColor.opacity(0.85))
-                    .underline(true, color: theme.hairline.swiftUIColor)
+                    .underline(isHoveringDate, color: theme.hairline.swiftUIColor)
             }
             .buttonStyle(.plain)
+            .onHover { isHoveringDate = $0 }
             .popover(isPresented: $showDatePicker, arrowEdge: .bottom) {
                 DatePickerPopover(date: date, end: end, bridge: bridge) {
                     showDatePicker = false
@@ -399,7 +401,7 @@ private struct PeopleValue: View {
                     .font(.system(size: 12))
                     .foregroundStyle(theme.tertiaryText.swiftUIColor)
             } else {
-                ForEach(participants, id: \.name) { participant in
+                ForEach(Array(participants.enumerated()), id: \.offset) { _, participant in
                     participantCircle(participant)
                 }
             }
@@ -477,7 +479,7 @@ private struct PeopleValue: View {
                 dismiss: { menuParticipant = nil }
             )
         }
-        .help("\(participant.name)\(participant.email.map { "\n\($0)" } ?? "")\nClick to remove")
+        .help("\(participant.name)\(participant.email.map { "\n\($0)" } ?? "")\nClick to manage")
     }
 
     private func initials(for name: String) -> String {
