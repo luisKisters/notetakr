@@ -95,17 +95,17 @@ non-root user; Node, git, gh available; a live Swift-for-Linux toolchain is pres
 
 ### Task 4: Render markdown in the note body; copy yields raw markdown
 
-- [ ] Render the note body as formatted markdown (headings, bullet/numbered lists, task
+- [x] Render the note body as formatted markdown (headings, bullet/numbered lists, task
       checkboxes, inline code, code blocks, blockquotes, horizontal rules, bold/italic, links)
       instead of displaying the raw markdown source.
-- [ ] Make the **Copy** action copy the underlying **raw markdown source**, not the rendered
+- [x] Make the **Copy** action copy the underlying **raw markdown source**, not the rendered
       output, so pasting elsewhere yields the original markdown.
-- [ ] Add clear vertical spacing between the frontmatter region and the rendered body.
-- [ ] Keep the renderer styling simple and neutral (a dedicated visual redesign is out of
+- [x] Add clear vertical spacing between the frontmatter region and the rendered body.
+- [x] Keep the renderer styling simple and neutral (a dedicated visual redesign is out of
       scope); prioritise correctness of parsing/rendering and the raw-copy behaviour.
-- [ ] Put the markdown→view conversion and the copy-source extraction in Linux-testable types
+- [x] Put the markdown→view conversion and the copy-source extraction in Linux-testable types
       and add unit tests (each markdown construct renders; copy returns the exact raw source).
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
 
 ### Task 5: Merge transcripts — same-speaker turns and the two audio streams
 
