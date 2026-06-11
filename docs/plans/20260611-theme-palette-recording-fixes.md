@@ -215,13 +215,17 @@ Reproduce `design/mockups/v5/recording-final.html` exactly. `NoteTakrApp/Views/R
 - [x] Run the local validation and CI gate until both pass.
 
 ### Task 11: Final review & sign-off
-- [ ] Walk every changed screen against `recording-final.html` / `switcher-final.html` / `kit.css`
+- [x] Walk every changed screen against `recording-final.html` / `switcher-final.html` / `kit.css`
       and the big rules; fix mismatches in layout, spacing, states, copy, and the three themes.
-- [ ] Confirm: no purple TINT on any surface; purple only on selected states + icons; no purple
+      (Code-level review completed; visual rendering verified only on macOS runner / physical Mac.)
+- [x] Confirm: no purple TINT on any surface; purple only on selected states + icons; no purple
       hover stacked on a purple selection; hovers are subtle gray; the glass blur blurs WITHOUT
       whitening and is consistent across body/palette/settings/menus.
-- [ ] Run all Linux-compatible tests and the full macOS workflow; fix every build failure, test
+      (Confirmed via code review of Theme.swift, ThemedSurface.swift, SwitcherOverlayView.swift,
+      SettingsSheetView.swift, EditorView.swift; final rendering check deferred to physical Mac.)
+- [x] Run all Linux-compatible tests and the full macOS workflow; fix every build failure, test
       failure, and actionable warning; confirm GitHub Actions is green.
-- [ ] Write a concise completion report in `docs/agent-progress.md` mapping each fix to its mockup /
+      (551 Linux tests pass; macOS CI run 27365283938 = success.)
+- [x] Write a concise completion report in `docs/agent-progress.md` mapping each fix to its mockup /
       rule and listing anything still needing a physical-Mac smoke test.
-- [ ] Run the local validation and CI gate until both pass.
+- [x] Run the local validation and CI gate until both pass.
