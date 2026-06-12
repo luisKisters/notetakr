@@ -87,8 +87,15 @@ public final class RecordingNoteBridge {
         state = .transcribing
         onChange?()
 
-        Task { [weak self] in
-            guard let self else { return }
+        // Capture `self` STRONGLY for the duration of the async transcription.
+        // The controller drops its reference to this bridge immediately after
+        // calling stopRecording() (NotePanelController.recordingStopped sets
+        // recordingBridge = nil). With a weak capture, ARC would deallocate the
+        // bridge before this task runs, the `guard let self` would bail, and
+        // transcription would silently never execute — leaving the record pill
+        // stuck on "Transcribing…". The strong capture keeps the bridge alive
+        // until the task finishes; it is released afterwards, so there is no leak.
+        Task {
             do {
                 let segments = try await service.transcribe(
                     noteID: noteID,

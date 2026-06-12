@@ -135,6 +135,32 @@ final class NotePanelController {
             now: { Date() }
         )
         recordingBridge = recBridge
+
+        // Release the record pill from "Transcribing…" on terminal outcomes that the
+        // segments observer in drivePostStopPipeline can't see: a thrown error
+        // (.failed) or a successful-but-empty transcript (e.g. silent audio). Without
+        // this the pill would hang on "Transcribing…" indefinitely.
+        recBridge.onChange = { [weak self, weak recBridge] in
+            guard let recBridge else { return }
+            let bridgeState = recBridge.state
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch bridgeState {
+                case .failed:
+                    self.recordPillMachine.cancelBusyPipeline()
+                case .ready:
+                    let noteID = self.frontmatterBridge.noteID
+                    if case .segments(let segs) = self.tabsBridge.presenter.transcriptState(for: noteID),
+                       !segs.isEmpty {
+                        break // non-empty success → drivePostStopPipeline drives the rest
+                    }
+                    self.recordPillMachine.cancelBusyPipeline()
+                default:
+                    break
+                }
+            }
+        }
+
         recBridge.startRecording()
 
         // Tick the elapsed REC chip every second
