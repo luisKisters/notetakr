@@ -228,6 +228,46 @@ final class RecordingNoteBridgeTests: XCTestCase {
         }
     }
 
+    // MARK: - Lifetime: transcription must outlive the external reference
+
+    /// Regression: NotePanelController.recordingStopped() drops its only strong
+    /// reference to the bridge immediately after stopRecording(). The transcription
+    /// task must still run to completion. With a weak `self` capture the bridge would
+    /// deallocate before the task ran, transcription would silently never happen, and
+    /// the record pill would hang forever on "Transcribing…".
+    func testTranscriptionCompletesAfterExternalReferenceDropped() {
+        let note = makeNote()
+        let fp = makePresenter(note: note)
+        let tabs = NoteTabsPresenter()
+        let spy = SpyTranscriptionService(
+            behavior: .succeed([RawSegment(speaker: "Alice", timestamp: 0, text: "Hello")])
+        )
+
+        let segsExp = expectation(description: "segments set after external ref dropped")
+        tabs.onChange = {
+            if case .segments = tabs.transcriptState(for: note.id) { segsExp.fulfill() }
+        }
+
+        var bridge: RecordingNoteBridge? = RecordingNoteBridge(
+            frontmatterPresenter: fp,
+            tabsPresenter: tabs,
+            settings: makeSettings(),
+            transcriptionService: spy
+        )
+        bridge?.startRecording()
+        bridge?.stopRecording()
+        bridge = nil // drop the only external strong reference, mirroring the controller
+
+        wait(for: [segsExp], timeout: 2)
+
+        if case .segments(let display) = tabs.transcriptState(for: note.id) {
+            XCTAssertEqual(display.first?.text, "Hello")
+        } else {
+            XCTFail("Transcription must complete even after the external reference is dropped")
+        }
+        XCTAssertEqual(spy.callCount, 1)
+    }
+
     // MARK: - Failure path
 
     func testTranscriptionFailureSurfacesMessage() {

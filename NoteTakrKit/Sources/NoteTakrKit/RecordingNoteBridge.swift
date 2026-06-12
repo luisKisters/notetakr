@@ -88,9 +88,8 @@ public final class RecordingNoteBridge {
         tabsPresenter.markTranscribing(for: noteID)
         onChange?()
 
-        // NOTE: capture `self` strongly. The controller releases its reference to this
-        // bridge as soon as recording stops, so a `[weak self]` task would be torn down
-        // before it ever ran and transcription would silently never happen.
+        // Hold the bridge for the async task. The controller releases its reference
+        // immediately after stopping, so a weak capture can cancel transcription.
         Task {
             do {
                 let segments = try await service.transcribe(
