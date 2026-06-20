@@ -116,25 +116,16 @@ struct SettingsSheetView: View {
     }
 
     private func tabButton(_ tab: SettingsTab, icon: String, label: String) -> some View {
-        let isActive = viewModel.selectedTab == tab
-        return Button {
-            viewModel.selectedTab = tab
-        } label: {
-            VStack(spacing: 3.5) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .light))
-                Text(label)
-                    .font(.system(size: 9.5, weight: isActive ? .semibold : .medium))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .foregroundColor(isActive ? accent : textSecondary)
-            .background(isActive ? accent.opacity(0.12) : Color.clear)
-            .cornerRadius(9)
-        }
-        .buttonStyle(.plain)
+        SettingsTabButton(
+            tab: tab,
+            icon: icon,
+            label: label,
+            isActive: viewModel.selectedTab == tab,
+            accent: accent,
+            textSecondary: textSecondary,
+            hoverFill: theme.hoverFill.swiftUIColor,
+            action: { viewModel.selectedTab = tab }
+        )
     }
 
     // MARK: - Scope banner
@@ -899,59 +890,39 @@ struct SettingsSheetView: View {
 
     @ViewBuilder
     private func permRow(label: String, detail: String, status: PermissionStatus, action: @escaping () -> Void) -> some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(statusColor(status))
-                .frame(width: 8, height: 8)
-                .shadow(color: statusColor(status).opacity(0.6), radius: 4)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.system(size: 13)).foregroundColor(textPrimary)
-                Text(detail).font(.system(size: 11)).foregroundColor(textTertiary)
-            }
-            Spacer()
-            if status != .granted {
-                Button("Grant") { action() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12))
-                    .foregroundColor(textTertiary)
-            } else {
-                Text("Granted ✓")
-                    .font(.system(size: 12))
-                    .foregroundColor(.green)
-            }
-        }
-        .padding(.vertical, 9)
-        .overlay(alignment: .bottom) { Rectangle().fill(hairline).frame(height: 1) }
+        PermissionRowButton(
+            label: label,
+            detail: detail,
+            status: status,
+            actionTitle: "Grant",
+            hairline: hairline,
+            hoverFill: theme.hoverFill.swiftUIColor,
+            textPrimary: textPrimary,
+            textTertiary: textTertiary,
+            action: action
+        )
+        .accessibilityIdentifier("permissionRow_\(label)")
     }
 
     private var systemAudioRow: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(permissions.systemAudioStatus == .granted ? Color.green : Color.orange)
-                .frame(width: 8, height: 8)
-                .shadow(color: (permissions.systemAudioStatus == .granted ? Color.green : Color.orange).opacity(0.6), radius: 4)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("System Audio").font(.system(size: 13)).foregroundColor(textPrimary)
-                Text(permissions.systemAudioRestartRequired ? "Restart required" : "Other participants in calls")
-                    .font(.system(size: 11))
-                    .foregroundColor(permissions.systemAudioRestartRequired ? .orange : textTertiary)
-            }
-            Spacer()
-            if permissions.systemAudioStatus != .granted {
-                Button(permissions.systemAudioRestartRequired ? "Restart" : "Grant") {
-                    if permissions.systemAudioRestartRequired {
-                        permissions.restartApp()
-                    } else {
-                        permissions.requestSystemAudioAccess()
-                    }
+        PermissionRowButton(
+            label: "System Audio",
+            detail: permissions.systemAudioRestartRequired ? "Restart required for Screen Recording" : "Other participants in calls",
+            status: permissions.systemAudioStatus,
+            actionTitle: permissions.systemAudioRestartRequired ? "Restart" : "Grant",
+            hairline: hairline,
+            hoverFill: theme.hoverFill.swiftUIColor,
+            textPrimary: textPrimary,
+            textTertiary: permissions.systemAudioRestartRequired ? .orange : textTertiary,
+            action: {
+                if permissions.systemAudioRestartRequired {
+                    permissions.restartApp()
+                } else {
+                    permissions.requestSystemAudioAccess()
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 12))
-                .foregroundColor(textTertiary)
             }
-        }
-        .padding(.vertical, 9)
-        .overlay(alignment: .bottom) { Rectangle().fill(hairline).frame(height: 1) }
+        )
+        .accessibilityIdentifier("permissionRow_System Audio")
     }
 
     private func statusColor(_ status: PermissionStatus) -> Color {
@@ -1001,7 +972,7 @@ struct SettingsSheetView: View {
 
     @ViewBuilder
     private func settingsRow<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
-        SettingsRowView(hairline: hairline) {
+        SettingsRowView(hairline: hairline, hoverFill: theme.hoverFill.swiftUIColor) {
             content()
         }
     }
@@ -1046,6 +1017,146 @@ struct SettingsSheetView: View {
     }
 }
 
+// MARK: - Tab button with full hit target
+
+private struct SettingsTabButton: View {
+    let tab: SettingsTab
+    let icon: String
+    let label: String
+    let isActive: Bool
+    let accent: Color
+    let textSecondary: Color
+    let hoverFill: Color
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3.5) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .light))
+                Text(label)
+                    .font(.system(size: 9.5, weight: isActive ? .semibold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .foregroundColor(isActive ? accent : textSecondary)
+            .background(backgroundFill)
+            .cornerRadius(9)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .contentShape(Rectangle())
+        .accessibilityIdentifier("settingsTab_\(tab.accessibilityID)")
+    }
+
+    private var backgroundFill: Color {
+        if isActive { return accent.opacity(0.12) }
+        if isHovering { return hoverFill }
+        return .clear
+    }
+}
+
+private extension SettingsTab {
+    var accessibilityID: String {
+        switch self {
+        case .thisMeeting: return "thisMeeting"
+        case .general: return "general"
+        case .recording: return "recording"
+        case .vocabulary: return "vocabulary"
+        case .updates: return "updates"
+        }
+    }
+}
+
+// MARK: - Permission row with full hit target
+
+private struct PermissionRowButton: View {
+    let label: String
+    let detail: String
+    let status: PermissionStatus
+    let actionTitle: String
+    let hairline: Color
+    let hoverFill: Color
+    let textPrimary: Color
+    let textTertiary: Color
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    private var isActionable: Bool { status != .granted }
+
+    var body: some View {
+        Group {
+            if isActionable {
+                Button(action: action) {
+                    rowContent
+                }
+                .buttonStyle(.plain)
+            } else {
+                rowContent
+            }
+        }
+        .onHover { isHovering = $0 }
+        .contentShape(Rectangle())
+        .background {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(isHovering ? hoverFill : Color.clear)
+        }
+        .overlay(alignment: .bottom) { Rectangle().fill(hairline).frame(height: 1) }
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+                .shadow(color: statusColor.opacity(0.6), radius: 4)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label).font(.system(size: 13)).foregroundColor(textPrimary)
+                Text(detail).font(.system(size: 11)).foregroundColor(textTertiary)
+            }
+            Spacer()
+            Text(statusText)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(statusColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2.5)
+                .background(statusColor.opacity(0.13))
+                .clipShape(Capsule())
+            if isActionable {
+                Text(actionTitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(textTertiary)
+                    .padding(.leading, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 42)
+        .padding(.horizontal, 2)
+        .contentShape(Rectangle())
+    }
+
+    private var statusText: String {
+        switch status {
+        case .granted: return "Granted"
+        case .denied: return "Denied"
+        case .notDetermined: return "Needs Access"
+        }
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case .granted: return .green
+        case .denied: return .red
+        case .notDetermined: return .orange
+        }
+    }
+}
+
 // MARK: - Settings row container with hover state
 
 /// Wraps any settings row content with full-width hover highlighting.
@@ -1053,7 +1164,10 @@ struct SettingsSheetView: View {
 /// hovering a row's text never incorrectly shows the row as "selected".
 private struct SettingsRowView<Content: View>: View {
     let hairline: Color
+    let hoverFill: Color
     @ViewBuilder let content: () -> Content
+
+    @State private var isHovering = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -1061,9 +1175,14 @@ private struct SettingsRowView<Content: View>: View {
         }
         .frame(maxWidth: .infinity, minHeight: 42)
         .contentShape(Rectangle())
+        .background {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(isHovering ? hoverFill : Color.clear)
+        }
         .overlay(alignment: .bottom) {
             Rectangle().fill(hairline).frame(height: 1)
         }
+        .onHover { isHovering = $0 }
     }
 }
 

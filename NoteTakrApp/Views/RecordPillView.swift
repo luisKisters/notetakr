@@ -37,6 +37,7 @@ struct RecordPillView: View {
 
     var body: some View {
         badge
+            .contentShape(Capsule())
             .onTapGesture { /* handled by sub-buttons; this prevents click-throughs */ }
     }
 
@@ -77,7 +78,9 @@ struct RecordPillView: View {
             }
             .padding(.leading, 11)
             .padding(.trailing, hasCaret ? 9 : 11)
+            .frame(minWidth: hasCaret ? 72 : 78)
             .frame(height: 26)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(
@@ -100,6 +103,7 @@ struct RecordPillView: View {
         )
         .onHover { mainHovering = $0 }
         .contentShape(Rectangle())
+        .accessibilityIdentifier("recordPillMainButton")
     }
 
     // MARK: - Caret button
@@ -114,6 +118,7 @@ struct RecordPillView: View {
                                  ? theme.primaryText.swiftUIColor
                                  : theme.secondaryText.swiftUIColor)
                 .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(
@@ -131,6 +136,7 @@ struct RecordPillView: View {
         )
         .onHover { caretHovering = $0 }
         .contentShape(Rectangle())
+        .accessibilityIdentifier("recordPillCaretButton")
         .popover(isPresented: $menuOpen, arrowEdge: .bottom) {
             caretMenuContent
                 .environment(\.themeColors, theme)

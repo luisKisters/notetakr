@@ -48,7 +48,7 @@ final class AudioPermissionManager: ObservableObject {
         let granted = CGRequestScreenCaptureAccess()
         systemAudioStatus = currentSystemAudioStatus()
         systemAudioRestartRequired = systemAudioStatus != .granted
-        if !granted {
+        if !granted || systemAudioStatus != .granted {
             openScreenRecordingSettings()
         }
         scheduleScreenCaptureRefreshes()

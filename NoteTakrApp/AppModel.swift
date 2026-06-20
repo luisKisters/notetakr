@@ -37,6 +37,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var summarizationStates: [UUID: SummarizationState] = [:]
     @Published private(set) var nextMeeting: CalendarEvent?
     @Published private(set) var upcomingEvents: [CalendarEvent] = []
+    @Published private(set) var calendarEventWindow: EventPickerWindow?
     @Published private(set) var isCalendarLoading = false
     @Published private(set) var calendarError: String?
     @Published private(set) var calendarAuthorized = false
@@ -359,23 +360,30 @@ final class AppModel: ObservableObject {
     }
 
     func loadUpcomingEvents() async {
+        await loadCalendarEvents(window: EventPickerWindow.defaultWindow(now: Date()))
+    }
+
+    func loadCalendarEvents(window: EventPickerWindow) async {
         isCalendarLoading = true
         calendarError = nil
         defer { isCalendarLoading = false }
 
         guard let adapter = ensureCalendarAdapter(), adapter.hasAccess else {
             upcomingEvents = []
+            calendarEventWindow = window
             return
         }
         do {
-            let now = Date()
             let events = try await adapter.fetchUpcomingEvents(
-                from: now, to: now.addingTimeInterval(7 * 86_400)
+                from: window.start,
+                to: window.end
             )
             upcomingEvents = events.sorted { $0.startDate < $1.startDate }
+            calendarEventWindow = window
         } catch {
             calendarError = "Calendar unavailable"
             upcomingEvents = []
+            calendarEventWindow = window
         }
     }
 

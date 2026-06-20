@@ -163,9 +163,16 @@ final class NotePanelController {
     // MARK: - Private
 
     private func buildPanel() {
+        var styleMask: NSWindow.StyleMask = [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel]
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["NOTETAKR_E2E_SHOW_PANEL"] == "1" {
+            styleMask.remove(.nonactivatingPanel)
+        }
+        #endif
+
         let p = FloatingPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 620),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: styleMask,
             backing: .buffered,
             defer: false
         )
@@ -430,13 +437,57 @@ final class NotePanelController {
     private func wireCalendarSync(appModel: AppModel?) {
         guard let appModel else { return }
         appModelRef = appModel
+        frontmatterBridge.onRequestCalendarEvents = { [weak appModel] window in
+            Task { @MainActor in
+                await appModel?.loadCalendarEvents(window: window)
+            }
+        }
         appModel.$upcomingEvents
             .receive(on: DispatchQueue.main)
             .sink { [weak self] events in
-                self?.refreshCalendarEvents(from: events)
+                var mergedEvents = events
+                #if DEBUG
+                mergedEvents.append(contentsOf: Self.e2eCommandKCalendarEvents())
+                #endif
+                self?.refreshCalendarEvents(from: mergedEvents)
             }
             .store(in: &calendarCancellables)
+        appModel.$calendarEventWindow
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.availableEventWindow, on: frontmatterBridge)
+            .store(in: &calendarCancellables)
+        appModel.$isCalendarLoading
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.isLoadingAvailableEvents, on: frontmatterBridge)
+            .store(in: &calendarCancellables)
+        appModel.$calendarError
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.availableEventsError, on: frontmatterBridge)
+            .store(in: &calendarCancellables)
     }
+
+    #if DEBUG
+    private static func e2eCommandKCalendarEvents(now: Date = Date()) -> [CalendarEvent] {
+        guard ProcessInfo.processInfo.environment["NOTETAKR_E2E_COMMANDK_EVENTS"] == "1" else {
+            return []
+        }
+
+        return [
+            CalendarEvent(
+                id: "e2e-commandk-current-calendar-only",
+                title: "E2E UI Repair - CommandK Current Calendar Ghost",
+                startDate: now.addingTimeInterval(-5 * 60),
+                endDate: now.addingTimeInterval(55 * 60)
+            ),
+            CalendarEvent(
+                id: "e2e-commandk-future-calendar-only",
+                title: "E2E UI Repair - CommandK Future Calendar Ghost",
+                startDate: now.addingTimeInterval(24 * 60 * 60),
+                endDate: now.addingTimeInterval(25 * 60 * 60)
+            ),
+        ]
+    }
+    #endif
 
     private func wireSwitcher() {
         switcherBridge.onOpenNote = { [weak self] noteID in

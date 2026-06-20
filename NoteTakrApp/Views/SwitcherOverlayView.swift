@@ -61,7 +61,7 @@ struct SwitcherOverlayView: View {
     private var rowList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(bridge.groups, id: \.switcherOverlayID) { group in
                         rowGroupSection(group: group)
                     }
@@ -137,6 +137,7 @@ struct SwitcherOverlayView: View {
                     isGhost: isGhost, isCommand: isCommand)
         }
         .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 12))
         .overlay(alignment: .trailing) {
             // Trash control floats over the row's trailing edge so its hit target
             // is independent of the row's open button. Notes only.
@@ -203,11 +204,12 @@ struct SwitcherOverlayView: View {
         .padding(.horizontal, 13)
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 60)
         .background(cardBackground(isSelected: isSelected, isHovering: isHovering))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(cardBorderColor(isSelected: isSelected, isGhost: isGhost), lineWidth: 1)
+                .stroke(cardBorderColor(isSelected: isSelected, isHovering: isHovering), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(isSelected ? 0.22 : 0.16),
                 radius: isSelected ? 7 : 4.5, x: 0, y: 2)
@@ -219,9 +221,9 @@ struct SwitcherOverlayView: View {
         return themeColors.fieldFill.swiftUIColor
     }
 
-    private func cardBorderColor(isSelected: Bool, isGhost: Bool) -> Color {
+    private func cardBorderColor(isSelected: Bool, isHovering: Bool) -> Color {
         if isSelected { return themeColors.accent.swiftUIColor.opacity(0.34) }
-        if isGhost    { return themeColors.accent.swiftUIColor.opacity(0.38) }
+        if isHovering { return themeColors.hairline.swiftUIColor.opacity(0.9) }
         return themeColors.hairline.swiftUIColor
     }
 

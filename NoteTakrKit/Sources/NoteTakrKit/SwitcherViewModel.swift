@@ -167,7 +167,10 @@ public final class SwitcherViewModel {
 
     public var searchQuery: String = "" {
         didSet {
-            if searchQuery != oldValue { rebuildGroups() }
+            if searchQuery != oldValue {
+                selectedIndex = 0
+                rebuildGroups()
+            }
         }
     }
 
@@ -195,7 +198,8 @@ public final class SwitcherViewModel {
 
     // MARK: - Reload
 
-    public func reload() {
+    public func reload(resetSelection: Bool = false) {
+        if resetSelection { selectedIndex = 0 }
         rebuildGroups()
     }
 
@@ -318,10 +322,12 @@ public final class SwitcherViewModel {
 
         for event in events {
             guard !linkedEventIDs.contains(event.id) else { continue }
+            let dotState = computeDotState(date: event.start, end: event.end, now: nowDate)
+            guard dotState != .upcoming else { continue }
             let dayStart = calendar.startOfDay(for: event.start)
             let item = SwitcherItem(
                 kind: .event(event),
-                dotState: computeDotState(date: event.start, end: event.end, now: nowDate)
+                dotState: dotState
             )
             dayBuckets[dayStart, default: []].append(item)
         }

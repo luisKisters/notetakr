@@ -52,7 +52,7 @@ final class SwitcherBridge: ObservableObject {
     func show() {
         searchQuery = ""
         viewModel.searchQuery = ""
-        viewModel.reload()
+        viewModel.reload(resetSelection: true)
         groups = viewModel.groups
         selectedIndex = viewModel.selectedIndex
         isVisible = true

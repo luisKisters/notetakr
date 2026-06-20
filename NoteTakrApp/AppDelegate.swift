@@ -53,6 +53,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.activate(ignoringOtherApps: true)
+        npc.show()
+
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["NOTETAKR_E2E_SHOW_PANEL"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                npc.show()
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
+        #endif
 
         // Populate the calendar event picker on launch if access was already granted.
         Task { await AppModel.shared.loadUpcomingEvents() }

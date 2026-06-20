@@ -15,9 +15,13 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published var audioFileURL: URL?
     /// Calendar events available for the event picker; updated live by NotePanelController.
     @Published var availableEvents: [UpcomingEvent] = []
+    @Published var availableEventWindow: EventPickerWindow?
+    @Published var isLoadingAvailableEvents: Bool = false
+    @Published var availableEventsError: String?
 
     private(set) var presenter: FrontmatterPresenter?
     private let store: any NoteStoring
+    var onRequestCalendarEvents: ((EventPickerWindow) -> Void)?
 
     init(store: any NoteStoring) {
         self.store = store
@@ -90,6 +94,10 @@ final class FrontmatterPresenterBridge: ObservableObject {
 
     func setDate(_ date: Date, end: Date? = nil) {
         try? presenter?.setDate(date, end: end)
+    }
+
+    func requestCalendarEvents(window: EventPickerWindow) {
+        onRequestCalendarEvents?(window)
     }
 
     func setTranscribe(_ value: Bool) {

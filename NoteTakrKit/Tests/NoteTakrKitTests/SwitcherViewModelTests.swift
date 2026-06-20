@@ -59,23 +59,22 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertTrue(vm.groups.contains { $0.label == "Yesterday" })
     }
 
-    func testFutureEventAppearsInUpcomingGroup() {
+    func testFutureCalendarOnlyEventIsHiddenFromCommandK() {
         let event = makeEvent(id: "e1", title: "Kickoff", start: utcDate(2026, 6, 11, 10))
         let (vm, _) = makeVM(events: [event])
-        XCTAssertTrue(vm.groups.contains { $0.label == "Upcoming" }, "Expected 'Upcoming' label, got: \(vm.groups.map { $0.label })")
+        XCTAssertTrue(vm.groups.isEmpty, "Future calendar-only events must be handled by the calendar picker, not Command-K")
     }
 
-    func testFarFutureEventAppearsInUpcomingGroup() {
-        // A week from now should still be "Upcoming"
+    func testFarFutureCalendarOnlyEventIsHiddenFromCommandK() {
         let event = makeEvent(id: "e1", title: "Review", start: utcDate(2026, 6, 17, 10))
         let (vm, _) = makeVM(events: [event])
-        XCTAssertTrue(vm.groups.contains { $0.label == "Upcoming" }, "Expected 'Upcoming' label for far-future event, got: \(vm.groups.map { $0.label })")
+        XCTAssertTrue(vm.groups.isEmpty, "Far-future calendar-only events must not appear in Command-K")
     }
 
-    func testMultipleFutureDaysCollapseIntoSingleUpcomingGroup() {
-        let soon = makeEvent(id: "e1", title: "Soon", start: utcDate(2026, 6, 11, 10))
-        let later = makeEvent(id: "e2", title: "Later", start: utcDate(2026, 6, 17, 9))
-        let (vm, _) = makeVM(events: [later, soon])
+    func testFutureNotesRemainInUpcomingGroup() {
+        let soon = makeNote(id: "n1", title: "Soon", date: utcDate(2026, 6, 11, 10))
+        let later = makeNote(id: "n2", title: "Later", date: utcDate(2026, 6, 17, 9))
+        let (vm, _) = makeVM(notes: [later, soon])
 
         let upcomingGroups = vm.groups.filter { $0.label == "Upcoming" }
         XCTAssertEqual(upcomingGroups.count, 1)
@@ -107,8 +106,8 @@ final class SwitcherViewModelTests: XCTestCase {
 
     func testFutureGroupsBeforeCurrentAndPastGroups() {
         let pastNote = makeNote(id: "n1", title: "Past", date: utcDate(2026, 6, 9, 10))
-        let futureEvent = makeEvent(id: "e1", title: "Future", start: utcDate(2026, 6, 11, 10))
-        let (vm, _) = makeVM(notes: [pastNote], events: [futureEvent])
+        let futureNote = makeNote(id: "n2", title: "Future", date: utcDate(2026, 6, 11, 10))
+        let (vm, _) = makeVM(notes: [pastNote, futureNote])
         let labels = vm.groups.map { $0.label }
         let upcomingIdx = labels.firstIndex(of: "Upcoming")!
         let yesterdayIdx = labels.firstIndex(of: "Yesterday")!
@@ -118,8 +117,8 @@ final class SwitcherViewModelTests: XCTestCase {
     func testTodayGroupBetweenFutureAndPast() {
         let todayNote = makeNote(id: "n1", title: "Today", date: utcDate(2026, 6, 10, 9))
         let pastNote = makeNote(id: "n2", title: "Past", date: utcDate(2026, 6, 9, 10))
-        let futureEvent = makeEvent(id: "e1", title: "Future", start: utcDate(2026, 6, 11, 10))
-        let (vm, _) = makeVM(notes: [todayNote, pastNote], events: [futureEvent])
+        let futureNote = makeNote(id: "n3", title: "Future", date: utcDate(2026, 6, 11, 10))
+        let (vm, _) = makeVM(notes: [todayNote, pastNote, futureNote])
         let labels = vm.groups.map { $0.label }
         let upcomingIdx = labels.firstIndex(of: "Upcoming")!
         let todayIdx = labels.firstIndex(of: "Today")!
@@ -131,9 +130,9 @@ final class SwitcherViewModelTests: XCTestCase {
     // MARK: - Ordering within groups
 
     func testFutureGroupItemsAscending() {
-        let e1 = makeEvent(id: "e1", title: "First",  start: utcDate(2026, 6, 11, 9))
-        let e2 = makeEvent(id: "e2", title: "Second", start: utcDate(2026, 6, 11, 14))
-        let (vm, _) = makeVM(events: [e2, e1])  // intentionally reversed
+        let n1 = makeNote(id: "n1", title: "First",  date: utcDate(2026, 6, 11, 9))
+        let n2 = makeNote(id: "n2", title: "Second", date: utcDate(2026, 6, 11, 14))
+        let (vm, _) = makeVM(notes: [n2, n1])  // intentionally reversed
         guard let group = vm.groups.first(where: { $0.label == "Upcoming" }) else {
             return XCTFail("No Upcoming group")
         }
@@ -197,7 +196,9 @@ final class SwitcherViewModelTests: XCTestCase {
 
     func testUnlinkedEventAppearsAsSeparateGhost() {
         let note = makeNote(id: "n1", title: "Standup", date: utcDate(2026, 6, 10, 9), calendarEvent: "cal-1")
-        let otherEvent = makeEvent(id: "cal-2", title: "Lunch", start: utcDate(2026, 6, 10, 12))
+        let otherEvent = makeEvent(id: "cal-2", title: "Lunch",
+                                   start: utcDate(2026, 6, 10, 9),
+                                   end: utcDate(2026, 6, 10, 11))
         let (vm, _) = makeVM(notes: [note], events: [otherEvent])
         let allItems = vm.groups.flatMap { $0.items }
         XCTAssertEqual(allItems.count, 2)
@@ -246,11 +247,20 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertEqual(vm.groups.flatMap { $0.items }.count, 1)
     }
 
-    func testSearchMatchesEventTitle() {
-        let e = makeEvent(id: "e1", title: "Quarterly Review", start: utcDate(2026, 6, 11, 10))
+    func testSearchMatchesCurrentEventTitle() {
+        let e = makeEvent(id: "e1", title: "Quarterly Review",
+                          start: utcDate(2026, 6, 10, 9),
+                          end: utcDate(2026, 6, 10, 11))
         let (vm, _) = makeVM(events: [e])
         vm.searchQuery = "quarterly"
         XCTAssertEqual(vm.groups.flatMap { $0.items }.count, 1)
+    }
+
+    func testSearchDoesNotSurfaceFutureCalendarOnlyEvent() {
+        let e = makeEvent(id: "e1", title: "Quarterly Review", start: utcDate(2026, 6, 11, 10))
+        let (vm, _) = makeVM(events: [e])
+        vm.searchQuery = "quarterly"
+        XCTAssertTrue(vm.groups.flatMap { $0.items }.isEmpty)
     }
 
     func testSearchNoMatchReturnsEmpty() {
@@ -404,7 +414,9 @@ final class SwitcherViewModelTests: XCTestCase {
     }
 
     func testOpenReturnsNilWhenEventSelected() {
-        let event = makeEvent(id: "e1", title: "Event", start: utcDate(2026, 6, 11, 10))
+        let event = makeEvent(id: "e1", title: "Event",
+                              start: utcDate(2026, 6, 10, 9),
+                              end: utcDate(2026, 6, 10, 11))
         let (vm, _) = makeVM(events: [event])
         XCTAssertNil(vm.open(), "open() must return nil when a ghost event is selected")
     }
