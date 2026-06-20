@@ -328,10 +328,6 @@ public final class SwitcherViewModel {
 
         let query = searchQuery.trimmingCharacters(in: .whitespaces)
 
-        // Future days shown ascending (soonest first); today and past shown descending (most recent first).
-        let futureDays = dayBuckets.keys.filter { $0 > todayStart }.sorted()
-        let todayAndPastDays = dayBuckets.keys.filter { $0 <= todayStart }.sorted(by: >)
-
         var newGroups: [SwitcherGroup] = []
 
         // Prepend command rows when the query matches.
@@ -350,19 +346,39 @@ public final class SwitcherViewModel {
             }
         }
 
-        for dayStart in futureDays + todayAndPastDays {
+        var upcomingItems: [SwitcherItem] = []
+        var todayItems: [SwitcherItem] = []
+        var yesterdayItems: [SwitcherItem] = []
+        var earlierItems: [SwitcherItem] = []
+
+        for dayStart in dayBuckets.keys {
             var items = dayBuckets[dayStart] ?? []
-            if dayStart > todayStart {
-                items.sort { dateOf($0) < dateOf($1) }
-            } else {
-                items.sort { dateOf($0) > dateOf($1) }
-            }
             if !query.isEmpty {
                 items = items.filter { matches($0, query: query) }
             }
             guard !items.isEmpty else { continue }
-            newGroups.append(SwitcherGroup(label: dayLabel(dayStart, todayStart: todayStart), items: items))
+
+            switch dayLabel(dayStart, todayStart: todayStart) {
+            case "Upcoming":
+                upcomingItems.append(contentsOf: items)
+            case "Today":
+                todayItems.append(contentsOf: items)
+            case "Yesterday":
+                yesterdayItems.append(contentsOf: items)
+            default:
+                earlierItems.append(contentsOf: items)
+            }
         }
+
+        upcomingItems.sort { dateOf($0) < dateOf($1) }
+        todayItems.sort { dateOf($0) > dateOf($1) }
+        yesterdayItems.sort { dateOf($0) > dateOf($1) }
+        earlierItems.sort { dateOf($0) > dateOf($1) }
+
+        appendGroup(label: "Upcoming", items: upcomingItems, to: &newGroups)
+        appendGroup(label: "Today", items: todayItems, to: &newGroups)
+        appendGroup(label: "Yesterday", items: yesterdayItems, to: &newGroups)
+        appendGroup(label: "Earlier", items: earlierItems, to: &newGroups)
 
         self.groups = newGroups
 
@@ -380,6 +396,11 @@ public final class SwitcherViewModel {
 
     private var flatItemCount: Int {
         groups.reduce(0) { $0 + $1.items.count }
+    }
+
+    private func appendGroup(label: String, items: [SwitcherItem], to groups: inout [SwitcherGroup]) {
+        guard !items.isEmpty else { return }
+        groups.append(SwitcherGroup(label: label, items: items))
     }
 
     private func computeDotState(date: Date, end: Date?, now: Date) -> DotState {

@@ -204,6 +204,7 @@ private struct EventChipValue: View {
                 availableEvents: availableEvents,
                 isLinked: isLinked,
                 bridge: bridge,
+                theme: theme,
                 dismiss: { showMenu = false }
             )
         }
@@ -214,13 +215,14 @@ private struct EventPickerMenu: View {
     let availableEvents: [UpcomingEvent]
     let isLinked: Bool
     @ObservedObject var bridge: FrontmatterPresenterBridge
+    let theme: ThemeColors
     let dismiss: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Link a calendar event")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.tertiaryText.swiftUIColor)
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
@@ -228,7 +230,7 @@ private struct EventPickerMenu: View {
             if availableEvents.isEmpty {
                 Text("No upcoming events")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
                     .padding(.horizontal, 10)
                     .padding(.bottom, 8)
             } else {
@@ -248,9 +250,11 @@ private struct EventPickerMenu: View {
                         HStack(spacing: 8) {
                             Image(systemName: "calendar")
                                 .font(.system(size: 11))
+                                .foregroundStyle(theme.tertiaryText.swiftUIColor)
                                 .frame(width: 13)
                             Text(event.title)
                                 .font(.system(size: 12))
+                                .foregroundStyle(theme.primaryText.swiftUIColor)
                             Spacer()
                         }
                         .padding(.horizontal, 10)
@@ -270,9 +274,11 @@ private struct EventPickerMenu: View {
                         HStack(spacing: 8) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 11))
+                                .foregroundStyle(theme.tertiaryText.swiftUIColor)
                                 .frame(width: 13)
                             Text("— No event —")
                                 .font(.system(size: 12))
+                                .foregroundStyle(theme.secondaryText.swiftUIColor)
                             Spacer()
                         }
                         .padding(.horizontal, 10)
@@ -285,6 +291,7 @@ private struct EventPickerMenu: View {
         }
         .frame(minWidth: 220)
         .padding(.bottom, 4)
+        .background(theme.panelFill.swiftUIColor)
     }
 }
 
@@ -314,30 +321,36 @@ private struct DateTimeValue: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
-            Button {
-                showDatePicker.toggle()
-            } label: {
+        Button {
+            showDatePicker.toggle()
+        } label: {
+            HStack(spacing: 6) {
                 Text(dateLabel)
                     .font(.system(size: 12))
                     .foregroundStyle(theme.primaryText.swiftUIColor.opacity(0.85))
                     .underline(isHoveringDate, color: theme.hairline.swiftUIColor)
-            }
-            .buttonStyle(.plain)
-            .onHover { isHoveringDate = $0 }
-            .popover(isPresented: $showDatePicker, arrowEdge: .bottom) {
-                DatePickerPopover(date: date, end: end, bridge: bridge) {
-                    showDatePicker = false
-                }
-            }
 
-            Text("·")
-                .font(.system(size: 12))
-                .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                Text("·")
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
 
-            Text(timeLabel)
-                .font(.system(size: 12, design: .monospaced).monospacedDigit())
-                .foregroundStyle(theme.secondaryText.swiftUIColor)
+                Text(timeLabel)
+                    .font(.system(size: 12, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(theme.secondaryText.swiftUIColor)
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHoveringDate ? theme.hoverFill.swiftUIColor : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHoveringDate = $0 }
+        .popover(isPresented: $showDatePicker, arrowEdge: .bottom) {
+            DatePickerPopover(date: date, end: end, bridge: bridge, theme: theme) {
+                showDatePicker = false
+            }
         }
     }
 }
@@ -346,39 +359,159 @@ private struct DatePickerPopover: View {
     let date: Date
     let end: Date?
     @ObservedObject var bridge: FrontmatterPresenterBridge
+    let theme: ThemeColors
     let dismiss: () -> Void
     @State private var selectedDate: Date
+    @State private var selectedEnd: Date?
 
-    init(date: Date, end: Date?, bridge: FrontmatterPresenterBridge, dismiss: @escaping () -> Void) {
+    init(date: Date, end: Date?, bridge: FrontmatterPresenterBridge, theme: ThemeColors, dismiss: @escaping () -> Void) {
         self.date = date
         self.end = end
         self.bridge = bridge
+        self.theme = theme
         self.dismiss = dismiss
         self._selectedDate = State(initialValue: date)
+        self._selectedEnd = State(initialValue: end)
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Date & time")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.secondaryText.swiftUIColor)
+
             DatePicker(
                 "",
                 selection: $selectedDate,
-                displayedComponents: [.date, .hourAndMinute]
+                displayedComponents: [.date]
             )
             .labelsHidden()
             .datePickerStyle(.graphical)
             .frame(width: 260)
+            .tint(theme.accent.swiftUIColor)
+            .padding(6)
+            .background(
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(theme.fieldFill.swiftUIColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1)
+            )
 
-            Button("Done") {
-                bridge.setDate(selectedDate, end: end)
-                dismiss()
+            VStack(spacing: 6) {
+                TimeAdjustRow(label: "Start", date: $selectedDate, theme: theme)
+                if selectedEnd != nil {
+                    TimeAdjustRow(
+                        label: "End",
+                        date: Binding(
+                            get: { selectedEnd ?? selectedDate },
+                            set: { selectedEnd = $0 }
+                        ),
+                        theme: theme
+                    )
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.accentColor)
-            .padding(.bottom, 8)
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    dismiss()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(theme.secondaryText.swiftUIColor)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+
+                Button {
+                    bridge.setDate(selectedDate, end: selectedEnd)
+                    dismiss()
+                } label: {
+                    Text("Done")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(theme.accent.swiftUIColor)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
+        .padding(12)
+        .background(theme.panelFill.swiftUIColor)
     }
+}
+
+private struct TimeAdjustRow: View {
+    let label: String
+    @Binding var date: Date
+    let theme: ThemeColors
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                .frame(width: 36, alignment: .leading)
+
+            Spacer(minLength: 8)
+
+            Button {
+                move(minutes: -5)
+            } label: {
+                Image(systemName: "minus")
+                    .font(.system(size: 10, weight: .medium))
+                    .frame(width: 24, height: 22)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(theme.secondaryText.swiftUIColor)
+            .background(RoundedRectangle(cornerRadius: 6).fill(theme.hoverFill.swiftUIColor))
+
+            Text(timeString(date))
+                .font(.system(size: 12, design: .monospaced).monospacedDigit())
+                .foregroundStyle(theme.primaryText.swiftUIColor)
+                .frame(width: 48)
+
+            Button {
+                move(minutes: 5)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .medium))
+                    .frame(width: 24, height: 22)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(theme.secondaryText.swiftUIColor)
+            .background(RoundedRectangle(cornerRadius: 6).fill(theme.hoverFill.swiftUIColor))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(theme.fieldFill.swiftUIColor)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1)
+        )
+    }
+
+    private func move(minutes: Int) {
+        date = Calendar.current.date(byAdding: .minute, value: minutes, to: date) ?? date
+    }
+
+    private func timeString(_ date: Date) -> String {
+        Self.timeFormatter.string(from: date)
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
 }
 
 // MARK: - People circles value

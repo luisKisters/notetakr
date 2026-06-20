@@ -32,7 +32,7 @@ struct SwitcherOverlayView: View {
             // Small top inset — just enough to clear the native traffic-light/close button.
             .padding(.top, 14)
         }
-        .onAppear { searchFocused = true }
+        .onAppear { focusSearchField() }
         .background(keyboardButtons)
     }
 
@@ -62,7 +62,7 @@ struct SwitcherOverlayView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(bridge.groups, id: \.label) { group in
+                    ForEach(bridge.groups, id: \.switcherOverlayID) { group in
                         rowGroupSection(group: group)
                     }
                     if bridge.groups.isEmpty {
@@ -91,9 +91,10 @@ struct SwitcherOverlayView: View {
                     endPoint: .bottom
                 )
             )
-            .onChange(of: bridge.selectedIndex) { idx in
+            .onChange(of: bridge.selectedIndex) { _, idx in
+                guard let item = bridge.viewModel.selectedItem else { return }
                 withAnimation(.easeOut(duration: 0.1)) {
-                    proxy.scrollTo("row-\(idx)", anchor: .center)
+                    proxy.scrollTo(rowID(flatIndex: idx, item: item), anchor: .center)
                 }
             }
         }
@@ -114,7 +115,7 @@ struct SwitcherOverlayView: View {
             ForEach(Array(group.items.enumerated()), id: \.element.switcherOverlayID) { offset, item in
                 let flatIdx = flatIndex(group: group, itemOffset: offset)
                 twoLineRow(item: item, flatIndex: flatIdx)
-                    .id("row-\(flatIdx)-\(item.switcherOverlayID)")
+                    .id(rowID(flatIndex: flatIdx, item: item))
             }
         }
         .id(group.switcherOverlayID)
@@ -226,7 +227,7 @@ struct SwitcherOverlayView: View {
 
     @ViewBuilder
     private func rowAccessory(item: SwitcherItem, isGhost: Bool, isCommand: Bool) -> some View {
-        if isGhost {
+        if isGhost && canCreateGhostEvent(item) {
             HStack(spacing: 3) {
                 Image(systemName: "plus").font(.system(size: 9, weight: .semibold))
                 Text("Create")
@@ -239,6 +240,11 @@ struct SwitcherOverlayView: View {
             .overlay(RoundedRectangle(cornerRadius: 6)
                 .stroke(themeColors.accent.swiftUIColor.opacity(0.34), lineWidth: 1))
             .cornerRadius(6)
+        } else if isGhost {
+            Text(timeString(for: item))
+                .font(.system(size: 11))
+                .foregroundColor(themeColors.tertiaryText.swiftUIColor)
+                .monospacedDigit()
         } else if isCommand {
             kbdBadge(commandShortcut(item))
         } else {
@@ -358,6 +364,13 @@ struct SwitcherOverlayView: View {
         bridge.deleteNote(id)
     }
 
+    private func focusSearchField() {
+        searchFocused = true
+        DispatchQueue.main.async {
+            searchFocused = true
+        }
+    }
+
     private func itemTitle(_ item: SwitcherItem) -> String {
         switch item.kind {
         case .note(_, let title, _, _): return title
@@ -427,10 +440,20 @@ struct SwitcherOverlayView: View {
         return false
     }
 
+    private func canCreateGhostEvent(_ item: SwitcherItem) -> Bool {
+        guard isGhostItem(item) else { return false }
+        return item.dotState != .upcoming
+    }
+
+    private func rowID(flatIndex: Int, item: SwitcherItem) -> String {
+        "row-\(flatIndex)-\(item.switcherOverlayID)"
+    }
+
     private func flatIndex(group: SwitcherGroup, itemOffset: Int) -> Int {
         var idx = 0
+        let targetID = group.switcherOverlayID
         for g in bridge.groups {
-            if g.label == group.label { return idx + itemOffset }
+            if g.switcherOverlayID == targetID { return idx + itemOffset }
             idx += g.items.count
         }
         return idx + itemOffset
@@ -442,6 +465,7 @@ struct SwitcherOverlayView: View {
             bridge.onOpenNote?(id)
             bridge.dismiss()
         case .event(let ev):
+            guard canCreateGhostEvent(item) else { return }
             bridge.openOrCreate(event: ev)
         case .command(let cmd):
             switch cmd.id {

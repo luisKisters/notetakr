@@ -72,6 +72,16 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertTrue(vm.groups.contains { $0.label == "Upcoming" }, "Expected 'Upcoming' label for far-future event, got: \(vm.groups.map { $0.label })")
     }
 
+    func testMultipleFutureDaysCollapseIntoSingleUpcomingGroup() {
+        let soon = makeEvent(id: "e1", title: "Soon", start: utcDate(2026, 6, 11, 10))
+        let later = makeEvent(id: "e2", title: "Later", start: utcDate(2026, 6, 17, 9))
+        let (vm, _) = makeVM(events: [later, soon])
+
+        let upcomingGroups = vm.groups.filter { $0.label == "Upcoming" }
+        XCTAssertEqual(upcomingGroups.count, 1)
+        XCTAssertEqual(upcomingGroups.first?.items.map { itemTitle($0) }, ["Soon", "Later"])
+    }
+
     func testOlderPastNoteAppearsInEarlierGroup() {
         // 2 days ago → "Earlier"
         let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 6, 8, 10))
@@ -83,6 +93,16 @@ final class SwitcherViewModelTests: XCTestCase {
         let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 5, 1, 10))
         let (vm, _) = makeVM(notes: [note])
         XCTAssertTrue(vm.groups.contains { $0.label == "Earlier" }, "Expected 'Earlier' label, got: \(vm.groups.map { $0.label })")
+    }
+
+    func testMultiplePastDaysCollapseIntoSingleEarlierGroup() {
+        let recent = makeNote(id: "n1", title: "Recent", date: utcDate(2026, 6, 8, 14))
+        let older = makeNote(id: "n2", title: "Older", date: utcDate(2026, 5, 1, 10))
+        let (vm, _) = makeVM(notes: [older, recent])
+
+        let earlierGroups = vm.groups.filter { $0.label == "Earlier" }
+        XCTAssertEqual(earlierGroups.count, 1)
+        XCTAssertEqual(earlierGroups.first?.items.map { itemTitle($0) }, ["Recent", "Older"])
     }
 
     func testFutureGroupsBeforeCurrentAndPastGroups() {
