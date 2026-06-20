@@ -9,7 +9,6 @@ enum SettingsTab: CaseIterable, Equatable {
     case recording
     case vocabulary
     case updates
-    case permissions
 }
 
 // MARK: - ViewModel

@@ -76,6 +76,8 @@ fi
 log "xcodebuild: $(xcodebuild -version 2>&1 | head -1)"
 log "Scheme: $SCHEME  Config: $CONFIG"
 
+mkdir -p "$BUILD_DIR" "$DERIVED_DATA"
+
 # --- Signing identity ---
 SIGN_IDENTITY="${NOTETAKR_SIGN_IDENTITY:-}"
 if [[ -z "$SIGN_IDENTITY" ]]; then
@@ -87,18 +89,49 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
     log "Signing: ad-hoc (no identity). Set NOTETAKR_SIGN_IDENTITY to use a real identity."
 else
     SIGN_ARGS=(CODE_SIGN_IDENTITY="$SIGN_IDENTITY")
-    log "Signing: $SIGN_IDENTITY"
+    if [[ "$SIGN_IDENTITY" == "-" ]]; then
+        AD_HOC_ENTITLEMENTS="$BUILD_DIR/NoteTakr.ad-hoc.entitlements"
+        cp "$REPO_ROOT/NoteTakrApp/NoteTakr.entitlements" "$AD_HOC_ENTITLEMENTS"
+        /usr/libexec/PlistBuddy \
+            -c "Add :com.apple.security.cs.disable-library-validation bool true" \
+            "$AD_HOC_ENTITLEMENTS" 2>/dev/null || \
+            /usr/libexec/PlistBuddy \
+                -c "Set :com.apple.security.cs.disable-library-validation true" \
+                "$AD_HOC_ENTITLEMENTS"
+        SIGN_ARGS+=(
+            CODE_SIGN_STYLE=Manual
+            CODE_SIGNING_REQUIRED=YES
+            CODE_SIGNING_ALLOWED=YES
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+            CODE_SIGN_ENTITLEMENTS="$AD_HOC_ENTITLEMENTS"
+            DEVELOPMENT_TEAM=""
+        )
+        log "Signing: ad-hoc with disabled library validation for embedded Sparkle."
+    else
+        # The project sets DEVELOPMENT_TEAM="" with automatic signing, which
+        # xcodebuild rejects. Manual style signs directly with the identity;
+        # no provisioning profile is needed for these entitlements on macOS.
+        SIGN_ARGS+=(CODE_SIGN_STYLE=Manual)
+        if [[ -n "${NOTETAKR_DEVELOPMENT_TEAM:-}" ]]; then
+            SIGN_ARGS+=(DEVELOPMENT_TEAM="$NOTETAKR_DEVELOPMENT_TEAM")
+        fi
+        log "Signing: $SIGN_IDENTITY"
+    fi
 fi
 
 # --- Build ---
-mkdir -p "$BUILD_DIR" "$DERIVED_DATA"
-
 log "Resolving Swift package dependencies ..."
 xcodebuild -resolvePackageDependencies \
     -project "$XCODEPROJ" \
     -scheme "$SCHEME"
 
 log "Building $XCODEPROJ ..."
+# Pipe through xcpretty only when it exists; `cat` keeps tee's stdout alive
+# otherwise (a missing xcpretty kills tee with SIGPIPE after one line, which
+# truncates the log and can abort xcodebuild itself).
+PRETTY=(cat)
+command -v xcpretty &>/dev/null && PRETTY=(xcpretty)
+BUILD_EXIT=0
 xcodebuild build \
     -project "$XCODEPROJ" \
     -scheme "$SCHEME" \
@@ -110,21 +143,17 @@ xcodebuild build \
     PRODUCT_BUNDLE_IDENTIFIER="com.notetakr.app" \
     "${SIGN_ARGS[@]}" \
     | tee "$BUILD_DIR/xcodebuild.log" \
-    | xcpretty 2>/dev/null || true
-# xcpretty may not be installed; fall back to raw output already written via tee.
-# Capture xcodebuild's exit code explicitly — pipefail alone is defeated by the xcpretty fallback.
-BUILD_EXIT=${PIPESTATUS[0]}
+    | "${PRETTY[@]}" || BUILD_EXIT=$?
+# pipefail (set at top) propagates xcodebuild's status through the pipeline.
 if [[ $BUILD_EXIT -ne 0 ]]; then
-    grep -E '^(error:|warning:|Build (succeeded|FAILED))' "$BUILD_DIR/xcodebuild.log" || true
+    grep -E 'error:|Build FAILED' "$BUILD_DIR/xcodebuild.log" | head -20 || true
     die "xcodebuild failed (exit $BUILD_EXIT). See $BUILD_DIR/xcodebuild.log"
 fi
 
 # --- Locate the built product ---
+# Only look in this config's output dir; searching the whole symroot tree can
+# silently pick up a stale app from another configuration.
 BUILT_APP=$(find "$BUILD_DIR/symroot/$CONFIG" -maxdepth 1 -name "*.app" -type d 2>/dev/null | head -1)
-if [[ -z "$BUILT_APP" ]]; then
-    # Fallback: search symroot tree
-    BUILT_APP=$(find "$BUILD_DIR/symroot" -name "NoteTakr.app" -type d 2>/dev/null | head -1)
-fi
 
 if [[ -z "$BUILT_APP" ]]; then
     die "Build succeeded but NoteTakr.app was not found under $BUILD_DIR/symroot.
@@ -137,6 +166,10 @@ log "Built product: $BUILT_APP"
 rm -rf "$OUTPUT_APP"
 cp -Rp "$BUILT_APP" "$OUTPUT_APP"
 log "Copied to: $OUTPUT_APP"
+
+if [[ -n "$SIGN_IDENTITY" ]]; then
+    bash "$REPO_ROOT/scripts/resign-sparkle-framework.sh" "$OUTPUT_APP" "$SIGN_IDENTITY"
+fi
 
 # --- Verify bundle identifier ---
 ACTUAL_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$OUTPUT_APP/Contents/Info.plist" 2>/dev/null || true)

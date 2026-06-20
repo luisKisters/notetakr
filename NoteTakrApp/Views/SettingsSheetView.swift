@@ -109,7 +109,6 @@ struct SettingsSheetView: View {
             tabButton(.recording,   icon: "waveform",                 label: "Recording")
             tabButton(.vocabulary,  icon: "book.closed",              label: "Vocabulary")
             tabButton(.updates,     icon: "arrow.down.circle",        label: "Updates")
-            tabButton(.permissions, icon: "checkmark.shield",         label: "Permissions")
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 9)
@@ -175,7 +174,6 @@ struct SettingsSheetView: View {
                 case .recording:    recordingContent
                 case .vocabulary:   vocabularyContent
                 case .updates:      updatesContent
-                case .permissions:  permissionsContent
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -443,6 +441,8 @@ struct SettingsSheetView: View {
                 .frame(maxWidth: 160)
             }
 
+            openRouterSection
+
             sectionLabel("App")
 
             settingsRow {
@@ -512,6 +512,80 @@ struct SettingsSheetView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6.5)
                         .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
             }
+
+            permissionsSection
+        }
+    }
+
+    // MARK: - OpenRouter API key
+
+    private var openRouterSection: some View {
+        Group {
+            sectionLabel("OpenRouter")
+
+            settingsRow {
+                Image(systemName: "key")
+                    .iconStyle(color: textTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("API key").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Required for summaries · stored in Keychain")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
+                Spacer()
+                if summarization.apiKeyStatusChecked, summarization.apiKeyConfigured {
+                    Label("Set", systemImage: "checkmark.seal.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.system(size: 11))
+                        .foregroundColor(.green)
+                } else if summarization.apiKeyStatusChecked {
+                    Text("Not set")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(textTertiary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(controlBg)
+                        .clipShape(Capsule())
+                } else {
+                    Button("Check") { summarization.refreshAPIKeyStatus() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(accent)
+                }
+            }
+
+            HStack(spacing: 8) {
+                SecureField(
+                    summarization.apiKeyStatusChecked && summarization.apiKeyConfigured
+                        ? "Enter new key to replace"
+                        : "sk-or-\u{2026}",
+                    text: $summarization.apiKeyDraft
+                )
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundColor(textPrimary)
+                .onSubmit { summarization.saveAPIKey() }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(controlBg)
+                .cornerRadius(6.5)
+                .overlay(RoundedRectangle(cornerRadius: 6.5)
+                    .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
+
+                Button("Save") { summarization.saveAPIKey() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(summarization.apiKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty ? textTertiary : accent)
+                    .disabled(summarization.apiKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                if summarization.apiKeyStatusChecked, summarization.apiKeyConfigured {
+                    Button("Clear") { summarization.clearAPIKey() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundColor(textTertiary)
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 2)
         }
     }
 
@@ -791,7 +865,7 @@ struct SettingsSheetView: View {
 
     // MARK: - Permissions content
 
-    private var permissionsContent: some View {
+    private var permissionsSection: some View {
         Group {
             sectionLabel("Permissions")
 

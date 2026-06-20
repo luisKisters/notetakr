@@ -50,6 +50,7 @@ final class SummarizationViewModel: ObservableObject {
     @Published var settings: SummarizationSettings
     @Published var templates: [SummaryTemplate]
     @Published var apiKeyConfigured: Bool
+    @Published var apiKeyStatusChecked: Bool
     @Published var apiKeyDraft: String = ""
 
     private let settingsStore: SummarizationSettingsStore
@@ -68,15 +69,28 @@ final class SummarizationViewModel: ObservableObject {
         )
         settings = settingsStore.load()
         templates = templateStore.load()
-        apiKeyConfigured = keychain.hasValue
+        // Do NOT read the keychain here. `SecItemCopyMatching` triggers a macOS keychain
+        // access prompt, and reading at init/reload would fire it unprompted. Defer the
+        // check to an explicit user action (opening the section, saving, or generating).
+        apiKeyConfigured = false
+        apiKeyStatusChecked = false
         normalizeActiveTemplate()
     }
 
     func reload() {
         settings = settingsStore.load()
         templates = templateStore.load()
-        apiKeyConfigured = keychain.hasValue
+        // Intentionally NOT re-reading the keychain here (see init). Use refreshAPIKeyStatus()
+        // from an explicit user action instead.
+        apiKeyStatusChecked = false
         normalizeActiveTemplate()
+    }
+
+    /// Reads the keychain to update `apiKeyConfigured`. Call only from an explicit user
+    /// action (e.g. the Check button), never at init, reload, or app launch.
+    func refreshAPIKeyStatus() {
+        apiKeyConfigured = keychain.hasValue
+        apiKeyStatusChecked = true
     }
 
     private func normalizeActiveTemplate() {
@@ -96,13 +110,15 @@ final class SummarizationViewModel: ObservableObject {
         let trimmed = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         try? keychain.save(trimmed)
-        apiKeyConfigured = keychain.hasValue
+        apiKeyConfigured = true
+        apiKeyStatusChecked = true
         apiKeyDraft = ""
     }
 
     func clearAPIKey() {
         keychain.delete()
         apiKeyConfigured = false
+        apiKeyStatusChecked = true
         apiKeyDraft = ""
     }
 
@@ -377,16 +393,27 @@ struct SettingsView: View {
                     Text("OpenRouter API Key")
                         .fontWeight(.medium)
                     Spacer()
-                    if summarization.apiKeyConfigured {
+                    if summarization.apiKeyStatusChecked, summarization.apiKeyConfigured {
                         Label("Configured", systemImage: "checkmark.seal.fill")
                             .font(.caption)
                             .foregroundStyle(.green)
                             .accessibilityIdentifier("openRouterKeyConfigured")
+                    } else if summarization.apiKeyStatusChecked {
+                        Text("Not configured")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("openRouterKeyNotConfigured")
+                    } else {
+                        Button("Check") { summarization.refreshAPIKeyStatus() }
+                            .controlSize(.small)
+                            .accessibilityIdentifier("checkOpenRouterKeyButton")
                     }
                 }
                 HStack {
                     SecureField(
-                        summarization.apiKeyConfigured ? "Enter a new key to replace" : "sk-or-…",
+                        summarization.apiKeyStatusChecked && summarization.apiKeyConfigured
+                            ? "Enter a new key to replace"
+                            : "sk-or-…",
                         text: $summarization.apiKeyDraft
                     )
                     .accessibilityIdentifier("openRouterKeyField")
@@ -394,7 +421,7 @@ struct SettingsView: View {
                     Button("Save") { summarization.saveAPIKey() }
                         .disabled(summarization.apiKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
                         .accessibilityIdentifier("saveOpenRouterKeyButton")
-                    if summarization.apiKeyConfigured {
+                    if summarization.apiKeyStatusChecked, summarization.apiKeyConfigured {
                         Button("Clear") { summarization.clearAPIKey() }
                             .accessibilityIdentifier("clearOpenRouterKeyButton")
                     }

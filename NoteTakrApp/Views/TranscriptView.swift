@@ -24,6 +24,8 @@ struct TranscriptView: View {
                 emptyView
             case .generating:
                 generatingView
+            case .failed(let message):
+                failedView(message)
             case .segments:
                 toolbar
                 ScrollView {
@@ -91,6 +93,25 @@ struct TranscriptView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, 40)
         .padding(.horizontal, 20)
+    }
+
+    private func failedView(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Text("Transcription failed")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.primaryText.swiftUIColor)
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(theme.secondaryText.swiftUIColor)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            if onGenerate != nil {
+                generateButton(label: "Retry transcription", isDisabled: false, spinning: false)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 40)
+        .padding(.horizontal, 24)
     }
 
     private func generateButton(label: String, isDisabled: Bool, spinning: Bool) -> some View {

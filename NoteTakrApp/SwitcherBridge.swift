@@ -26,6 +26,9 @@ final class SwitcherBridge: ObservableObject {
     var onCreateBlankNote: (() -> Void)?
     /// Called when the Open Settings command is activated from the switcher.
     var onOpenSettings: (() -> Void)?
+    /// Called after a note is deleted from the switcher — controller reloads the editor
+    /// if the deleted note was the one currently open.
+    var onDeleteNote: ((String) -> Void)?
 
     init(viewModel: SwitcherViewModel) {
         self.viewModel = viewModel
@@ -107,6 +110,15 @@ final class SwitcherBridge: ObservableObject {
     func triggerCreateBlankNote() {
         onCreateBlankNote?()
         dismiss()
+    }
+
+    /// Deletes a note: removes it from disk + the in-memory list (so the row vanishes),
+    /// then notifies the controller so it can reload the editor if needed.
+    func deleteNote(_ id: String) {
+        viewModel.delete(noteID: id)
+        groups = viewModel.groups
+        selectedIndex = viewModel.selectedIndex
+        onDeleteNote?(id)
     }
 }
 

@@ -2,6 +2,7 @@ import Foundation
 import FluidAudio
 import NoteTakrKit
 import NoteTakrCore
+import os
 
 // MARK: - Injectable seams
 
@@ -176,6 +177,8 @@ actor FluidAudioVocabularyBooster: VocabularyBoosting {
 /// Runs the full local transcription pipeline: ASR + speaker diarization +
 /// optional vocabulary boosting, producing speaker-labelled transcript segments.
 final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
+    static let log = Logger(subsystem: "com.notetakr.app", category: "transcription")
+
     private let settingsStore: TranscriptionSettingsStore
     private let runtime: any FluidAudioRuntimeProtocol
     private let audioLoader: any AudioSampleLoading
@@ -254,14 +257,32 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
         settings: TranscriptionModelSettings,
         diarize: Bool
     ) async throws -> [TranscriptSegment] {
-        let samples = try audioLoader.loadSamples(from: url)
+        let samples: [Float]
+        do {
+            samples = try audioLoader.loadSamples(from: url)
+        } catch {
+            Self.log.error("audio load FAILED for \(url.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
+            throw error
+        }
+        let seconds = Double(samples.count) / 16_000.0
+        Self.log.info("loaded \(samples.count) samples (\(seconds, format: .fixed(precision: 1))s) from \(url.lastPathComponent, privacy: .public); diarize=\(diarize)")
+        if samples.isEmpty {
+            Self.log.error("audio has ZERO samples — recording captured no audio (check mic/system-audio permissions)")
+        }
 
         // ASR and diarization are independent — run them concurrently.
         async let asrResult = runtime.transcribe(samples: samples, settings: settings)
         async let diarizedSpans = Self.diarizeIfNeeded(diarize, diarizer: diarizer, samples: samples)
 
-        let asr = try await asrResult
+        let asr: ASRResult
+        do {
+            asr = try await asrResult
+        } catch {
+            Self.log.error("ASR FAILED: \(String(describing: error), privacy: .public)")
+            throw error
+        }
         let spans = await diarizedSpans
+        Self.log.info("ASR text length=\(asr.text.count) chars, diarized spans=\(spans.count); text=\"\(asr.text, privacy: .public)\"")
 
         var words = Self.reconstructWords(from: asr.tokenTimings, fallbackText: asr.text)
 
@@ -279,8 +300,10 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
 
         let segments = TranscriptAssembler.assemble(words: words, speakerSpans: spans)
         if segments.isEmpty {
+            Self.log.info("assembled 0 segments — returning single fallback segment with raw ASR text")
             return [TranscriptSegment(timestamp: 0, speaker: nil, text: asr.text)]
         }
+        Self.log.info("assembled \(segments.count) transcript segment(s)")
         return segments
     }
 

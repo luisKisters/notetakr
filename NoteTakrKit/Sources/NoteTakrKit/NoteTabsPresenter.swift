@@ -24,6 +24,7 @@ public enum TranscriptState: Equatable {
     case empty
     case generating
     case segments([DisplaySegment])
+    case failed(String)
 }
 
 // MARK: - Raw Segment (generic input — not Core types)
@@ -153,6 +154,18 @@ public final class NoteTabsPresenter {
         transcriptByNoteID[noteID] ?? .empty
     }
 
+    /// Marks a note as actively transcribing (spinner in the Transcript tab).
+    public func markTranscribing(for noteID: String) {
+        transcriptByNoteID[noteID] = .generating
+        onChange?()
+    }
+
+    /// Records a transcription failure so the Transcript tab can show it with a retry.
+    public func setTranscriptFailed(_ message: String, for noteID: String) {
+        transcriptByNoteID[noteID] = .failed(message)
+        onChange?()
+    }
+
     public func generateTranscript(for noteID: String) {
         guard let generator = transcriptGenerator else { return }
         guard transcriptByNoteID[noteID] != .generating else { return }
@@ -166,7 +179,9 @@ public final class NoteTabsPresenter {
                 self.setSegments(rawSegments, for: noteID)
                 self.onPersistTranscript?(noteID, rawSegments)
             } catch {
-                self.transcriptByNoteID[noteID] = .empty
+                // Surface the failure — silently reverting to .empty made errors look
+                // like "the button just reset and nothing happened".
+                self.transcriptByNoteID[noteID] = .failed(error.localizedDescription)
                 self.onChange?()
             }
         }
@@ -186,7 +201,7 @@ public final class NoteTabsPresenter {
                 self.onPersistTranscript?(noteID, rawSegments)
                 self.generateSummary(for: noteID)
             } catch {
-                self.transcriptByNoteID[noteID] = .empty
+                self.transcriptByNoteID[noteID] = .failed(error.localizedDescription)
                 self.onChange?()
             }
         }

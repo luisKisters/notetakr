@@ -181,11 +181,23 @@ jobs:
             # Apple Silicon; not trusted by Gatekeeper, so installs need Homebrew
             # (strips quarantine) or a one-time "Open Anyway". No Sparkle public key
             # is embedded, so in-app updates stay off until the Developer ID path is on.
+            # Library validation cannot validate ad-hoc Team IDs for embedded Sparkle,
+            # so this unsigned path uses an archive-only entitlement to disable it.
+            AD_HOC_ENTITLEMENTS="$RUNNER_TEMP/NoteTakr.ad-hoc.entitlements"
+            cp NoteTakrApp/NoteTakr.entitlements "$AD_HOC_ENTITLEMENTS"
+            /usr/libexec/PlistBuddy \
+              -c "Add :com.apple.security.cs.disable-library-validation bool true" \
+              "$AD_HOC_ENTITLEMENTS" 2>/dev/null || \
+              /usr/libexec/PlistBuddy \
+                -c "Set :com.apple.security.cs.disable-library-validation true" \
+                "$AD_HOC_ENTITLEMENTS"
             ARCHIVE_ARGS+=(
               CODE_SIGN_IDENTITY="-"
               CODE_SIGN_STYLE=Manual
               CODE_SIGNING_REQUIRED=YES
               CODE_SIGNING_ALLOWED=YES
+              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+              CODE_SIGN_ENTITLEMENTS="$AD_HOC_ENTITLEMENTS"
               DEVELOPMENT_TEAM=""
             )
           fi
@@ -200,14 +212,20 @@ jobs:
           echo "App bundle: $APP"
           test -n "$APP"
 
+          if [[ "${SIGNING_ENABLED:-false}" == "true" ]]; then
+            SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
+          else
+            SIGNING_IDENTITY="-"
+          fi
+
+          bash scripts/resign-sparkle-framework.sh "$APP" "$SIGNING_IDENTITY"
+
           rm -rf dmg-staging && mkdir -p dmg-staging
           cp -R "$APP" dmg-staging/
           ln -s /Applications dmg-staging/Applications
           hdiutil create -volname "$APP_NAME" -srcfolder dmg-staging -ov -format UDZO "$DMG_NAME"
 
           if [[ "${SIGNING_ENABLED:-false}" == "true" ]]; then
-            SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"
-            codesign --verify --deep --strict --verbose=2 "$APP"
             codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$DMG_NAME"
             codesign --verify --verbose=2 "$DMG_NAME"
           else

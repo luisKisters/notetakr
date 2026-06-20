@@ -69,6 +69,7 @@ final class NotePanelController {
         let editorViewModel = bridge.viewModel
         let presenter = NoteTabsPresenter(
             summaryGenerator: generator,
+            transcriptGenerator: transcriptionAdapter,  // enables the "Generate transcript" button
             editorFlush: { try editorViewModel.flush() }
         )
 
@@ -155,7 +156,7 @@ final class NotePanelController {
     func show() {
         loadCurrentNote()
         panel?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        (panel as? FloatingPanel)?.updateCloseButtonVisibilityForCurrentMouse()
         Task { await appModelRef?.loadUpcomingEvents() }
     }
 
@@ -180,12 +181,13 @@ final class NotePanelController {
         p.isMovableByWindowBackground = true
         p.isOpaque = false
         p.backgroundColor = .clear
+        p.acceptsMouseMovedEvents = true
         p.minSize = NSSize(width: 300, height: 400)
-        p.standardWindowButton(.closeButton)?.isHidden = false
+        p.standardWindowButton(.closeButton)?.isHidden = true
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.center()
-        p.contentView = NSHostingView(
+        p.contentView = HoverTrackingHostingView(
             rootView: EditorView(
                 bridge: bridge,
                 frontmatterBridge: frontmatterBridge,
@@ -193,8 +195,12 @@ final class NotePanelController {
                 switcherBridge: switcherBridge,
                 settingsBridge: settingsBridge,
                 recordPillMachine: recordPillMachine
-            )
+            ),
+            hoverChanged: { [weak p] isHovered in
+                p?.setCloseButtonVisible(isHovered)
+            }
         )
+        p.startCloseButtonHoverTracking()
         // Wire ESC precedence: settings → switcher → hide panel.
         // This is a safety-net in case SwiftUI keyboard shortcuts don't consume the event
         // (e.g. focus is on an AppKit control rather than a SwiftUI view).
@@ -234,6 +240,8 @@ final class NotePanelController {
     func createNewNote() {
         if let note = try? store.create(title: "Untitled meeting", date: Date()) {
             loadNote(id: note.id)
+            // Keep the panel up front and key — creating a note must never look like the window closed.
+            ensurePanelKey()
         }
     }
 
@@ -245,6 +253,15 @@ final class NotePanelController {
             guard let appModel else { return }
             Task { @MainActor in
                 await appModel.startRecording(title: nil)
+                guard appModel.isRecording else {
+                    // Start failed (classic cause: mic permission). Don't let the pill
+                    // pretend to record — reset it and tell the user why.
+                    self?.recordPillMachine.reset()
+                    self?.showRecordingError(
+                        appModel.recordingError ?? "Recording could not be started."
+                    )
+                    return
+                }
                 self?.startPillTickTimer()
             }
         }
@@ -296,29 +313,64 @@ final class NotePanelController {
     private func drivePostStopPipeline(noteID: String, intent: StopIntent) {
         pillPipelineCancellables.removeAll()
 
-        // If transcription already completed (e.g. no transcription service → empty), handle now
-        if case .segments(let segs) = tabsBridge.presenter.transcriptState(for: noteID), !segs.isEmpty {
-            handleTranscriptComplete(noteID: noteID, intent: intent)
-            return
-        }
-
-        // If there's no transcription adapter, no segments will ever arrive — go idle
-        guard transcriptionAdapter != nil else {
-            recordPillMachine.finishAsDoneTranscript()
-            return
-        }
-
+        // Distinguish "transcription actually ran" from "nothing happened". A freshly
+        // loaded note publishes `.empty` as its initial transcript state, so accepting the
+        // very first non-generating value would instantly (and falsely) resolve the pill as
+        // "Transcribed". Require the publisher to pass through `.generating` first — that's
+        // the marker that transcription truly started — before treating `.empty`/`.failed`/
+        // segments as the real terminal outcome.
+        let didStartTranscribing = TranscribeStartFlag()
         tabsBridge.$transcriptState
             .receive(on: DispatchQueue.main)
-            .compactMap { state -> [DisplaySegment]? in
-                if case .segments(let segs) = state, !segs.isEmpty { return segs }
-                return nil
+            .filter { state in
+                switch state {
+                case .generating:
+                    didStartTranscribing.value = true
+                    return false
+                case .segments(let segs):
+                    return didStartTranscribing.value && !segs.isEmpty
+                case .empty, .failed:
+                    return didStartTranscribing.value
+                }
             }
             .first()
-            .sink { [weak self] _ in
-                self?.handleTranscriptComplete(noteID: noteID, intent: intent)
+            .sink { [weak self] state in
+                self?.handlePostStopTerminal(state, noteID: noteID, intent: intent)
             }
             .store(in: &pillPipelineCancellables)
+
+        // Safety net: if transcription never starts (e.g. transcribe disabled for this note),
+        // `.generating` is never published and the pipeline above would never resolve, leaving
+        // the pill stuck in `.transcribing`. After a short grace period, if transcription never
+        // began, free the pill back to Record rather than showing a fake "Transcribed".
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self else { return }
+            guard self.frontmatterBridge.noteID == noteID else { return }
+            guard !didStartTranscribing.value else { return }
+            guard self.recordPillMachine.state == .transcribing else { return }
+            self.pillPipelineCancellables.removeAll()
+            self.recordPillMachine.cancelBusyPipeline()
+        }
+    }
+
+    /// Resolves the record pill once transcription reaches a terminal state.
+    /// Only called after transcription was observed to actually start (see drivePostStopPipeline).
+    private func handlePostStopTerminal(_ state: TranscriptState, noteID: String, intent: StopIntent) {
+        switch state {
+        case .segments(let segs) where !segs.isEmpty:
+            handleTranscriptComplete(noteID: noteID, intent: intent)
+        case .failed:
+            // Surface the error in the Transcript tab and free the pill so the user can retry.
+            recordPillMachine.cancelBusyPipeline()
+            tabsBridge.selectTab(.transcript)
+        case .empty:
+            // Transcription ran but found no speech — nothing to summarize; finish as transcript-only.
+            recordPillMachine.finishAsDoneTranscript()
+            tabsBridge.selectTab(.transcript)
+        default:
+            // Transcription never produced a real terminal outcome; free the pill back to Record.
+            recordPillMachine.cancelBusyPipeline()
+        }
     }
 
     private func handleTranscriptComplete(noteID: String, intent: StopIntent) {
@@ -342,6 +394,24 @@ final class NotePanelController {
                     self?.recordPillMachine.finishAsDone()
                 }
                 .store(in: &pillPipelineCancellables)
+        }
+    }
+
+    /// Shows a recording failure to the user (alert attached to the panel when possible).
+    private func showRecordingError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Recording failed to start"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        if message.localizedCaseInsensitiveContains("microphone")
+            || message.localizedCaseInsensitiveContains("permission") {
+            alert.addButton(withTitle: "Open Privacy Settings")
+        }
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -379,17 +449,61 @@ final class NotePanelController {
             guard let self else { return }
             if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
                 self.loadNote(id: note.id)
+                // Keep the panel up front and key — creating a note must never look like the window closed.
+                self.ensurePanelKey()
             }
+        }
+        switcherBridge.onDeleteNote = { [weak self] deletedID in
+            guard let self else { return }
+            // Only react when the deleted note is the one currently open in the editor;
+            // otherwise the editor would be showing a note that no longer exists on disk.
+            guard self.frontmatterBridge.noteID == deletedID else { return }
+            let remaining = (try? self.store.list()) ?? []
+            if let next = remaining.first(where: { $0.id != deletedID }) ?? remaining.first {
+                self.loadNote(id: next.id)
+            } else if let blank = try? self.store.create(title: "Untitled meeting", date: Date()) {
+                self.loadNote(id: blank.id)
+            }
+            self.ensurePanelKey()
         }
         switcherBridge.onOpenSettings = { [weak self] in
             self?.settingsBridge.isVisible = true
         }
     }
 
+    /// True while the record pill represents an in-progress (or paused) recording session.
+    /// Used to avoid resetting the pill during the recording-start reload of `loadNote`.
+    private var isPillActivelyRecording: Bool {
+        switch recordPillMachine.state {
+        case .recording, .paused: return true
+        default: return false
+        }
+    }
+
+    /// Re-asserts the panel as visible and key. Used after note create/delete so the floating
+    /// window never appears to close out from under the user.
+    private func ensurePanelKey() {
+        guard let panel else { return }
+        if !panel.isVisible || !panel.isKeyWindow {
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
     /// Loads a note by ID into all bridges (editor, frontmatter, tabs).
     func loadNote(id: String) {
-        pillPipelineCancellables.removeAll()
-        recordPillMachine.cancelBusyPipeline()
+        // The pill is a single global machine shared across notes, so terminal states
+        // (.done/.doneTranscript) and busy states would otherwise leak onto a freshly opened
+        // note and make it look already "Transcribed". Reset the pill to `.idle` here so every
+        // opened note starts at Record.
+        //
+        // EXCEPTION: a recording start re-invokes `loadNote` (onRecordingStarted → recordingStarted)
+        // for the brand-new session id while the pill is already `.recording`. Resetting then would
+        // knock the just-started recording back to `.idle`, so skip the reset while a recording is
+        // active. (cancelBusyPipeline() previously used here never reset terminal states, hence the leak.)
+        if !isPillActivelyRecording {
+            pillPipelineCancellables.removeAll()
+            recordPillMachine.reset()
+        }
         guard let note = try? store.load(id: id) else { return }
         try? bridge.viewModel.load(noteID: id)
         frontmatterBridge.load(note: note)
@@ -405,14 +519,46 @@ final class NotePanelController {
             if let summary = session.summary, !summary.isEmpty {
                 tabsBridge.presenter.setSummary(summary, for: id)
             }
+            frontmatterBridge.audioFileURL = Self.audioFileURL(for: session, store: ss)
+            frontmatterBridge.hasCompletedRecording = frontmatterBridge.audioFileURL != nil
         }
+    }
+
+    /// Resolves the note's playable audio file (microphone preferred). Stored paths can
+    /// be stale after a title rename moved the session folder, so fall back to the same
+    /// filename inside the session's current directory.
+    private static func audioFileURL(for session: MeetingSession, store: SessionStore) -> URL? {
+        let dir = store.sessionURL(for: session)
+        let candidates = session.audioFilePaths.sorted {
+            // microphone first — it's the user's own voice and always present
+            $0.contains("microphone") && !$1.contains("microphone")
+        }
+        for path in candidates {
+            if FileManager.default.fileExists(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+            let healed = dir.appendingPathComponent(URL(fileURLWithPath: path).lastPathComponent)
+            if FileManager.default.fileExists(atPath: healed.path) {
+                return healed
+            }
+        }
+        return nil
     }
 }
 
 // MARK: -
 
+/// Reference-type box so the transcript-state filter closure and the deferred timeout
+/// block can share the "did `.generating` ever appear?" flag. All access happens on the
+/// main queue (the publisher uses `.receive(on: .main)` and the timeout is on `.main`).
+private final class TranscribeStartFlag {
+    var value = false
+}
+
 private final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
+    private var localHoverMonitor: Any?
+    private var globalHoverMonitor: Any?
 
     /// Called by the controller after the panel is built to wire the overlay checks.
     /// Return `true` to consume the ESC and prevent the panel from hiding.
@@ -421,5 +567,107 @@ private final class FloatingPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) {
         if let handler = cancelHandler, handler() { return }
         orderOut(nil)
+    }
+
+    /// Wire ⌘W to hide the floating panel. There is no standard window menu here, so the
+    /// default ⌘W → performClose: responder-chain routing isn't reliably available; handle it
+    /// explicitly. `isReleasedWhenClosed` is false, so ordering out simply hides the panel.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers == "w" {
+            orderOut(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    func setCloseButtonVisible(_ isVisible: Bool) {
+        standardWindowButton(.closeButton)?.isHidden = !isVisible
+    }
+
+    func updateCloseButtonVisibilityForCurrentMouse() {
+        setCloseButtonVisible(isVisible && frame.contains(NSEvent.mouseLocation))
+    }
+
+    func startCloseButtonHoverTracking() {
+        let mask: NSEvent.EventTypeMask = [
+            .mouseMoved,
+            .leftMouseDragged,
+            .rightMouseDragged,
+            .otherMouseDragged,
+            .leftMouseDown,
+            .rightMouseDown,
+            .otherMouseDown
+        ]
+
+        localHoverMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+            self?.updateCloseButtonVisibilityForCurrentMouse()
+            return event
+        }
+        globalHoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.updateCloseButtonVisibilityForCurrentMouse()
+            }
+        }
+    }
+
+    deinit {
+        if let localHoverMonitor {
+            NSEvent.removeMonitor(localHoverMonitor)
+        }
+        if let globalHoverMonitor {
+            NSEvent.removeMonitor(globalHoverMonitor)
+        }
+    }
+}
+
+private final class HoverTrackingHostingView<Content: View>: NSHostingView<Content> {
+    private var hoverChanged: (Bool) -> Void = { _ in }
+    private var hoverTrackingArea: NSTrackingArea?
+
+    init(rootView: Content, hoverChanged: @escaping (Bool) -> Void) {
+        self.hoverChanged = hoverChanged
+        super.init(rootView: rootView)
+    }
+
+    @MainActor @preconcurrency required init(rootView: Content) {
+        super.init(rootView: rootView)
+    }
+
+    @available(*, unavailable)
+    @MainActor dynamic required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+
+        if let hoverTrackingArea {
+            removeTrackingArea(hoverTrackingArea)
+        }
+
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        hoverTrackingArea = area
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            hoverChanged(false)
+        }
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        hoverChanged(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hoverChanged(false)
     }
 }

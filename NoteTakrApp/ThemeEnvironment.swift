@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import NoteTakrKit
 
@@ -18,5 +19,8 @@ extension EnvironmentValues {
 
 extension RGBA {
     var swiftUIColor: Color { Color(red: r, green: g, blue: b, opacity: a) }
+
+    /// AppKit colour, for NSView-backed controls (e.g. the markdown editor).
+    var nsColor: NSColor { NSColor(srgbRed: r, green: g, blue: b, alpha: a) }
 }
 

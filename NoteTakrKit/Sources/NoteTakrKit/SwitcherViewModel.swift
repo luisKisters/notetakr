@@ -110,6 +110,10 @@ public protocol NoteListProviding {
     func listNotes() -> [MeetingNote]
 }
 
+public protocol NoteDeleting {
+    func delete(id: String) throws
+}
+
 public protocol UpcomingEventsProviding {
     func listEvents() -> [UpcomingEvent]
 }
@@ -137,6 +141,7 @@ public final class SwitcherViewModel {
     private let store: any NoteStoring
     private let defaultsProvider: any NoteDefaultsProviding
     private let calendar: Calendar
+    private var locallyDeletedNoteIDs: Set<String> = []
 
     /// All available commands — surfaced when the search query matches their keywords.
     private static let allCommands: [SwitcherCommand] = [
@@ -258,6 +263,16 @@ public final class SwitcherViewModel {
         return note
     }
 
+    /// Deletes a note from disk and rebuilds groups so the row disappears immediately.
+    /// Also tombstones the id locally, so stale list providers can't re-surface the row.
+    public func delete(noteID: String) {
+        if let deletingStore = store as? any NoteDeleting {
+            try? deletingStore.delete(id: noteID)
+        }
+        locallyDeletedNoteIDs.insert(noteID)
+        rebuildGroups()
+    }
+
     // MARK: - Icon kind
 
     /// Deterministic icon kind for a row — computed from the note/event/command metadata.
@@ -283,7 +298,7 @@ public final class SwitcherViewModel {
     // MARK: - Groups computation
 
     private func rebuildGroups() {
-        let notes = noteListProvider.listNotes()
+        let notes = noteListProvider.listNotes().filter { !locallyDeletedNoteIDs.contains($0.id) }
         let events = eventsProvider.listEvents()
         let nowDate = nowProvider()
         let todayStart = calendar.startOfDay(for: nowDate)

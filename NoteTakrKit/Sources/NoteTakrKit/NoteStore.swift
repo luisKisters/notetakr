@@ -1,6 +1,6 @@
 import Foundation
 
-public final class NoteStore: NoteStoring {
+public final class NoteStore: NoteStoring, NoteDeleting {
     public let root: URL
     private let fileManager = FileManager.default
 
@@ -45,6 +45,13 @@ public final class NoteStore: NoteStoring {
         let note = MeetingNote(id: UUID().uuidString, title: title, date: date)
         try save(note)
         return note
+    }
+
+    /// Removes the note's on-disk folder. No-op if no folder matches the id.
+    public func delete(id: String) throws {
+        guard let folderURL = try findFolder(forID: id) else { return }
+        guard fileManager.fileExists(atPath: folderURL.path) else { return }
+        try fileManager.removeItem(at: folderURL)
     }
 
     // MARK: - Folder naming

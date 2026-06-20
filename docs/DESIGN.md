@@ -3,7 +3,7 @@
 NoteTakr is "Raycast Notes, but built for meetings": one floating macOS panel for markdown
 meeting notes with structured frontmatter, live transcription, AI summaries, and a ⌘K
 timeline switcher. This document is the canonical statement of principles. The locked visual
-design lives in `design/mockups/final-*.html` (spec summary in `design/mockups/IDEAS.md`);
+design lives in `design/mockups/final-*.html` (spec summary in `ideas.md` at the repo root);
 the execution plan lives in `docs/plans/`.
 
 ## 1. Product principles

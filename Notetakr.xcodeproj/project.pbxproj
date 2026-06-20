@@ -30,6 +30,7 @@
 		AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */; };
 		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
 		AAFADE000000000000000526 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000804 /* Sparkle */; };
+		AAFADE00000000000000F006 /* MarkdownEngine in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE00000000000000F008 /* MarkdownEngine */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
 		AAFADE000000000000000560 /* NoteTakrKit in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000851 /* NoteTakrKit */; };
@@ -46,6 +47,9 @@
 		AAFADE000000000000000582 /* SummaryGeneratingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000549 /* SummaryGeneratingAdapter.swift */; };
 		AAFADE000000000000000583 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054A /* SummaryView.swift */; };
 		AAFADE000000000000000584 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054B /* TranscriptView.swift */; };
+		AAFADE00000000000000F005 /* NoteTakrMarkdownEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000F000 /* NoteTakrMarkdownEditor.swift */; };
+		AAFADE00000000000000F002 /* MarkdownTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000F001 /* MarkdownTextEditor.swift */; };
+		AAFADE00000000000000F004 /* MarkdownLiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000F003 /* MarkdownLiveLayout.swift */; };
 		AAFADE000000000000000585 /* NoteTabsBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054C /* NoteTabsBridgeTests.swift */; };
 		AAFADE000000000000000586 /* SwitcherBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054D /* SwitcherBridge.swift */; };
 		AAFADE000000000000000587 /* SwitcherOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000054E /* SwitcherOverlayView.swift */; };
@@ -114,6 +118,8 @@
 		AAFADE000000000000000549 /* SummaryGeneratingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SummaryGeneratingAdapter.swift; path = NoteTakrApp/SummaryGeneratingAdapter.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000054A /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SummaryView.swift; path = NoteTakrApp/Views/SummaryView.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000054B /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptView.swift; path = NoteTakrApp/Views/TranscriptView.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000F001 /* MarkdownTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MarkdownTextEditor.swift; path = NoteTakrApp/Views/MarkdownTextEditor.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000F003 /* MarkdownLiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MarkdownLiveLayout.swift; path = NoteTakrApp/Views/MarkdownLiveLayout.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000054C /* NoteTabsBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTabsBridgeTests.swift; path = NoteTakrTests/NoteTabsBridgeTests.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000054D /* SwitcherBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwitcherBridge.swift; path = NoteTakrApp/SwitcherBridge.swift; sourceTree = "<group>"; };
 		AAFADE00000000000000054E /* SwitcherOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwitcherOverlayView.swift; path = NoteTakrApp/Views/SwitcherOverlayView.swift; sourceTree = "<group>"; };
@@ -131,6 +137,7 @@
 		AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsStoreTests.swift; path = NoteTakrTests/TranscriptionSettingsStoreTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000300 /* NoteTakr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteTakr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAFADE000000000000000310 /* NoteTakrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteTakrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAFADE00000000000000F000 /* NoteTakrMarkdownEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTakrMarkdownEditor.swift; path = NoteTakrApp/Views/NoteTakrMarkdownEditor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +149,7 @@
 				AAFADE000000000000000525 /* FluidAudio in Frameworks */,
 				AAFADE000000000000000526 /* Sparkle in Frameworks */,
 				AAFADE000000000000000560 /* NoteTakrKit in Frameworks */,
+				AAFADE00000000000000F006 /* MarkdownEngine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -198,6 +206,9 @@
 				AAFADE000000000000000549 /* SummaryGeneratingAdapter.swift */,
 				AAFADE00000000000000054A /* SummaryView.swift */,
 				AAFADE00000000000000054B /* TranscriptView.swift */,
+				AAFADE00000000000000F000 /* NoteTakrMarkdownEditor.swift */,
+				AAFADE00000000000000F001 /* MarkdownTextEditor.swift */,
+				AAFADE00000000000000F003 /* MarkdownLiveLayout.swift */,
 				AAFADE00000000000000054D /* SwitcherBridge.swift */,
 				AAFADE00000000000000054E /* SwitcherOverlayView.swift */,
 				AAFADE000000000000000550 /* SettingsSheetViewModel.swift */,
@@ -262,6 +273,7 @@
 				AAFADE000000000000000803 /* FluidAudio */,
 				AAFADE000000000000000804 /* Sparkle */,
 				AAFADE000000000000000851 /* NoteTakrKit */,
+				AAFADE00000000000000F008 /* MarkdownEngine */,
 			);
 			productName = NoteTakr;
 			productReference = AAFADE000000000000000300 /* NoteTakr.app */;
@@ -321,6 +333,7 @@
 				AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */,
 				AAFADE000000000000000900 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				AAFADE000000000000000901 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				AAFADE00000000000000F007 /* XCRemoteSwiftPackageReference "swift-markdown-engine" */,
 			);
 			productRefGroup = AAFADE000000000000000130 /* Products */;
 			projectDirPath = "";
@@ -375,6 +388,9 @@
 				AAFADE000000000000000582 /* SummaryGeneratingAdapter.swift in Sources */,
 				AAFADE000000000000000583 /* SummaryView.swift in Sources */,
 				AAFADE000000000000000584 /* TranscriptView.swift in Sources */,
+				AAFADE00000000000000F005 /* NoteTakrMarkdownEditor.swift in Sources */,
+				AAFADE00000000000000F002 /* MarkdownTextEditor.swift in Sources */,
+				AAFADE00000000000000F004 /* MarkdownLiveLayout.swift in Sources */,
 				AAFADE000000000000000586 /* SwitcherBridge.swift in Sources */,
 				AAFADE000000000000000587 /* SwitcherOverlayView.swift in Sources */,
 				AAFADE000000000000000589 /* SettingsSheetViewModel.swift in Sources */,
@@ -666,6 +682,14 @@
 				minimumVersion = 2.9.3;
 			};
 		};
+		AAFADE00000000000000F007 /* XCRemoteSwiftPackageReference "swift-markdown-engine" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/nodes-app/swift-markdown-engine";
+			requirement = {
+				kind = exactVersion;
+				version = 0.7.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -698,6 +722,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000850 /* XCLocalSwiftPackageReference "NoteTakrKit" */;
 			productName = NoteTakrKit;
+		};
+		AAFADE00000000000000F008 /* MarkdownEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE00000000000000F007 /* XCRemoteSwiftPackageReference "swift-markdown-engine" */;
+			productName = MarkdownEngine;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

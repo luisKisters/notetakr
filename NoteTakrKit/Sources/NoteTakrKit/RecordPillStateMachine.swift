@@ -165,6 +165,18 @@ public final class RecordPillStateMachine {
         }
     }
 
+    /// Unconditionally resets the machine to `.idle`.
+    ///
+    /// The pill is a single global machine shared across notes, so terminal states
+    /// (`.done`/`.doneTranscript`) would otherwise leak onto a freshly opened note and
+    /// make it look already "Transcribed". Call this when loading any note so every note
+    /// opens at Record. Unlike `cancelBusyPipeline()`, this resets from terminal states too.
+    public func reset() {
+        if state != .idle {
+            transition(to: .idle)
+        }
+    }
+
     // MARK: - Private
 
     private var isActiveRecording: Bool {

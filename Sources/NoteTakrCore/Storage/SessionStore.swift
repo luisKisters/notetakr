@@ -43,6 +43,7 @@ public final class SessionStore: @unchecked Sendable {
     }
 
     public func save(_ session: MeetingSession) throws {
+        var session = session
         let targetDir = sessionURL(for: session)
         // If the session title was renamed the folder name changes. Find any existing
         // folder for this session ID and move it to the new path so audio files are
@@ -59,6 +60,17 @@ public final class SessionStore: @unchecked Sendable {
             }
         }
         try FileManager.default.createDirectory(at: targetDir, withIntermediateDirectories: true)
+        // Heal audio paths that still point at a pre-rename folder: the folder move
+        // above relocates the files, so any stored path whose file is gone but whose
+        // filename exists in the current folder is rewritten. Without this, renaming
+        // a session permanently breaks transcription ("audio file not found").
+        session.audioFilePaths = session.audioFilePaths.map { path in
+            guard !FileManager.default.fileExists(atPath: path) else { return path }
+            let healed = targetDir.appendingPathComponent(
+                URL(fileURLWithPath: path).lastPathComponent
+            ).path
+            return FileManager.default.fileExists(atPath: healed) ? healed : path
+        }
         let fileURL = targetDir.appendingPathComponent("session.json")
         let data = try encoder.encode(session)
         try data.write(to: fileURL, options: .atomic)

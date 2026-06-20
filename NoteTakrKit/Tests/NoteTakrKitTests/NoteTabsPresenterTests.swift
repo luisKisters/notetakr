@@ -394,17 +394,20 @@ final class NoteTabsPresenterTests: XCTestCase {
         }
     }
 
-    func testGenerateTranscriptFailure() {
+    func testGenerateTranscriptFailureSurfacesFailedState() {
         let failedExp = expectation(description: "transcript generation failed")
         let generator = ImmediateTranscriptGenerator(result: .failure(TestGeneratorError.network("error")))
         let p = NoteTabsPresenter(transcriptGenerator: generator)
 
         p.onChange = {
-            if case .empty = p.transcriptState(for: "n1") { failedExp.fulfill() }
+            if case .failed = p.transcriptState(for: "n1") { failedExp.fulfill() }
         }
         p.generateTranscript(for: "n1")
         waitForExpectations(timeout: 2)
-        XCTAssertEqual(p.transcriptState(for: "n1"), .empty)
+        guard case .failed(let message) = p.transcriptState(for: "n1") else {
+            return XCTFail("Expected .failed after generator error, got \(p.transcriptState(for: "n1"))")
+        }
+        XCTAssertFalse(message.isEmpty, "Failure message must be surfaced to the UI")
     }
 
     func testGenerateTranscriptWhileGeneratingIsNoop() {

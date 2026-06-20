@@ -15,7 +15,9 @@ public final class TranscriptionService: @unchecked Sendable {
     /// the result to session.json, regenerates note.md, and returns the updated
     /// session.
     public func transcribe(session: MeetingSession, vocabulary: [VocabularyEntry]) async throws -> MeetingSession {
-        let sources = Self.transcriptionSources(for: session)
+        let sources = Self.transcriptionSources(
+            for: session, sessionDir: store.sessionURL(for: session)
+        )
         guard !sources.isEmpty else {
             throw TranscriptionError.audioFileNotFound
         }
@@ -30,14 +32,29 @@ public final class TranscriptionService: @unchecked Sendable {
     /// Builds the transcription sources from a session's audio files, skipping
     /// missing or empty files and inferring each file's role from its name
     /// (`microphone.m4a` / `system-audio.m4a`).
-    static func transcriptionSources(for session: MeetingSession) -> [TranscriptionSource] {
+    ///
+    /// Stored paths can go stale when the session folder is renamed (title change
+    /// moves the folder but old session.json files keep absolute paths). When a
+    /// stored path is missing, fall back to the same filename inside the session's
+    /// *current* directory so those recordings stay transcribable.
+    static func transcriptionSources(
+        for session: MeetingSession,
+        sessionDir: URL? = nil
+    ) -> [TranscriptionSource] {
         session.audioFilePaths.compactMap { path -> TranscriptionSource? in
-            guard FileManager.default.fileExists(atPath: path) else { return nil }
-            let attributes = try? FileManager.default.attributesOfItem(atPath: path)
+            var url = URL(fileURLWithPath: path)
+            if !FileManager.default.fileExists(atPath: url.path), let sessionDir {
+                let healed = sessionDir.appendingPathComponent(url.lastPathComponent)
+                if FileManager.default.fileExists(atPath: healed.path) {
+                    url = healed
+                }
+            }
+            guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+            let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
             let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
             guard size > 0 else { return nil }
-            let role = role(forFileName: URL(fileURLWithPath: path).lastPathComponent)
-            return TranscriptionSource(url: URL(fileURLWithPath: path), role: role)
+            let role = role(forFileName: url.lastPathComponent)
+            return TranscriptionSource(url: url, role: role)
         }
     }
 

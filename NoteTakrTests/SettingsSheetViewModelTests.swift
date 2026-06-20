@@ -17,7 +17,7 @@ final class SettingsSheetViewModelTests: XCTestCase {
         vm.selectedTab = .thisMeeting
         XCTAssertTrue(vm.showScopeBanner)
 
-        for tab: SettingsTab in [.general, .recording, .vocabulary, .permissions] {
+        for tab: SettingsTab in [.general, .recording, .vocabulary, .updates] {
             vm.selectedTab = tab
             XCTAssertFalse(vm.showScopeBanner, "Banner should be hidden for \(tab)")
         }

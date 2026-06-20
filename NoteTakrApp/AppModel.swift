@@ -1,6 +1,8 @@
 import AppKit
+import AVFoundation
 import NoteTakrKit
 import NoteTakrCore
+import os
 
 /// Single shared source of truth for the app: owns the session store, recorder,
 /// transcription pipeline, and calendar state.
@@ -28,6 +30,9 @@ final class AppModel: ObservableObject {
 
     // Published pipeline state
     @Published private(set) var isRecording = false
+    /// Set when starting/stopping a recording fails (e.g. mic permission denied);
+    /// cleared on the next start attempt. The panel controller shows this to the user.
+    @Published private(set) var recordingError: String?
     @Published private(set) var transcriptionStates: [UUID: TranscriptionState] = [:]
     @Published private(set) var summarizationStates: [UUID: SummarizationState] = [:]
     @Published private(set) var nextMeeting: CalendarEvent?
@@ -83,8 +88,35 @@ final class AppModel: ObservableObject {
 
     // MARK: - Recording
 
+    /// Microphone authorization, requesting it on first use. Returns true only when
+    /// recording can actually capture audio — the gate that prevents "records nothing".
+    func ensureMicrophonePermission() async -> Bool {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            return true
+        case .notDetermined:
+            // Shows the system prompt and awaits the user's choice.
+            return await AVCaptureDevice.requestAccess(for: .audio)
+        case .denied, .restricted:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
     func startRecording(title: String? = nil) async {
         guard !recordingManager.isRecording else { return }
+        recordingError = nil
+
+        // Gate on microphone permission BEFORE creating a session — otherwise the
+        // recorder silently captures nothing and the note ends up with no audio.
+        guard await ensureMicrophonePermission() else {
+            recordingError = "Microphone access is required to record. Turn it on for "
+                + "NoteTakr in System Settings → Privacy & Security → Microphone."
+            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted")
+            return  // isRecording stays false → caller resets the pill + shows the alert
+        }
+
         let name = title ?? nextMeeting?.title ?? "Meeting Recording"
         do {
             let session = try await recordingManager.startRecording(title: name)
@@ -92,6 +124,12 @@ final class AppModel: ObservableObject {
             onRecordingStarted?(session.id.uuidString)
         } catch {
             isRecording = recordingManager.isRecording
+            // Surface the failure — swallowing it leaves the pill "recording" nothing
+            // (the classic cause: mic permission lost after an unsigned rebuild).
+            let message = (error as? AudioRecorderError).map(Self.recorderErrorMessage)
+                ?? error.localizedDescription
+            recordingError = message
+            FluidAudioAdapter.log.error("recording START failed: \(message, privacy: .public)")
         }
     }
 
@@ -101,9 +139,27 @@ final class AppModel: ObservableObject {
 
     func stopRecording() async {
         guard recordingManager.isRecording else { return }
-        let stopped = try? await recordingManager.stopRecording()
+        let stopped: MeetingSession?
+        do {
+            stopped = try await recordingManager.stopRecording()
+        } catch {
+            stopped = nil
+            recordingError = error.localizedDescription
+            FluidAudioAdapter.log.error("recording STOP failed: \(String(describing: error), privacy: .public)")
+        }
         isRecording = false
         onRecordingStopped?(stopped?.id.uuidString)
+    }
+
+    private static func recorderErrorMessage(_ error: AudioRecorderError) -> String {
+        switch error {
+        case .alreadyRecording:
+            return "A recording is already in progress."
+        case .notRecording:
+            return "No recording is in progress."
+        case .recordingFailed(let reason):
+            return reason
+        }
     }
 
     func toggleRecording() async {
@@ -119,15 +175,20 @@ final class AppModel: ObservableObject {
     /// Transcribes a session by ID with explicit vocabulary, returns raw segments.
     /// Also triggers auto-summarize if enabled.
     func transcribeForRecordingBridge(noteID: String, vocabulary: [String]) async throws -> [TranscriptSegment] {
+        FluidAudioAdapter.log.info("transcribe requested for note \(noteID, privacy: .public)")
         guard let uuid = UUID(uuidString: noteID) else {
+            FluidAudioAdapter.log.error("invalid note id \(noteID, privacy: .public)")
             throw TranscriptionError.audioFileNotFound
         }
         guard !transcribingIDs.contains(uuid) else {
+            FluidAudioAdapter.log.error("already transcribing \(noteID, privacy: .public)")
             throw TranscriptionError.transcriptionFailed("Already transcribing this session")
         }
         guard let latest = try? store.load(id: uuid) else {
+            FluidAudioAdapter.log.error("could not load session \(noteID, privacy: .public)")
             throw TranscriptionError.audioFileNotFound
         }
+        FluidAudioAdapter.log.info("session loaded: \(latest.audioFilePaths.count) audio file(s)")
 
         let vocabEntries = vocabulary.map { VocabularyEntry(phrase: $0) }
         transcribingIDs.insert(uuid)
@@ -146,15 +207,23 @@ final class AppModel: ObservableObject {
         do {
             let updated = try await service.transcribe(session: latest, vocabulary: vocabEntries)
             transcriptionStates[uuid] = .completed
+            FluidAudioAdapter.log.info("transcription COMPLETED for \(noteID, privacy: .public): \(updated.transcriptSegments.count) segment(s)")
             regenerateNote(for: updated)
             autoSummarizeIfNeeded(updated)
             return updated.transcriptSegments
         } catch TranscriptionError.modelUnavailable {
             transcriptionStates[uuid] = .modelUnavailable
-            throw TranscriptionError.modelUnavailable
+            // Re-throw as a `transcriptionFailed` carrying a friendly message: the recording
+            // bridge surfaces `error.localizedDescription` into the Transcript tab, and bare
+            // `TranscriptionError.modelUnavailable` has no LocalizedError text (it would read
+            // "modelUnavailable"). This makes the failure legible instead of a silent/cryptic state.
+            throw TranscriptionError.transcriptionFailed(Self.transcriptionErrorMessage(.modelUnavailable))
         } catch TranscriptionError.audioFileNotFound {
             transcriptionStates[uuid] = .failed("Audio file not found")
-            throw TranscriptionError.audioFileNotFound
+            FluidAudioAdapter.log.error("transcription FAILED for \(noteID, privacy: .public): no usable audio files")
+            throw TranscriptionError.transcriptionFailed(
+                "No audio found for this note — the recording files are missing or empty."
+            )
         } catch TranscriptionError.transcriptionFailed(let message) {
             transcriptionStates[uuid] = .failed(message)
             throw TranscriptionError.transcriptionFailed(message)
@@ -171,10 +240,10 @@ final class AppModel: ObservableObject {
     private func autoSummarizeIfNeeded(_ session: MeetingSession) {
         guard summarizationSettingsStore.load().autoSummarize else { return }
         guard !session.transcriptSegments.isEmpty else { return }
-        guard keychainStore.hasValue else {
-            summarizationStates[session.id] = .noAPIKey
-            return
-        }
+        // Do NOT probe the keychain here — that would call `SecItemCopyMatching` (and risk a
+        // keychain prompt) on every transcription completion, even when no summary is wanted.
+        // `summarize(_:)` reads the key only after the user opted into auto-summarize and sets
+        // `.noAPIKey` if it's missing, so the access stays behind an explicit user choice.
         Task { await summarize(session) }
     }
 
@@ -215,6 +284,18 @@ final class AppModel: ObservableObject {
             summarizationStates[session.id] = .failed(Self.summarizationErrorMessage(error))
         }
         summarizingIDs.remove(session.id)
+    }
+
+    /// Maps a transcription error to a user-facing message for the Transcript tab.
+    private static func transcriptionErrorMessage(_ error: TranscriptionError) -> String {
+        switch error {
+        case .modelUnavailable:
+            return "Speech model not downloaded. Open Settings › Transcription Model to set it up."
+        case .audioFileNotFound:
+            return "Audio file not found for this recording."
+        case .transcriptionFailed(let message):
+            return message
+        }
     }
 
     private static func summarizationErrorMessage(_ error: Error) -> String {

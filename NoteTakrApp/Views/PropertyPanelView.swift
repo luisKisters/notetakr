@@ -659,33 +659,22 @@ private struct TranscriptRowValue: View {
     let pillState: RecordPillState
     let theme: ThemeColors
 
-    @State private var audioState: AudioPlaybackState = .idle
+    @StateObject private var playback = AudioPlaybackController()
 
     var body: some View {
-        if bridge.hasCompletedRecording {
+        if let url = bridge.audioFileURL {
             AudioPlayerView(
-                state: audioState,
-                onTogglePlay: { togglePlay() },
-                onSeek: { _ in }
+                state: playback.state,
+                onTogglePlay: { playback.togglePlay() },
+                onSeek: { playback.seek(to: $0) }
             )
             .environment(\.themeColors, theme)
             .frame(maxWidth: 180)
+            .onAppear { playback.load(url: url) }
+            .onChange(of: bridge.audioFileURL) { playback.load(url: $0) }
         } else {
             RecordPillView(machine: machine, pillState: pillState)
                 .environment(\.themeColors, theme)
-        }
-    }
-
-    private func togglePlay() {
-        switch audioState {
-        case .ready(let d):
-            audioState = .playing(currentTime: 0, duration: d)
-        case .playing(let t, let d):
-            audioState = .paused(currentTime: t, duration: d)
-        case .paused(let t, let d):
-            audioState = .playing(currentTime: t, duration: d)
-        case .idle:
-            break
         }
     }
 }

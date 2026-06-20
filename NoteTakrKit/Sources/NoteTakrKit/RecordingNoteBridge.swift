@@ -85,10 +85,13 @@ public final class RecordingNoteBridge {
 
     private func beginTranscription(noteID: String, service: any TranscriptionRequesting) {
         state = .transcribing
+        tabsPresenter.markTranscribing(for: noteID)
         onChange?()
 
-        Task { [weak self] in
-            guard let self else { return }
+        // NOTE: capture `self` strongly. The controller releases its reference to this
+        // bridge as soon as recording stops, so a `[weak self]` task would be torn down
+        // before it ever ran and transcription would silently never happen.
+        Task {
             do {
                 let segments = try await service.transcribe(
                     noteID: noteID,
@@ -99,6 +102,7 @@ public final class RecordingNoteBridge {
                 self.state = .ready
                 self.onChange?()
             } catch {
+                self.tabsPresenter.setTranscriptFailed(error.localizedDescription, for: noteID)
                 self.state = .failed(error.localizedDescription)
                 self.onChange?()
             }

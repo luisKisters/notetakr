@@ -13,6 +13,7 @@ struct ChipsRowView: View {
     // Tracks hover only over the chips area — NOT over the RecordPillView.
     // This prevents the record badge's hover from restyling the time/clock chip.
     @State private var isChipsAreaHovering = false
+    @State private var isChevronHovering = false
 
     var body: some View {
         // The outer button covers the whole row for expand toggle.
@@ -80,10 +81,20 @@ struct ChipsRowView: View {
     private var chevron: some View {
         Image(systemName: "chevron.down")
             .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(theme.tertiaryText.swiftUIColor)
+            .foregroundStyle(isChevronHovering
+                             ? theme.primaryText.swiftUIColor
+                             : theme.tertiaryText.swiftUIColor)
             .rotationEffect(.degrees(bridge.isExpanded ? 180 : 0))
             .animation(.easeInOut(duration: 0.2), value: bridge.isExpanded)
-            .padding(.leading, 3)
+            // Comfortable, obvious hit target (whole pill toggles too, but this gives
+            // a clear affordance with a hover highlight instead of a 10pt glyph).
+            .frame(width: 28, height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(isChevronHovering ? theme.hoverFill.swiftUIColor : Color.clear)
+            )
+            .contentShape(Rectangle())
+            .onHover { isChevronHovering = $0 }
     }
 }
 

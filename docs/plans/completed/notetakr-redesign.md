@@ -11,7 +11,7 @@ global hotkey — then cut over from the legacy main window.
 Read FIRST, in every session:
 - `docs/DESIGN.md` — product/visual/architecture principles, the Kit/Core/App layer rules,
   the frontmatter schema, and the Linux + GitHub-macOS-runner execution model. It is binding.
-- `design/mockups/IDEAS.md` (locked spec summary) and the relevant `design/mockups/final-*.html`
+- `ideas.md` at the repo root (locked spec summary, formerly `design/mockups/IDEAS.md`) and the relevant `design/mockups/final-*.html`
   for the screen being built.
 
 Execution environment: **Linux with Swift installed**. macOS compilation/tests happen ONLY on

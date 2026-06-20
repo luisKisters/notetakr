@@ -189,3 +189,79 @@ final class TranscriptionServiceTests: XCTestCase {
         XCTAssertTrue(content.contains("Alice"))
     }
 }
+
+// MARK: - Stale-path regression (title rename moved the session folder)
+
+final class StaleAudioPathTests: XCTestCase {
+
+    private var tempDir: URL!
+    private var store: SessionStore!
+
+    override func setUp() {
+        tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("StaleAudioPathTests-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        store = SessionStore(baseURL: tempDir)
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: tempDir)
+    }
+
+    /// Reproduces the real-world bug: recording saves audio under the original
+    /// title's folder; renaming the session moves the folder, leaving stored
+    /// absolute audioFilePaths stale → transcription used to throw audioFileNotFound.
+    func testTranscribeSucceedsAfterTitleRenameMovedFolder() async throws {
+        var session = MeetingSession(title: "Meeting Recording", date: Date())
+        try store.save(session)
+        let originalDir = store.sessionURL(for: session)
+        let audio = originalDir.appendingPathComponent("microphone.m4a")
+        try Data("fake-audio".utf8).write(to: audio)
+        session.audioFilePaths = [audio.path]   // absolute path into the ORIGINAL folder
+        try store.save(session)
+
+        // Rename → SessionStore.save moves the folder; old absolute path is now stale.
+        session.title = "Untitled meeting"
+        try store.save(session)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: audio.path),
+                       "precondition: original path must be stale after rename")
+
+        let service = TranscriptionService(engine: MockTranscriptionEngine(), store: store)
+        let updated = try await service.transcribe(session: session, vocabulary: [])
+        XCTAssertFalse(updated.transcriptSegments.isEmpty,
+                       "transcription must survive a folder rename")
+    }
+
+    /// SessionStore.save must heal stored audio paths when the folder moves.
+    func testSaveHealsAudioPathsAfterRename() throws {
+        var session = MeetingSession(title: "Original", date: Date())
+        try store.save(session)
+        let originalDir = store.sessionURL(for: session)
+        let audio = originalDir.appendingPathComponent("microphone.m4a")
+        try Data("fake-audio".utf8).write(to: audio)
+        session.audioFilePaths = [audio.path]
+        try store.save(session)
+
+        session.title = "Renamed"
+        try store.save(session)
+
+        let reloaded = try XCTUnwrap(store.load(id: session.id))
+        let healedPath = try XCTUnwrap(reloaded.audioFilePaths.first)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: healedPath),
+                      "saved audioFilePaths must point at the moved file, got \(healedPath)")
+    }
+
+    /// The static source-builder falls back to the session dir by filename.
+    func testTranscriptionSourcesFallBackToSessionDir() throws {
+        var session = MeetingSession(title: "T", date: Date())
+        try store.save(session)
+        let dir = store.sessionURL(for: session)
+        try Data("fake-audio".utf8).write(to: dir.appendingPathComponent("microphone.m4a"))
+        session.audioFilePaths = ["/nonexistent/old-folder/microphone.m4a"]
+
+        let sources = TranscriptionService.transcriptionSources(for: session, sessionDir: dir)
+        XCTAssertEqual(sources.count, 1)
+        XCTAssertEqual(sources.first?.url.lastPathComponent, "microphone.m4a")
+        XCTAssertEqual(sources.first?.role, .microphone)
+    }
+}

@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import NoteTakrKit
 
@@ -114,5 +115,78 @@ struct AudioPlayerView: View {
 
     private var durationText: String {
         "\(FrontmatterPresenter.formatElapsed(currentTime)) / \(FrontmatterPresenter.formatElapsed(totalDuration))"
+    }
+}
+
+// MARK: - AudioPlaybackController
+
+/// Real AVAudioPlayer-backed playback for the Transcript-row player.
+/// Owns the player + a UI tick timer and publishes `AudioPlaybackState`.
+@MainActor
+final class AudioPlaybackController: NSObject, ObservableObject, AVAudioPlayerDelegate {
+    @Published private(set) var state: AudioPlaybackState = .idle
+
+    private var player: AVAudioPlayer?
+    private var tickTimer: Timer?
+
+    /// Loads (or reloads) the audio file. Safe to call with nil — resets to idle.
+    func load(url: URL?) {
+        stopTimer()
+        player?.stop()
+        player = nil
+        guard let url, FileManager.default.fileExists(atPath: url.path),
+              let p = try? AVAudioPlayer(contentsOf: url) else {
+            state = .idle
+            return
+        }
+        p.delegate = self
+        p.prepareToPlay()
+        player = p
+        state = .ready(duration: p.duration)
+    }
+
+    func togglePlay() {
+        guard let player else { return }
+        if player.isPlaying {
+            player.pause()
+            stopTimer()
+            state = .paused(currentTime: player.currentTime, duration: player.duration)
+        } else {
+            player.play()
+            startTimer()
+            state = .playing(currentTime: player.currentTime, duration: player.duration)
+        }
+    }
+
+    func seek(to time: Double) {
+        guard let player else { return }
+        player.currentTime = max(0, min(time, player.duration))
+        if player.isPlaying {
+            state = .playing(currentTime: player.currentTime, duration: player.duration)
+        } else {
+            state = .paused(currentTime: player.currentTime, duration: player.duration)
+        }
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            self.stopTimer()
+            self.state = .ready(duration: player.duration)
+        }
+    }
+
+    private func startTimer() {
+        stopTimer()
+        tickTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, let player = self.player, player.isPlaying else { return }
+                self.state = .playing(currentTime: player.currentTime, duration: player.duration)
+            }
+        }
+    }
+
+    private func stopTimer() {
+        tickTimer?.invalidate()
+        tickTimer = nil
     }
 }

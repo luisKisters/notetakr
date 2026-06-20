@@ -25,3 +25,13 @@ final class TranscriptionRequestingAdapter: TranscriptionRequesting, @unchecked 
         }
     }
 }
+
+// MARK: - Manual "Generate transcript" support
+
+/// Lets the Transcript tab re-run transcription on demand (e.g. for a recording
+/// that was captured but never transcribed). Routes through the same AppModel path.
+extension TranscriptionRequestingAdapter: TranscriptGenerating {
+    func generate(for noteID: String) async throws -> [RawSegment] {
+        try await transcribe(noteID: noteID, language: .auto, vocabulary: [])
+    }
+}

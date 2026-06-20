@@ -48,8 +48,11 @@ struct TranscriptionModelSettings: Codable, Equatable, Sendable {
     var source: Source
     var modelVersion: FluidAudioModelVersion
 
+    // Default to FluidAudio's managed cache so transcription works out of the box
+    // (the model auto-downloads on first use, or loads instantly if already cached),
+    // instead of silently doing nothing until the user configures a model.
     static let `default` = TranscriptionModelSettings(
-        source: .notConfigured,
+        source: .fluidAudioDefaultCache,
         modelVersion: .v3
     )
 }

@@ -29,7 +29,8 @@ struct SwitcherOverlayView: View {
 
                 hintsFooter
             }
-            .padding(.top, 46)
+            // Small top inset — just enough to clear the native traffic-light/close button.
+            .padding(.top, 14)
         }
         .onAppear { searchFocused = true }
         .background(keyboardButtons)
@@ -100,20 +101,23 @@ struct SwitcherOverlayView: View {
 
     @ViewBuilder
     private func rowGroupSection(group: SwitcherGroup) -> some View {
-        Text(group.label.uppercased())
-            .font(.system(size: 10, weight: .bold))
-            .foregroundColor(themeColors.tertiaryText.swiftUIColor)
-            .tracking(1.0)
-            .padding(.horizontal, 8)
-            .padding(.top, 12)
-            .padding(.bottom, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(group.label.uppercased())
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(themeColors.tertiaryText.swiftUIColor)
+                .tracking(1.0)
+                .padding(.horizontal, 8)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-        ForEach(Array(group.items.enumerated()), id: \.offset) { offset, item in
-            let flatIdx = flatIndex(group: group, itemOffset: offset)
-            twoLineRow(item: item, flatIndex: flatIdx)
-                .id("row-\(flatIdx)")
+            ForEach(Array(group.items.enumerated()), id: \.element.switcherOverlayID) { offset, item in
+                let flatIdx = flatIndex(group: group, itemOffset: offset)
+                twoLineRow(item: item, flatIndex: flatIdx)
+                    .id("row-\(flatIdx)-\(item.switcherOverlayID)")
+            }
         }
+        .id(group.switcherOverlayID)
     }
 
     @ViewBuilder
@@ -123,6 +127,7 @@ struct SwitcherOverlayView: View {
         let isHovering = !isSelected && hoveredIndex == flatIndex
         let isGhost = isGhostItem(item)
         let isCommand = isCommandItem(item)
+        let showDelete = (hoveredIndex == flatIndex || isSelected) && noteID(for: item) != nil
 
         Button {
             tap(item: item)
@@ -131,10 +136,39 @@ struct SwitcherOverlayView: View {
                     isGhost: isGhost, isCommand: isCommand)
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .trailing) {
+            // Trash control floats over the row's trailing edge so its hit target
+            // is independent of the row's open button. Notes only.
+            if showDelete, let id = noteID(for: item) {
+                deleteButton(noteID: id)
+                    .padding(.trailing, 10)
+            }
+        }
         .padding(.bottom, 7)
         .onHover { isHov in
             hoveredIndex = isHov ? flatIndex : (hoveredIndex == flatIndex ? nil : hoveredIndex)
         }
+    }
+
+    /// Small trash affordance shown on note rows (hover/selected). Deliberately compact
+    /// so it isn't fired by accident.
+    private func deleteButton(noteID id: String) -> some View {
+        Button {
+            bridge.deleteNote(id)
+        } label: {
+            Image(systemName: "trash")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(themeColors.secondaryText.swiftUIColor)
+                .frame(width: 22, height: 22)
+                .background(themeColors.kbdBackground.swiftUIColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(themeColors.kbdBorder.swiftUIColor, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .help("Delete note")
     }
 
     @ViewBuilder
@@ -278,6 +312,11 @@ struct SwitcherOverlayView: View {
             Button("") { bridge.triggerCreateBlankNote() }
                 .keyboardShortcut("n", modifiers: .command)
                 .hidden()
+            // ⌘⌫ deletes the selected note (notes only; no-op on events/commands).
+            // Uses Command so it never collides with backspace in the search field.
+            Button("") { deleteSelectedNoteIfNote() }
+                .keyboardShortcut(.delete, modifiers: .command)
+                .hidden()
         }
     }
 
@@ -305,6 +344,18 @@ struct SwitcherOverlayView: View {
         case .openSettings: return "gearshape"
         case .newNote:      return "plus.square"
         }
+    }
+
+    /// Note id for a row, or nil for events/commands (which are not deletable).
+    private func noteID(for item: SwitcherItem) -> String? {
+        if case .note(let id, _, _, _) = item.kind { return id }
+        return nil
+    }
+
+    /// Deletes the currently selected row if (and only if) it is a note.
+    private func deleteSelectedNoteIfNote() {
+        guard let item = bridge.viewModel.selectedItem, let id = noteID(for: item) else { return }
+        bridge.deleteNote(id)
     }
 
     private func itemTitle(_ item: SwitcherItem) -> String {
@@ -401,5 +452,24 @@ struct SwitcherOverlayView: View {
                 bridge.triggerCreateBlankNote()
             }
         }
+    }
+}
+
+private extension SwitcherItem {
+    var switcherOverlayID: String {
+        switch kind {
+        case .note(let id, _, _, _):
+            return "note-\(id)"
+        case .event(let event):
+            return "event-\(event.id)"
+        case .command(let command):
+            return "command-\(command.id.rawValue)"
+        }
+    }
+}
+
+private extension SwitcherGroup {
+    var switcherOverlayID: String {
+        ([label] + items.map(\.switcherOverlayID)).joined(separator: "|")
     }
 }

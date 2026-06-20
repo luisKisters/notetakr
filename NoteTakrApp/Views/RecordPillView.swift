@@ -19,7 +19,6 @@ struct RecordPillView: View {
     let pillState: RecordPillState
     @Environment(\.themeColors) private var theme
 
-    @State private var dotPhase = false
     @State private var mainHovering = false
     @State private var caretHovering = false
     @State private var menuOpen = false
@@ -141,7 +140,7 @@ struct RecordPillView: View {
     // MARK: - Indicator dot
 
     private var indicatorDot: some View {
-        let (color, animate, showRing) = dotAppearance
+        let (color, showRing) = dotAppearance
         return ZStack {
             if showRing {
                 Circle()
@@ -152,45 +151,21 @@ struct RecordPillView: View {
                 .fill(color)
                 .frame(width: 7, height: 7)
         }
-        .opacity(animate ? (dotPhase ? 1.0 : 0.2) : 1.0)
-        .animation(
-            animate
-                ? .easeInOut(duration: dotAnimDuration).repeatForever(autoreverses: true)
-                : .none,
-            value: dotPhase
-        )
-        .onAppear { if animate { dotPhase = true } }
-        .onChange(of: pillState) { newState in
-            switch newState {
-            case .recording, .paused, .transcribing, .summarizing:
-                dotPhase = true
-            case .idle, .done, .doneTranscript:
-                dotPhase = false
-            }
-        }
     }
 
-    private var dotAppearance: (Color, Bool, Bool) {
+    /// Dot colour + whether to draw the faint idle ring. (No pulsing.)
+    private var dotAppearance: (Color, Bool) {
         switch pillState {
         case .idle:
-            return (DesignConstants.recRed.swiftUIColor, false, true)
+            return (DesignConstants.recRed.swiftUIColor, true)
         case .recording:
-            return (DesignConstants.recRed.swiftUIColor, true, false)
+            return (DesignConstants.recRed.swiftUIColor, false)
         case .paused:
-            return (DesignConstants.pauseAmber.swiftUIColor, true, false)
+            return (DesignConstants.pauseAmber.swiftUIColor, false)
         case .transcribing, .summarizing:
-            return (DesignConstants.statusGreen.swiftUIColor, true, false)
+            return (DesignConstants.statusGreen.swiftUIColor, false)
         case .done, .doneTranscript:
-            return (DesignConstants.statusGreen.swiftUIColor, false, false)
-        }
-    }
-
-    private var dotAnimDuration: Double {
-        switch pillState {
-        case .recording: return 0.7
-        case .paused: return 0.75
-        case .transcribing, .summarizing: return 0.6
-        default: return 0.8
+            return (DesignConstants.statusGreen.swiftUIColor, false)
         }
     }
 

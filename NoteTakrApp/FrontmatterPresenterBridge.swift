@@ -10,6 +10,9 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published var isExpanded: Bool = false
     /// Set by the recording pipeline when a recording completes and audio is available.
     @Published var hasCompletedRecording: Bool = false
+    /// The note's recorded audio file (microphone preferred), if any exists on disk.
+    /// Set by NotePanelController on note load; drives the Transcript-row audio player.
+    @Published var audioFileURL: URL?
     /// Calendar events available for the event picker; updated live by NotePanelController.
     @Published var availableEvents: [UpcomingEvent] = []
 
@@ -33,6 +36,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
         presenter = p
         isExpanded = false
         hasCompletedRecording = false
+        audioFileURL = nil  // re-set by NotePanelController right after load
         refresh()
     }
 
