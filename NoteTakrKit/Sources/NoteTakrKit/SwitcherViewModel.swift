@@ -85,10 +85,12 @@ public enum SwitcherItemKind: Equatable {
 public struct SwitcherItem: Equatable {
     public var kind: SwitcherItemKind
     public var dotState: DotState
+    public var isRecording: Bool
 
-    public init(kind: SwitcherItemKind, dotState: DotState) {
+    public init(kind: SwitcherItemKind, dotState: DotState, isRecording: Bool = false) {
         self.kind = kind
         self.dotState = dotState
+        self.isRecording = isRecording
     }
 }
 
@@ -169,6 +171,14 @@ public final class SwitcherViewModel {
         didSet {
             if searchQuery != oldValue {
                 selectedIndex = 0
+                rebuildGroups()
+            }
+        }
+    }
+
+    public var activeRecordingNoteID: String? {
+        didSet {
+            if activeRecordingNoteID != oldValue {
                 rebuildGroups()
             }
         }
@@ -315,7 +325,8 @@ public final class SwitcherViewModel {
             let dayStart = calendar.startOfDay(for: note.date)
             let item = SwitcherItem(
                 kind: .note(id: note.id, title: note.title, date: note.date, participants: note.participants),
-                dotState: computeDotState(date: note.date, end: note.end, now: nowDate)
+                dotState: computeDotState(date: note.date, end: note.end, now: nowDate),
+                isRecording: note.id == activeRecordingNoteID
             )
             dayBuckets[dayStart, default: []].append(item)
         }

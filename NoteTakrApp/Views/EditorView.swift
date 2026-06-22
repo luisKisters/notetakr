@@ -59,7 +59,12 @@ struct EditorView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
 
-                ChipsRowView(bridge: frontmatterBridge, machine: recordPillMachine, pillState: pillState)
+                ChipsRowView(
+                    bridge: frontmatterBridge,
+                    machine: recordPillMachine,
+                    pillState: visiblePillState,
+                    onRecordPillIdleTap: inactiveRecordingPillAction
+                )
                     .environment(\.themeColors, themeColors)
                     .onAppear {
                         pillState = recordPillMachine.state
@@ -71,7 +76,8 @@ struct EditorView: View {
                 PropertyPanelView(
                     bridge: frontmatterBridge,
                     recordPillMachine: recordPillMachine,
-                    pillState: pillState,
+                    pillState: visiblePillState,
+                    onRecordPillIdleTap: inactiveRecordingPillAction,
                     availableEvents: frontmatterBridge.availableEvents
                 )
                 .environment(\.themeColors, themeColors)
@@ -109,6 +115,27 @@ struct EditorView: View {
 
     private var panelBackground: some View {
         ThemedSurface(appearance: settingsBridge.currentAppearance)
+    }
+
+    private var visiblePillState: RecordPillState {
+        RecordPillStateMachine.displayState(
+            actualState: pillState,
+            currentNoteID: frontmatterBridge.noteID,
+            activeRecordingNoteID: switcherBridge.activeRecordingNoteID
+        )
+    }
+
+    private var inactiveRecordingPillAction: (() -> Void)? {
+        guard let activeRecordingNoteID = switcherBridge.activeRecordingNoteID,
+              activeRecordingNoteID != frontmatterBridge.noteID else {
+            return nil
+        }
+        switch pillState {
+        case .recording, .paused:
+            return { switcherBridge.openActiveRecordingNote() }
+        default:
+            return nil
+        }
     }
 
     @ViewBuilder

@@ -47,6 +47,26 @@ final class RecordingManagerTests: XCTestCase {
         XCTAssertEqual(manager.activeSession?.id, session.id)
     }
 
+    func testStartRecordingReusesProvidedSessionID() async throws {
+        let id = UUID()
+        let existing = MeetingSession(
+            id: id,
+            title: "Existing Meeting",
+            date: Date(timeIntervalSince1970: 1_800_000_000),
+            status: .idle,
+            audioFilePaths: ["/tmp/old-audio.wav"]
+        )
+        try store.save(existing)
+
+        let started = try await manager.startRecording(session: existing)
+
+        XCTAssertEqual(started.id, id)
+        XCTAssertEqual(started.status, .recording)
+        XCTAssertEqual(try store.loadAll().count, 1, "Starting a provided session must not create a second note/session")
+        XCTAssertEqual(try store.load(id: id)?.status, .recording)
+        XCTAssertEqual(try store.load(id: id)?.audioFilePaths, [], "Old audio paths should not appear while a new recording is in progress")
+    }
+
     func testStartRecordingWhenAlreadyRecordingThrows() async throws {
         _ = try await manager.startRecording(title: "First")
         do {

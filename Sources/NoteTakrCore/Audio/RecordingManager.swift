@@ -24,10 +24,19 @@ public final class RecordingManager: @unchecked Sendable {
     /// Creates a new session in .recording state, starts the recorder, and persists the session.
     /// If the recorder fails to start, the session is saved as .failed.
     public func startRecording(title: String, date: Date = Date()) async throws -> MeetingSession {
+        try await startRecording(session: MeetingSession(title: title, date: date))
+    }
+
+    /// Starts recording into an existing logical session. This lets the app bind a recording
+    /// to an already-open note instead of creating a new meeting note for every start.
+    public func startRecording(session input: MeetingSession) async throws -> MeetingSession {
         guard !recorder.isRecording else {
             throw RecordingManagerError.alreadyRecording
         }
-        var session = MeetingSession(title: title, date: date, status: .recording)
+        var session = input
+        session.status = .recording
+        session.audioFilePaths = []
+        session.audioSourceStatuses = []
         try store.save(session)
         let dir = store.sessionURL(for: session)
         do {

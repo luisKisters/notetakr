@@ -13,10 +13,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        let notesRoot = base.appendingPathComponent("NoteTakr/Sessions")
-        let npc = NotePanelController(notesRoot: notesRoot, appModel: AppModel.shared)
+        let appModel = AppModel.shared
+        let notesRoot = appModel.store.baseURL
+        let npc = NotePanelController(notesRoot: notesRoot, appModel: appModel)
         notePanelController = npc
 
         let coordinator = PanelToggleCoordinator(registrar: CarbonHotkeyRegistrar())
@@ -32,15 +31,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panelCoordinator = coordinator
 
         // Wire recording lifecycle to the panel's RecordingNoteBridge
-        AppModel.shared.onRecordingStarted = { [weak npc] sessionID in
+        appModel.onRecordingStarted = { [weak npc] sessionID in
             npc?.recordingStarted(sessionID: sessionID)
-            npc?.show()
+            npc?.showLoadedNote()
         }
-        AppModel.shared.onRecordingStopped = { [weak npc] _ in
+        appModel.onRecordingStopped = { [weak npc] _ in
             npc?.recordingStopped()
         }
 
-        statusBarController = StatusBarController(model: .shared, notePanelController: npc)
+        statusBarController = StatusBarController(model: appModel, notePanelController: npc)
         startUpdaterIfConfigured()
 
         npc.settingsBridge.onAutoCheckForUpdatesChange = { [weak self] value in
@@ -63,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
 
         // Populate the calendar event picker on launch if access was already granted.
-        Task { await AppModel.shared.loadUpcomingEvents() }
+        Task { await appModel.loadUpcomingEvents() }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

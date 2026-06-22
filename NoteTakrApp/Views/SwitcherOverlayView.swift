@@ -247,6 +247,14 @@ struct SwitcherOverlayView: View {
                 .font(.system(size: 11))
                 .foregroundColor(themeColors.tertiaryText.swiftUIColor)
                 .monospacedDigit()
+        } else if item.isRecording {
+            HStack(spacing: 6) {
+                recBadge
+                Text(timeString(for: item))
+                    .font(.system(size: 11))
+                    .foregroundColor(themeColors.tertiaryText.swiftUIColor)
+                    .monospacedDigit()
+            }
         } else if isCommand {
             kbdBadge(commandShortcut(item))
         } else {
@@ -340,6 +348,25 @@ struct SwitcherOverlayView: View {
             .overlay(RoundedRectangle(cornerRadius: 4)
                 .stroke(themeColors.kbdBorder.swiftUIColor, lineWidth: 1))
             .cornerRadius(4)
+    }
+
+    private var recBadge: some View {
+        HStack(spacing: 3) {
+            Circle()
+                .fill(DesignConstants.recRed.swiftUIColor)
+                .frame(width: 5, height: 5)
+            Text("REC")
+        }
+        .font(.system(size: 8.5, weight: .bold))
+        .foregroundColor(DesignConstants.recRed.swiftUIColor)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(DesignConstants.recRed.swiftUIColor.opacity(0.13))
+        .overlay(
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(DesignConstants.recRed.swiftUIColor.opacity(0.32), lineWidth: 1)
+        )
+        .cornerRadius(5)
     }
 
     private func sfIconName(for item: SwitcherItem) -> String {

@@ -8,6 +8,7 @@ struct ChipsRowView: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let machine: RecordPillStateMachine
     let pillState: RecordPillState
+    let onRecordPillIdleTap: (() -> Void)?
     @Environment(\.themeColors) private var theme
 
     // Tracks hover only over the chips area — NOT over the RecordPillView.
@@ -22,7 +23,11 @@ struct ChipsRowView: View {
             withAnimation(.easeInOut(duration: 0.2)) { bridge.isExpanded.toggle() }
         } label: {
             HStack(spacing: 0) {
-                RecordPillView(machine: machine, pillState: pillState)
+                RecordPillView(
+                    machine: machine,
+                    pillState: pillState,
+                    onIdleTapOverride: onRecordPillIdleTap
+                )
                     .environment(\.themeColors, theme)
                     .padding(.trailing, 6)
 

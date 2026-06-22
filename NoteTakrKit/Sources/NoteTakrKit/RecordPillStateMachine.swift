@@ -61,6 +61,25 @@ public final class RecordPillStateMachine {
 
     public init() {}
 
+    public static func displayState(
+        actualState: RecordPillState,
+        currentNoteID: String,
+        activeRecordingNoteID: String?
+    ) -> RecordPillState {
+        guard let activeRecordingNoteID,
+              !currentNoteID.isEmpty,
+              activeRecordingNoteID != currentNoteID else {
+            return actualState
+        }
+
+        switch actualState {
+        case .recording, .paused:
+            return .idle
+        default:
+            return actualState
+        }
+    }
+
     // MARK: - View actions
 
     /// Main badge tap.

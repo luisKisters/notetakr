@@ -285,6 +285,34 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertEqual(vm.groups.flatMap { $0.items }.count, 1, "Should match 'Café' with query 'cafe'")
     }
 
+    // MARK: - Active recording marker
+
+    func testActiveRecordingNoteIsMarked() {
+        let active = makeNote(id: "n1", title: "Recording Anchor", date: utcDate(2026, 6, 10, 9))
+        let inactive = makeNote(id: "n2", title: "Old Note Parking Lot", date: utcDate(2026, 6, 10, 8))
+        let (vm, _) = makeVM(notes: [active, inactive])
+
+        vm.activeRecordingNoteID = "n1"
+
+        let items = vm.groups.flatMap { $0.items }
+        XCTAssertTrue(items.first { noteID($0) == "n1" }?.isRecording == true)
+        XCTAssertTrue(items.first { noteID($0) == "n2" }?.isRecording == false)
+    }
+
+    func testActiveRecordingMarkerSurvivesSearch() {
+        let active = makeNote(id: "n1", title: "Recording Anchor", date: utcDate(2026, 6, 10, 9))
+        let inactive = makeNote(id: "n2", title: "Old Note Parking Lot", date: utcDate(2026, 6, 10, 8))
+        let (vm, _) = makeVM(notes: [active, inactive])
+
+        vm.activeRecordingNoteID = "n1"
+        vm.searchQuery = "anchor"
+
+        let items = vm.groups.flatMap { $0.items }
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(noteID(items[0]), "n1")
+        XCTAssertTrue(items[0].isRecording)
+    }
+
     // MARK: - Command surfacing
 
     func testSearchSettingsSurfacesOpenSettingsCommand() {
@@ -612,6 +640,11 @@ final class SwitcherViewModelTests: XCTestCase {
         case .event(let e): return e.title
         case .command(let c): return c.title
         }
+    }
+
+    private func noteID(_ item: SwitcherItem) -> String? {
+        if case .note(let id, _, _, _) = item.kind { return id }
+        return nil
     }
 }
 

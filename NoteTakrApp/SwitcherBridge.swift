@@ -8,6 +8,7 @@ final class SwitcherBridge: ObservableObject {
     @Published var isVisible: Bool = false
     @Published var groups: [SwitcherGroup] = []
     @Published var selectedIndex: Int = 0
+    @Published private(set) var activeRecordingNoteID: String?
     @Published var searchQuery: String = "" {
         didSet {
             if searchQuery != oldValue {
@@ -62,6 +63,19 @@ final class SwitcherBridge: ObservableObject {
         isVisible = false
         searchQuery = ""
         onEditorFocusRequest?()
+    }
+
+    func setActiveRecordingNoteID(_ noteID: String?) {
+        guard activeRecordingNoteID != noteID else { return }
+        activeRecordingNoteID = noteID
+        viewModel.activeRecordingNoteID = noteID
+        groups = viewModel.groups
+        selectedIndex = viewModel.selectedIndex
+    }
+
+    func openActiveRecordingNote() {
+        guard let activeRecordingNoteID else { return }
+        onOpenNote?(activeRecordingNoteID)
     }
 
     // MARK: - Navigation

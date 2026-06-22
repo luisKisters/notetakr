@@ -51,9 +51,7 @@ final class AppModel: ObservableObject {
     var onRecordingStopped: ((String?) -> Void)?
 
     init() {
-        let base = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first ?? FileManager.default.temporaryDirectory
+        let base = Self.applicationSupportBaseURL()
         let sessionsDir = base.appendingPathComponent("NoteTakr/Sessions", isDirectory: true)
         store = SessionStore(baseURL: sessionsDir)
         try? FileManager.default.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
@@ -75,7 +73,7 @@ final class AppModel: ObservableObject {
         )
         appSettings = AppSettingsStore(root: base.appendingPathComponent("NoteTakr"))
         keychainStore = KeychainStore()
-        recordingManager = RecordingManager(store: store, recorder: NativeAudioRecorder())
+        recordingManager = RecordingManager(store: store, recorder: Self.makeAudioRecorder())
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleStartRecordingFromNotification),
@@ -87,11 +85,47 @@ final class AppModel: ObservableObject {
         )
     }
 
+    private static func applicationSupportBaseURL() -> URL {
+        #if DEBUG
+        if let override = ProcessInfo.processInfo.environment["NOTETAKR_E2E_APP_SUPPORT_ROOT"],
+           !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        #endif
+
+        return FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first ?? FileManager.default.temporaryDirectory
+    }
+
+    private static var usesE2EMockRecorder: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["NOTETAKR_E2E_USE_MOCK_RECORDER"] == "1"
+        #else
+        false
+        #endif
+    }
+
+    private static func makeAudioRecorder() -> any AudioRecorder {
+        #if DEBUG
+        if usesE2EMockRecorder {
+            return MockAudioRecorder()
+        }
+        #endif
+        return NativeAudioRecorder()
+    }
+
     // MARK: - Recording
 
     /// Microphone authorization, requesting it on first use. Returns true only when
     /// recording can actually capture audio — the gate that prevents "records nothing".
     func ensureMicrophonePermission() async -> Bool {
+        #if DEBUG
+        if Self.usesE2EMockRecorder {
+            return true
+        }
+        #endif
+
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             return true
@@ -134,6 +168,32 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func startRecording(for note: MeetingNote) async {
+        guard !recordingManager.isRecording else { return }
+        recordingError = nil
+
+        guard await ensureMicrophonePermission() else {
+            recordingError = "Microphone access is required to record. Turn it on for "
+                + "NoteTakr in System Settings → Privacy & Security → Microphone."
+            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted")
+            return
+        }
+
+        guard let session = sessionForRecording(note: note) else { return }
+
+        do {
+            let started = try await recordingManager.startRecording(session: session)
+            isRecording = true
+            onRecordingStarted?(started.id.uuidString)
+        } catch {
+            isRecording = recordingManager.isRecording
+            let message = (error as? AudioRecorderError).map(Self.recorderErrorMessage)
+                ?? error.localizedDescription
+            recordingError = message
+            FluidAudioAdapter.log.error("recording START failed: \(message, privacy: .public)")
+        }
+    }
+
     func quickRecording() async {
         await startRecording(title: "Quick Recording")
     }
@@ -169,6 +229,28 @@ final class AppModel: ObservableObject {
         } else {
             await startRecording()
         }
+    }
+
+    private func sessionForRecording(note: MeetingNote) -> MeetingSession? {
+        guard let uuid = UUID(uuidString: note.id) else {
+            recordingError = "This note cannot be recorded because it has an invalid ID."
+            return nil
+        }
+
+        var session = (try? store.load(id: uuid)) ?? MeetingSession(
+            id: uuid,
+            title: note.title,
+            date: note.date
+        )
+        session.title = note.title.isEmpty ? "Meeting Recording" : note.title
+        session.date = note.date
+        session.linkedEventID = note.calendarEvent
+        session.linkedEventTitle = note.calendarEvent == nil ? nil : note.title
+        session.participants = note.participants.map {
+            NoteTakrCore.Participant(name: $0.name, email: $0.email)
+        }
+        session.personalNotes = note.body
+        return session
     }
 
     // MARK: - Transcription (called by TranscriptionRequestingAdapter)

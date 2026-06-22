@@ -114,6 +114,8 @@ final class NotePanelController {
 
     /// Called by AppDelegate when recording starts. Loads the note and starts the bridge.
     func recordingStarted(sessionID: String) {
+        switcherBridge.setActiveRecordingNoteID(sessionID)
+
         // Ensure note.md exists; synthesize from session.json if needed (migration path).
         if (try? store.load(id: sessionID)) == nil,
            let uuid = UUID(uuidString: sessionID),
@@ -149,12 +151,23 @@ final class NotePanelController {
     func recordingStopped() {
         elapsedTimer?.invalidate()
         elapsedTimer = nil
+        switcherBridge.setActiveRecordingNoteID(nil)
         recordingBridge?.stopRecording()
         recordingBridge = nil
     }
 
     func show() {
-        loadCurrentNote()
+        show(loadCurrentNote: true)
+    }
+
+    func showLoadedNote() {
+        show(loadCurrentNote: false)
+    }
+
+    private func show(loadCurrentNote shouldLoadCurrentNote: Bool) {
+        if shouldLoadCurrentNote {
+            loadCurrentNote()
+        }
         panel?.makeKeyAndOrderFront(nil)
         (panel as? FloatingPanel)?.updateCloseButtonVisibilityForCurrentMouse()
         Task { await appModelRef?.loadUpcomingEvents() }
@@ -257,25 +270,30 @@ final class NotePanelController {
         let machine = recordPillMachine
 
         machine.onStarted = { [weak self, weak appModel] in
-            guard let appModel else { return }
+            guard let self, let appModel else { return }
+            guard let note = self.currentNoteForRecording() else {
+                self.recordPillMachine.reset()
+                self.showRecordingError("The current note could not be loaded for recording.")
+                return
+            }
             Task { @MainActor in
-                await appModel.startRecording(title: nil)
+                await appModel.startRecording(for: note)
                 guard appModel.isRecording else {
                     // Start failed (classic cause: mic permission). Don't let the pill
                     // pretend to record — reset it and tell the user why.
-                    self?.recordPillMachine.reset()
-                    self?.showRecordingError(
+                    self.recordPillMachine.reset()
+                    self.showRecordingError(
                         appModel.recordingError ?? "Recording could not be started."
                     )
                     return
                 }
-                self?.startPillTickTimer()
+                self.startPillTickTimer()
             }
         }
 
         machine.onStopped = { [weak self, weak appModel] intent in
             guard let self, let appModel else { return }
-            let stoppedNoteID = self.frontmatterBridge.noteID
+            let stoppedNoteID = self.switcherBridge.activeRecordingNoteID ?? self.frontmatterBridge.noteID
             Task { @MainActor in
                 self.stopPillTickTimer()
                 await appModel.stopRecording()
@@ -288,12 +306,24 @@ final class NotePanelController {
         }
 
         machine.onRestarted = { [weak self, weak appModel] in
-            guard let appModel else { return }
+            guard let self, let appModel else { return }
+            guard let note = self.currentNoteForRecording() else {
+                self.recordPillMachine.reset()
+                self.showRecordingError("The current note could not be loaded for recording.")
+                return
+            }
             Task { @MainActor in
-                self?.pillPipelineCancellables.removeAll()
+                self.pillPipelineCancellables.removeAll()
                 await appModel.stopRecording()
-                await appModel.startRecording(title: nil)
-                self?.startPillTickTimer()
+                await appModel.startRecording(for: note)
+                guard appModel.isRecording else {
+                    self.recordPillMachine.reset()
+                    self.showRecordingError(
+                        appModel.recordingError ?? "Recording could not be restarted."
+                    )
+                    return
+                }
+                self.startPillTickTimer()
             }
         }
 
@@ -313,6 +343,13 @@ final class NotePanelController {
         machine.onViewTranscript = { [weak self] in
             self?.tabsBridge.selectTab(.transcript)
         }
+    }
+
+    private func currentNoteForRecording() -> MeetingNote? {
+        try? bridge.viewModel.flush()
+        let noteID = bridge.viewModel.noteID ?? frontmatterBridge.noteID
+        guard !noteID.isEmpty else { return nil }
+        return try? store.load(id: noteID)
     }
 
     // Drive the pill state machine through transcribing → summarizing → done

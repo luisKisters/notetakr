@@ -7,6 +7,7 @@ struct PropertyPanelView: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let recordPillMachine: RecordPillStateMachine
     let pillState: RecordPillState
+    let onRecordPillIdleTap: (() -> Void)?
     let availableEvents: [UpcomingEvent]
     @Environment(\.themeColors) private var theme
 
@@ -20,6 +21,7 @@ struct PropertyPanelView: View {
                         bridge: bridge,
                         machine: recordPillMachine,
                         pillState: pillState,
+                        onRecordPillIdleTap: onRecordPillIdleTap,
                         availableEvents: availableEvents,
                         theme: theme
                     )
@@ -49,6 +51,7 @@ private struct PropertyRowView: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let machine: RecordPillStateMachine
     let pillState: RecordPillState
+    let onRecordPillIdleTap: (() -> Void)?
     let availableEvents: [UpcomingEvent]
     let theme: ThemeColors
 
@@ -127,6 +130,7 @@ private struct PropertyRowView: View {
                 bridge: bridge,
                 machine: machine,
                 pillState: pillState,
+                onRecordPillIdleTap: onRecordPillIdleTap,
                 theme: theme
             )
         }
@@ -1084,6 +1088,7 @@ private struct TranscriptRowValue: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let machine: RecordPillStateMachine
     let pillState: RecordPillState
+    let onRecordPillIdleTap: (() -> Void)?
     let theme: ThemeColors
 
     @StateObject private var playback = AudioPlaybackController()
@@ -1100,7 +1105,11 @@ private struct TranscriptRowValue: View {
             .onAppear { playback.load(url: url) }
             .onChange(of: bridge.audioFileURL) { playback.load(url: $0) }
         } else {
-            RecordPillView(machine: machine, pillState: pillState)
+            RecordPillView(
+                machine: machine,
+                pillState: pillState,
+                onIdleTapOverride: onRecordPillIdleTap
+            )
                 .environment(\.themeColors, theme)
         }
     }

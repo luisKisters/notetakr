@@ -14,7 +14,7 @@ final class FluidAudioAdapterTests: XCTestCase {
 
     func testNotConfiguredThrowsModelUnavailable() async throws {
         let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
-        try store.save(.default)
+        try store.save(TranscriptionModelSettings(source: .notConfigured, modelVersion: .v3))
         let runtime = FakeFluidAudioRuntime()
         let loader = FakeAudioLoader()
         let adapter = makeAdapter(store: store, runtime: runtime, loader: loader)

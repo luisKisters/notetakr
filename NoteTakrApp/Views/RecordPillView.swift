@@ -17,11 +17,22 @@ import NoteTakrKit
 struct RecordPillView: View {
     let machine: RecordPillStateMachine
     let pillState: RecordPillState
+    let onIdleTapOverride: (() -> Void)?
     @Environment(\.themeColors) private var theme
 
     @State private var mainHovering = false
     @State private var caretHovering = false
     @State private var menuOpen = false
+
+    init(
+        machine: RecordPillStateMachine,
+        pillState: RecordPillState,
+        onIdleTapOverride: (() -> Void)? = nil
+    ) {
+        self.machine = machine
+        self.pillState = pillState
+        self.onIdleTapOverride = onIdleTapOverride
+    }
 
     private var hasCaret: Bool {
         if case .recording = pillState { return true }
@@ -70,7 +81,11 @@ struct RecordPillView: View {
         Button {
             guard !isBusy else { return }
             menuOpen = false
-            machine.tap()
+            if pillState == .idle, let onIdleTapOverride {
+                onIdleTapOverride()
+            } else {
+                machine.tap()
+            }
         } label: {
             HStack(spacing: 7) {
                 indicatorDot

@@ -498,4 +498,36 @@ final class RecordPillStateMachineTests: XCTestCase {
         m.finishAsDoneTranscript()
         XCTAssertEqual(m.state, .doneTranscript)
     }
+
+    // MARK: - Per-note display state
+
+    func testDisplayStateKeepsRecordingOnActiveNote() {
+        let state = RecordPillStateMachine.displayState(
+            actualState: .recording(elapsed: 12),
+            currentNoteID: "recording-note",
+            activeRecordingNoteID: "recording-note"
+        )
+
+        XCTAssertEqual(state, .recording(elapsed: 12))
+    }
+
+    func testDisplayStateShowsIdleOnInactiveNoteWhileRecording() {
+        let state = RecordPillStateMachine.displayState(
+            actualState: .recording(elapsed: 12),
+            currentNoteID: "other-note",
+            activeRecordingNoteID: "recording-note"
+        )
+
+        XCTAssertEqual(state, .idle)
+    }
+
+    func testDisplayStateShowsIdleOnInactiveNoteWhilePaused() {
+        let state = RecordPillStateMachine.displayState(
+            actualState: .paused(elapsed: 12),
+            currentNoteID: "other-note",
+            activeRecordingNoteID: "recording-note"
+        )
+
+        XCTAssertEqual(state, .idle)
+    }
 }
