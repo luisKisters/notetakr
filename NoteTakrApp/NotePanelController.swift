@@ -243,7 +243,7 @@ final class NotePanelController {
         loadNote(id: note.id)
     }
 
-    /// Creates a blank note and loads it into the editor. Used by the ⌘N global hotkey.
+    /// Creates a blank note and loads it into the editor. Used by local ⌘N commands.
     func createNewNote() {
         if let note = try? store.create(title: "Untitled meeting", date: Date()) {
             loadNote(id: note.id)
