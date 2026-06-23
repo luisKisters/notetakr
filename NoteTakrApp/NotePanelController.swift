@@ -19,6 +19,7 @@ final class NotePanelController {
 
     private let sessionStore: SessionStore?
     private let calendarEventsProvider = CalendarEventsProvider()
+    private let activeRecordingProvider = ActiveRecordingProvider()
     private let appSettings: AppSettingsStore
     private let vocabularyStore: VocabularyStore?
 
@@ -88,6 +89,7 @@ final class NotePanelController {
         let switcherVM = SwitcherViewModel(
             noteListProvider: noteListProvider,
             eventsProvider: calendarEventsProvider,
+            activeRecordingProvider: activeRecordingProvider,
             now: { Date() },
             store: store,
             defaultsProvider: localAppSettings
@@ -105,6 +107,9 @@ final class NotePanelController {
         let upcoming = events.toUpcomingEvents()
         calendarEventsProvider.events = upcoming
         frontmatterBridge.availableEvents = upcoming
+        if switcherBridge.isVisible {
+            switcherBridge.refresh()
+        }
     }
 
     /// Returns currently available upcoming events for the property panel event chip.
@@ -125,6 +130,10 @@ final class NotePanelController {
         }
 
         loadNote(id: sessionID)
+        refreshActiveRecordingSnapshot()
+        if switcherBridge.isVisible {
+            switcherBridge.refresh()
+        }
 
         guard let presenter = frontmatterBridge.presenter else { return }
 
@@ -154,6 +163,10 @@ final class NotePanelController {
         switcherBridge.setActiveRecordingNoteID(nil)
         recordingBridge?.stopRecording()
         recordingBridge = nil
+        activeRecordingProvider.recording = nil
+        if switcherBridge.isVisible {
+            switcherBridge.refresh()
+        }
     }
 
     func show() {
@@ -165,6 +178,7 @@ final class NotePanelController {
     }
 
     private func show(loadCurrentNote shouldLoadCurrentNote: Bool) {
+        refreshActiveRecordingSnapshot()
         if shouldLoadCurrentNote {
             loadCurrentNote()
         }
@@ -240,6 +254,11 @@ final class NotePanelController {
             case .inlineEditActive, .editorFocused:
                 return false
             }
+        }
+        p.commandNHandler = { [weak self] in
+            guard let self, self.switcherBridge.isVisible else { return false }
+            self.switcherBridge.triggerCreateBlankNote()
+            return true
         }
         self.panel = p
     }
@@ -504,6 +523,17 @@ final class NotePanelController {
     }
 
     #if DEBUG
+    private static func e2eActiveRecording(now: Date = Date()) -> ActiveRecordingInfo? {
+        guard ProcessInfo.processInfo.environment["NOTETAKR_E2E_ACTIVE_RECORDING"] == "1" else {
+            return nil
+        }
+        return ActiveRecordingInfo(
+            noteID: "e2e-active-recording",
+            title: "Client escalation",
+            startedAt: now.addingTimeInterval(-7 * 60)
+        )
+    }
+
     private static func e2eCommandKCalendarEvents(now: Date = Date()) -> [CalendarEvent] {
         guard ProcessInfo.processInfo.environment["NOTETAKR_E2E_COMMANDK_EVENTS"] == "1" else {
             return []
@@ -517,14 +547,64 @@ final class NotePanelController {
                 endDate: now.addingTimeInterval(55 * 60)
             ),
             CalendarEvent(
-                id: "e2e-commandk-future-calendar-only",
-                title: "E2E UI Repair - CommandK Future Calendar Ghost",
-                startDate: now.addingTimeInterval(24 * 60 * 60),
-                endDate: now.addingTimeInterval(25 * 60 * 60)
+                id: "e2e-commandk-future-calendar-only-1",
+                title: "E2E UI Repair - Future Calendar Ghost 1",
+                startDate: now.addingTimeInterval(60 * 60),
+                endDate: now.addingTimeInterval(90 * 60)
+            ),
+            CalendarEvent(
+                id: "e2e-commandk-future-calendar-only-2",
+                title: "E2E UI Repair - Future Calendar Ghost 2",
+                startDate: now.addingTimeInterval(2 * 60 * 60),
+                endDate: now.addingTimeInterval(150 * 60)
+            ),
+            CalendarEvent(
+                id: "e2e-commandk-future-calendar-only-3",
+                title: "E2E UI Repair - Future Calendar Ghost 3",
+                startDate: now.addingTimeInterval(3 * 60 * 60),
+                endDate: now.addingTimeInterval(210 * 60)
+            ),
+            CalendarEvent(
+                id: "e2e-commandk-future-calendar-only-4",
+                title: "E2E UI Repair - Future Calendar Ghost 4",
+                startDate: now.addingTimeInterval(4 * 60 * 60),
+                endDate: now.addingTimeInterval(270 * 60)
+            ),
+            CalendarEvent(
+                id: "e2e-commandk-past-calendar-only",
+                title: "E2E UI Repair - Past Calendar Ghost Must Stay Hidden",
+                startDate: now.addingTimeInterval(-4 * 60 * 60),
+                endDate: now.addingTimeInterval(-3 * 60 * 60)
             ),
         ]
     }
     #endif
+
+    private func refreshActiveRecordingSnapshot() {
+        if let appModel = appModelRef,
+           appModel.isRecording,
+           let session = appModel.recordingManager.activeSession {
+            activeRecordingProvider.recording = ActiveRecordingInfo(
+                noteID: session.id.uuidString,
+                title: session.title,
+                startedAt: session.date,
+                calendarEvent: session.linkedEventID,
+                participants: session.participants.map {
+                    NoteTakrKit.Participant(name: $0.name, email: $0.email)
+                }
+            )
+            return
+        }
+
+        #if DEBUG
+        if let e2eRecording = Self.e2eActiveRecording() {
+            activeRecordingProvider.recording = e2eRecording
+            return
+        }
+        #endif
+
+        activeRecordingProvider.recording = nil
+    }
 
     private func wireSwitcher() {
         switcherBridge.onOpenNote = { [weak self] noteID in
@@ -651,6 +731,8 @@ private final class FloatingPanel: NSPanel {
     /// Called by the controller after the panel is built to wire the overlay checks.
     /// Return `true` to consume the ESC and prevent the panel from hiding.
     var cancelHandler: (() -> Bool)?
+    /// Return `true` to consume a command-key equivalent before SwiftUI/TextField handling.
+    var commandNHandler: (() -> Bool)?
 
     override func cancelOperation(_ sender: Any?) {
         if let handler = cancelHandler, handler() { return }
@@ -661,10 +743,16 @@ private final class FloatingPanel: NSPanel {
     /// default ⌘W → performClose: responder-chain routing isn't reliably available; handle it
     /// explicitly. `isReleasedWhenClosed` is false, so ordering out simply hides the panel.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-           event.charactersIgnoringModifiers == "w" {
-            orderOut(nil)
-            return true
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command {
+            switch event.charactersIgnoringModifiers?.lowercased() {
+            case "w":
+                orderOut(nil)
+                return true
+            case "n":
+                if commandNHandler?() == true { return true }
+            default:
+                break
+            }
         }
         return super.performKeyEquivalent(with: event)
     }

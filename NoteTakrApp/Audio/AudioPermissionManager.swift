@@ -15,6 +15,7 @@ final class AudioPermissionManager: ObservableObject {
     @Published private(set) var systemAudioStatus: PermissionStatus = .notDetermined
     @Published private(set) var calendarStatus: PermissionStatus = .notDetermined
     @Published private(set) var systemAudioRestartRequired = false
+    @Published private(set) var calendarRequestInFlight = false
 
 #if canImport(EventKit)
     // Lazy so EKEventStore is not allocated until calendar access is actually requested.
@@ -69,6 +70,18 @@ final class AudioPermissionManager: ObservableObject {
 
     func requestCalendarAccess() async {
 #if canImport(EventKit)
+        refresh(includeCalendar: true)
+        guard calendarStatus == .notDetermined else {
+            if calendarStatus == .granted {
+                NotificationCenter.default.post(name: .noteTakrCalendarAccessGranted, object: nil)
+            }
+            scheduleAppReactivation()
+            return
+        }
+        guard !calendarRequestInFlight else { return }
+        calendarRequestInFlight = true
+        defer { calendarRequestInFlight = false }
+
         do {
             let granted: Bool
             if #available(macOS 14.0, *) {

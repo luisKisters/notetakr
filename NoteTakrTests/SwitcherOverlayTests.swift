@@ -111,6 +111,34 @@ final class SwitcherOverlayTests: XCTestCase {
         XCTAssertFalse(bridge.isVisible)
     }
 
+    func testSelectingActiveRecordingOpensItsNoteWithoutCreating() {
+        let spy = SpySwitcherStore()
+        let recording = ActiveRecordingInfo(
+            noteID: "recording-note",
+            title: "Recording now",
+            startedAt: Date()
+        )
+
+        let viewModel = SwitcherViewModel(
+            noteListProvider: SpyNoteListProvider(notes: []),
+            eventsProvider: SpyEventsProvider(events: []),
+            activeRecordingProvider: FixedActiveRecordingProvider(recording: recording),
+            now: { Date() },
+            store: spy
+        )
+        let bridge = SwitcherBridge(viewModel: viewModel)
+        bridge.show()
+
+        var openedID: String?
+        bridge.onOpenNote = { openedID = $0 }
+
+        bridge.openOrCreateSelected()
+
+        XCTAssertEqual(openedID, "recording-note")
+        XCTAssertTrue(spy.savedNotes.isEmpty)
+        XCTAssertFalse(bridge.isVisible)
+    }
+
     // MARK: - 4. Navigation
 
     func testMoveDownAndUpWraps() {
@@ -132,6 +160,21 @@ final class SwitcherOverlayTests: XCTestCase {
 
         bridge.moveUp()
         XCTAssertEqual(bridge.viewModel.selectedIndex, initialIndex)
+    }
+
+    func testHoverSelectionUpdatesActiveRowWithoutDismissing() {
+        let notes = [
+            MeetingNote(id: "n1", title: "One", date: Date()),
+            MeetingNote(id: "n2", title: "Two", date: Date().addingTimeInterval(-3600)),
+        ]
+        let bridge = makeBridge(notes: notes)
+        bridge.show()
+
+        bridge.selectFromHover(index: 1)
+
+        XCTAssertEqual(bridge.selectedIndex, 1)
+        XCTAssertEqual(bridge.viewModel.selectedIndex, 1)
+        XCTAssertTrue(bridge.isVisible)
     }
 
     // MARK: - 5. CalendarEventsProvider maps CalendarEvent to UpcomingEvent
@@ -185,4 +228,9 @@ private struct SpyNoteListProvider: NoteListProviding {
 private struct SpyEventsProvider: UpcomingEventsProviding {
     var events: [UpcomingEvent]
     func listEvents() -> [UpcomingEvent] { events }
+}
+
+private struct FixedActiveRecordingProvider: ActiveRecordingProviding {
+    var recording: ActiveRecordingInfo?
+    func currentRecording() -> ActiveRecordingInfo? { recording }
 }

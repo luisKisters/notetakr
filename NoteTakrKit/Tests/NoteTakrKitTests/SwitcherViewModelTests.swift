@@ -31,12 +31,27 @@ final class SwitcherViewModelTests: XCTestCase {
                       participants: participants, meetingLink: meetingLink)
     }
 
+    private func makeRecording(noteID: String = "rec-1", title: String = "Client escalation",
+                               startedAt: Date? = nil,
+                               calendarEvent: String? = nil,
+                               participants: [Participant] = []) -> ActiveRecordingInfo {
+        ActiveRecordingInfo(
+            noteID: noteID,
+            title: title,
+            startedAt: startedAt ?? utcDate(2026, 6, 10, 9, 7),
+            calendarEvent: calendarEvent,
+            participants: participants
+        )
+    }
+
     private func makeVM(notes: [MeetingNote] = [], events: [UpcomingEvent] = [],
+                        activeRecording: ActiveRecordingInfo? = nil,
                         defaults: any NoteDefaultsProviding = NoopDefaultsProvider()) -> (SwitcherViewModel, SpyStore) {
         let spy = SpyStore(notes: notes)
         let vm = SwitcherViewModel(
             noteListProvider: spy,
             eventsProvider: FixedEventsProvider(events: events),
+            activeRecordingProvider: FixedActiveRecordingProvider(recording: activeRecording),
             now: { self.fixedNow },
             store: spy,
             defaultsProvider: defaults,
@@ -45,7 +60,7 @@ final class SwitcherViewModelTests: XCTestCase {
         return (vm, spy)
     }
 
-    // MARK: - Grouping: 4-bucket recency labels
+    // MARK: - Grouping: calendar-first recency labels
 
     func testTodayNoteAppearsInTodayGroup() {
         let note = makeNote(id: "1", title: "Standup", date: utcDate(2026, 6, 10, 9))
@@ -59,16 +74,29 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertTrue(vm.groups.contains { $0.label == "Yesterday" })
     }
 
-    func testFutureCalendarOnlyEventIsHiddenFromCommandK() {
+    func testFutureCalendarOnlyEventAppearsInUpcomingGroup() {
         let event = makeEvent(id: "e1", title: "Kickoff", start: utcDate(2026, 6, 11, 10))
         let (vm, _) = makeVM(events: [event])
-        XCTAssertTrue(vm.groups.isEmpty, "Future calendar-only events must be handled by the calendar picker, not Command-K")
+        XCTAssertEqual(vm.groups.first?.label, "Upcoming")
+        XCTAssertEqual(vm.groups.first?.items.map { itemTitle($0) }, ["Kickoff"])
     }
 
-    func testFarFutureCalendarOnlyEventIsHiddenFromCommandK() {
+    func testFarFutureCalendarOnlyEventAppearsInUpcomingGroup() {
         let event = makeEvent(id: "e1", title: "Review", start: utcDate(2026, 6, 17, 10))
         let (vm, _) = makeVM(events: [event])
-        XCTAssertTrue(vm.groups.isEmpty, "Far-future calendar-only events must not appear in Command-K")
+        XCTAssertEqual(vm.groups.first?.label, "Upcoming")
+        XCTAssertEqual(vm.groups.first?.items.map { itemTitle($0) }, ["Review"])
+    }
+
+    func testPastCalendarOnlyEventDoesNotAppearAsCreatableGhost() {
+        let event = makeEvent(
+            id: "past-event",
+            title: "Past calendar event",
+            start: utcDate(2026, 6, 10, 8),
+            end: utcDate(2026, 6, 10, 9)
+        )
+        let (vm, _) = makeVM(events: [event])
+        XCTAssertTrue(vm.groups.isEmpty, "Past unlinked calendar events must not show Create rows")
     }
 
     func testFutureNotesRemainInUpcomingGroup() {
@@ -81,27 +109,32 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertEqual(upcomingGroups.first?.items.map { itemTitle($0) }, ["Soon", "Later"])
     }
 
-    func testOlderPastNoteAppearsInEarlierGroup() {
-        // 2 days ago → "Earlier"
+    func testOlderPastNoteAppearsInDatedGroup() {
+        // 2 days ago -> concrete date heading.
         let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 6, 8, 10))
         let (vm, _) = makeVM(notes: [note])
-        XCTAssertTrue(vm.groups.contains { $0.label == "Earlier" }, "Expected 'Earlier' label, got: \(vm.groups.map { $0.label })")
+        XCTAssertTrue(vm.groups.contains { $0.label == "8 Jun" }, "Expected dated label, got: \(vm.groups.map { $0.label })")
     }
 
-    func testAncientNoteAppearsInEarlierGroup() {
+    func testOlderCurrentYearNoteUsesCompactDateHeading() {
         let note = makeNote(id: "n1", title: "Old", date: utcDate(2026, 5, 1, 10))
         let (vm, _) = makeVM(notes: [note])
-        XCTAssertTrue(vm.groups.contains { $0.label == "Earlier" }, "Expected 'Earlier' label, got: \(vm.groups.map { $0.label })")
+        XCTAssertTrue(vm.groups.contains { $0.label == "1 May" }, "Expected compact date label, got: \(vm.groups.map { $0.label })")
     }
 
-    func testMultiplePastDaysCollapseIntoSingleEarlierGroup() {
+    func testPreviousYearNoteIncludesYearInHeading() {
+        let note = makeNote(id: "n1", title: "Old", date: utcDate(2025, 5, 1, 10))
+        let (vm, _) = makeVM(notes: [note])
+        XCTAssertTrue(vm.groups.contains { $0.label == "1 May 2025" }, "Expected year in date label, got: \(vm.groups.map { $0.label })")
+    }
+
+    func testMultiplePastDaysBecomeSeparateDatedGroups() {
         let recent = makeNote(id: "n1", title: "Recent", date: utcDate(2026, 6, 8, 14))
         let older = makeNote(id: "n2", title: "Older", date: utcDate(2026, 5, 1, 10))
         let (vm, _) = makeVM(notes: [older, recent])
 
-        let earlierGroups = vm.groups.filter { $0.label == "Earlier" }
-        XCTAssertEqual(earlierGroups.count, 1)
-        XCTAssertEqual(earlierGroups.first?.items.map { itemTitle($0) }, ["Recent", "Older"])
+        XCTAssertEqual(vm.groups.map(\.label), ["8 Jun", "1 May"])
+        XCTAssertEqual(vm.groups.flatMap(\.items).map { itemTitle($0) }, ["Recent", "Older"])
     }
 
     func testFutureGroupsBeforeCurrentAndPastGroups() {
@@ -138,6 +171,28 @@ final class SwitcherViewModelTests: XCTestCase {
         }
         let titles = group.items.map { itemTitle($0) }
         XCTAssertEqual(titles, ["First", "Second"])
+    }
+
+    func testLongUpcomingListSelectsVisibleFutureWindowOnReset() {
+        let events = [
+            makeEvent(id: "e1", title: "First", start: utcDate(2026, 6, 10, 11)),
+            makeEvent(id: "e2", title: "Second", start: utcDate(2026, 6, 10, 12)),
+            makeEvent(id: "e3", title: "Third", start: utcDate(2026, 6, 10, 13)),
+            makeEvent(id: "e4", title: "Fourth", start: utcDate(2026, 6, 10, 14)),
+        ]
+        let (vm, _) = makeVM(events: events)
+        XCTAssertEqual(vm.selectedIndex, 2)
+        XCTAssertEqual(vm.selectedItem.map { itemTitle($0) }, Optional("Third"))
+    }
+
+    func testCurrentCalendarEventsSortBeforeUpcomingEvents() {
+        let future = makeEvent(id: "future", title: "Future", start: utcDate(2026, 6, 10, 11))
+        let current = makeEvent(id: "current", title: "Current",
+                                start: utcDate(2026, 6, 10, 9),
+                                end: utcDate(2026, 6, 10, 11))
+        let (vm, _) = makeVM(events: [future, current])
+        XCTAssertEqual(vm.groups.first?.label, "Upcoming")
+        XCTAssertEqual(vm.groups.first?.items.map { itemTitle($0) }, ["Current", "Future"])
     }
 
     func testPastGroupItemsDescending() {
@@ -206,7 +261,7 @@ final class SwitcherViewModelTests: XCTestCase {
 
     func testNoteWithoutLinkedEventDoesNotDedupOtherEvents() {
         let note = makeNote(id: "n1", title: "Note", date: utcDate(2026, 6, 10, 9))
-        let event = makeEvent(id: "cal-1", title: "Event", start: utcDate(2026, 6, 10, 9))
+        let event = makeEvent(id: "cal-1", title: "Event", start: utcDate(2026, 6, 10, 11))
         let (vm, _) = makeVM(notes: [note], events: [event])
         XCTAssertEqual(vm.groups.flatMap { $0.items }.count, 2)
     }
@@ -256,11 +311,11 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertEqual(vm.groups.flatMap { $0.items }.count, 1)
     }
 
-    func testSearchDoesNotSurfaceFutureCalendarOnlyEvent() {
+    func testSearchSurfacesFutureCalendarOnlyEvent() {
         let e = makeEvent(id: "e1", title: "Quarterly Review", start: utcDate(2026, 6, 11, 10))
         let (vm, _) = makeVM(events: [e])
         vm.searchQuery = "quarterly"
-        XCTAssertTrue(vm.groups.flatMap { $0.items }.isEmpty)
+        XCTAssertEqual(vm.groups.flatMap { $0.items }.map { itemTitle($0) }, ["Quarterly Review"])
     }
 
     func testSearchNoMatchReturnsEmpty() {
@@ -455,6 +510,32 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertNil(vm.open(), "open() must return nil when a command row is selected")
     }
 
+    func testActiveRecordingAppearsAtTopOfTodayAndOpensByNoteID() {
+        let recording = makeRecording(noteID: "live-123", title: "Live Client Call")
+        let note = makeNote(id: "n1", title: "Earlier", date: utcDate(2026, 6, 10, 8))
+        let (vm, _) = makeVM(notes: [note], activeRecording: recording)
+
+        XCTAssertEqual(vm.groups.first?.label, "Today")
+        XCTAssertEqual(vm.groups.first?.items.map { itemTitle($0) }, ["Live Client Call", "Earlier"])
+        XCTAssertEqual(vm.open(), "live-123")
+    }
+
+    func testActiveRecordingDoesNotDuplicateItsNoteRow() {
+        let recording = makeRecording(noteID: "live-123", title: "Live Client Call")
+        let note = makeNote(id: "live-123", title: "Live Client Call", date: utcDate(2026, 6, 10, 9))
+        let (vm, _) = makeVM(notes: [note], activeRecording: recording)
+        XCTAssertEqual(vm.groups.flatMap(\.items).map { itemTitle($0) }, ["Live Client Call"])
+    }
+
+    func testActiveRecordingDedupesLinkedCalendarEvent() {
+        let recording = makeRecording(noteID: "live-123", title: "Live Client Call", calendarEvent: "cal-1")
+        let event = makeEvent(id: "cal-1", title: "Live Client Call",
+                              start: utcDate(2026, 6, 10, 9),
+                              end: utcDate(2026, 6, 10, 11))
+        let (vm, _) = makeVM(events: [event], activeRecording: recording)
+        XCTAssertEqual(vm.groups.flatMap(\.items).map { itemTitle($0) }, ["Live Client Call"])
+    }
+
     func testSelectionClampedAfterSearchFiltersItems() {
         let notes = [
             makeNote(id: "n1", title: "Alpha", date: utcDate(2026, 6, 9, 14)),
@@ -472,6 +553,12 @@ final class SwitcherViewModelTests: XCTestCase {
         let event = makeEvent(id: "e1", title: "Lunch", start: utcDate(2026, 6, 11, 12))
         let item = SwitcherItem(kind: .event(event), dotState: .upcoming)
         XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .ghostEvent)
+    }
+
+    func testIconKindForActiveRecordingIsRecording() {
+        let recording = makeRecording()
+        let item = SwitcherItem(kind: .activeRecording(recording), dotState: .current)
+        XCTAssertEqual(SwitcherViewModel.iconKind(for: item), .recording)
     }
 
     func testIconKindForEventWithMeetingLinkIsVideoCall() {
@@ -638,6 +725,7 @@ final class SwitcherViewModelTests: XCTestCase {
         switch item.kind {
         case .note(_, let title, _, _): return title
         case .event(let e): return e.title
+        case .activeRecording(let recording): return recording.title
         case .command(let c): return c.title
         }
     }
@@ -670,6 +758,11 @@ private final class SpyStore: NoteStoring, NoteListProviding {
 private struct FixedEventsProvider: UpcomingEventsProviding {
     let events: [UpcomingEvent]
     func listEvents() -> [UpcomingEvent] { events }
+}
+
+private struct FixedActiveRecordingProvider: ActiveRecordingProviding {
+    let recording: ActiveRecordingInfo?
+    func currentRecording() -> ActiveRecordingInfo? { recording }
 }
 
 private struct FixedDefaults: NoteDefaultsProviding {

@@ -186,6 +186,8 @@ struct SettingsView: View {
                     label: "Calendar",
                     detail: "Required to detect upcoming meetings",
                     status: permissions.calendarStatus,
+                    buttonTitle: permissions.calendarRequestInFlight ? "Requesting..." : "Grant Access",
+                    isBusy: permissions.calendarRequestInFlight,
                     action: {
                         Task { await permissions.requestCalendarAccess() }
                     }
@@ -618,6 +620,7 @@ struct SettingsView: View {
         detail: String,
         status: PermissionStatus,
         buttonTitle: String = "Grant Access",
+        isBusy: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         HStack {
@@ -632,6 +635,7 @@ struct SettingsView: View {
             if status != .granted {
                 Button(buttonTitle, action: action)
                     .controlSize(.small)
+                    .disabled(isBusy)
                     .accessibilityIdentifier("grantAccess_\(label)")
             }
             statusBadge(status)

@@ -53,10 +53,8 @@ final class SwitcherBridge: ObservableObject {
     func show() {
         searchQuery = ""
         viewModel.searchQuery = ""
-        viewModel.reload(resetSelection: true)
-        groups = viewModel.groups
-        selectedIndex = viewModel.selectedIndex
         isVisible = true
+        refresh(resetSelection: true)
     }
 
     func dismiss() {
@@ -83,6 +81,17 @@ final class SwitcherBridge: ObservableObject {
     func moveUp() { viewModel.moveUp() }
     func moveDown() { viewModel.moveDown() }
 
+    func selectFromHover(index: Int) {
+        viewModel.select(index: index, notify: false)
+        selectedIndex = viewModel.selectedIndex
+    }
+
+    func refresh(resetSelection: Bool = false) {
+        viewModel.reload(resetSelection: resetSelection)
+        groups = viewModel.groups
+        selectedIndex = viewModel.selectedIndex
+    }
+
     // MARK: - Actions
 
     /// Opens the selected note, creates one from a ghost calendar event, or executes a command.
@@ -94,6 +103,9 @@ final class SwitcherBridge: ObservableObject {
         switch item.kind {
         case .note(let id, _, _, _):
             onOpenNote?(id)
+            dismiss()
+        case .activeRecording(let recording):
+            onOpenNote?(recording.noteID)
             dismiss()
         case .event(let ev):
             if let note = try? viewModel.createNote(from: ev) {
@@ -143,6 +155,11 @@ final class SwitcherBridge: ObservableObject {
 final class CalendarEventsProvider: UpcomingEventsProviding {
     var events: [UpcomingEvent] = []
     func listEvents() -> [UpcomingEvent] { events }
+}
+
+final class ActiveRecordingProvider: ActiveRecordingProviding {
+    var recording: ActiveRecordingInfo?
+    func currentRecording() -> ActiveRecordingInfo? { recording }
 }
 
 // MARK: - NoteStoreListProvider
