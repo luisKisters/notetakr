@@ -179,6 +179,7 @@ public final class SwitcherViewModel {
     private let store: any NoteStoring
     private let defaultsProvider: any NoteDefaultsProviding
     private let calendar: Calendar
+    private let maxCurrentCalendarGhostDuration: TimeInterval = 6 * 60 * 60
     private var locallyDeletedNoteIDs: Set<String> = []
 
     /// All available commands — surfaced when the search query matches their keywords.
@@ -398,6 +399,7 @@ public final class SwitcherViewModel {
 
         for event in events {
             guard !linkedEventIDs.contains(event.id) else { continue }
+            guard shouldSurfaceCalendarGhost(event, now: nowDate) else { continue }
             let dotState = computeDotState(date: event.start, end: event.end, now: nowDate)
             let item = SwitcherItem(
                 kind: .event(event),
@@ -494,6 +496,12 @@ public final class SwitcherViewModel {
         if date > now { return .upcoming }
         if let end = end, end > now { return .current }
         return .past
+    }
+
+    private func shouldSurfaceCalendarGhost(_ event: UpcomingEvent, now: Date) -> Bool {
+        if event.start >= now { return true }
+        guard let end = event.end, end > now else { return false }
+        return end.timeIntervalSince(event.start) <= maxCurrentCalendarGhostDuration
     }
 
     private func dayLabel(_ dayStart: Date, todayStart: Date) -> String {

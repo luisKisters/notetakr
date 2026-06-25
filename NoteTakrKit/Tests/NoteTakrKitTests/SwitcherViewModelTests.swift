@@ -99,6 +99,39 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertTrue(vm.groups.isEmpty, "Past unlinked calendar events must not show Create rows")
     }
 
+    func testPastCalendarOnlyEventWithoutEndDoesNotAppearAsCreatableGhost() {
+        let event = makeEvent(
+            id: "past-event-no-end",
+            title: "Past calendar event with no end",
+            start: utcDate(2026, 6, 10, 8)
+        )
+        let (vm, _) = makeVM(events: [event])
+        XCTAssertTrue(vm.groups.isEmpty, "Past unlinked calendar events without an end must not show Create rows")
+    }
+
+    func testLongRunningPastStartedCalendarEventDoesNotAppearAsCreatableGhost() {
+        let event = makeEvent(
+            id: "all-day-ish",
+            title: "Long running stale event",
+            start: utcDate(2026, 6, 10, 0),
+            end: utcDate(2026, 6, 11, 0)
+        )
+        let (vm, _) = makeVM(events: [event])
+        XCTAssertTrue(vm.groups.isEmpty, "All-day or long-running stale events must not show Create rows in Cmd-K")
+    }
+
+    func testShortCurrentlyRunningCalendarEventStillAppearsAsCreatableGhost() {
+        let event = makeEvent(
+            id: "current-short",
+            title: "Current meeting",
+            start: utcDate(2026, 6, 10, 9),
+            end: utcDate(2026, 6, 10, 11)
+        )
+        let (vm, _) = makeVM(events: [event])
+        XCTAssertEqual(vm.groups.first?.label, "Upcoming")
+        XCTAssertEqual(vm.groups.first?.items.map { itemTitle($0) }, ["Current meeting"])
+    }
+
     func testFutureNotesRemainInUpcomingGroup() {
         let soon = makeNote(id: "n1", title: "Soon", date: utcDate(2026, 6, 11, 10))
         let later = makeNote(id: "n2", title: "Later", date: utcDate(2026, 6, 17, 9))

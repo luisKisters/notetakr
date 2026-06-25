@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import NoteTakrKit
 
@@ -9,7 +8,8 @@ import NoteTakrKit
 /// meeting UI, so switcher actions are only Create, Open, or Delete.
 struct SwitcherOverlayView: View {
     @ObservedObject var bridge: SwitcherBridge
-    @Environment(\.themeColors) private var themeColors
+    let appearance: Appearance
+    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var searchFocused: Bool
     @State private var hoveredIndex: Int?
     @State private var initialScrollApplied = false
@@ -17,9 +17,7 @@ struct SwitcherOverlayView: View {
     @State private var suppressNextSelectionScroll = false
 
     private var paletteColors: ThemeColors {
-        guard themeColors.background.a < 0.5 else { return themeColors }
-        let match = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
-        return match == .aqua ? Theme.light : Theme.dark
+        SwitcherOverlayPalette.colors(for: appearance, colorScheme: colorScheme)
     }
 
     private var paletteBackground: Color {
@@ -608,6 +606,19 @@ struct SwitcherOverlayView: View {
             case .newNote:
                 bridge.triggerCreateBlankNote()
             }
+        }
+    }
+}
+
+enum SwitcherOverlayPalette {
+    static func colors(for appearance: Appearance, colorScheme: ColorScheme) -> ThemeColors {
+        switch appearance {
+        case .dark:
+            return Theme.dark
+        case .light:
+            return Theme.light
+        case .glass:
+            return colorScheme == .light ? Theme.light : Theme.dark
         }
     }
 }
