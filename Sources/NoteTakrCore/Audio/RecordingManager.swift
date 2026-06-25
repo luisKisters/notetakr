@@ -65,7 +65,12 @@ public final class RecordingManager: @unchecked Sendable {
             throw RecordingManagerError.noActiveSession
         }
         do {
-            let urls = try await recorder.stopRecording()
+            let reportedURLs = try await recorder.stopRecording()
+            let urls = Self.recoverRecordedURLs(
+                for: session,
+                store: store,
+                returnedURLs: reportedURLs
+            )
             let missingReasons = (recorder as? AudioCaptureReporter)?.lastMissingReasons ?? [:]
             session.audioFilePaths = urls.map { $0.path }
             session.audioSourceStatuses = await Self.deriveSourceStatuses(
@@ -74,8 +79,9 @@ public final class RecordingManager: @unchecked Sendable {
             )
             session.status = .stopped
             try store.save(session)
+            let persisted = (try? store.load(id: session.id)) ?? session
             _activeSession = nil
-            return session
+            return persisted
         } catch {
             session.status = .failed
             try store.save(session)
@@ -118,6 +124,83 @@ public final class RecordingManager: @unchecked Sendable {
             }
         }
         return result
+    }
+
+    private static func recoverRecordedURLs(
+        for session: MeetingSession,
+        store: SessionStore,
+        returnedURLs: [URL]
+    ) -> [URL] {
+        var bySource: [AudioSourceType: URL] = [:]
+
+        for url in returnedURLs where isUsableAudioFile(url) {
+            guard let source = sourceType(forAudioURL: url) else { continue }
+            bySource[source] = url
+        }
+
+        let candidateDirs = candidateSessionDirectories(for: session, store: store)
+        for source in AudioSourceType.allCases where bySource[source] == nil {
+            let candidates = candidateDirs.compactMap { directory -> URL? in
+                let contents = (try? FileManager.default.contentsOfDirectory(
+                    at: directory,
+                    includingPropertiesForKeys: [.contentModificationDateKey],
+                    options: .skipsHiddenFiles
+                )) ?? []
+                return contents
+                    .filter { sourceType(forAudioURL: $0) == source && isUsableAudioFile($0) }
+                    .sorted { modificationDate(for: $0) > modificationDate(for: $1) }
+                    .first
+            }
+            if let recovered = candidates
+                .sorted(by: { modificationDate(for: $0) > modificationDate(for: $1) })
+                .first {
+                bySource[source] = recovered
+            }
+        }
+
+        return AudioSourceType.allCases.compactMap { bySource[$0] }
+    }
+
+    private static func candidateSessionDirectories(
+        for session: MeetingSession,
+        store: SessionStore
+    ) -> [URL] {
+        var directories: [URL] = []
+        func appendUnique(_ url: URL) {
+            guard FileManager.default.fileExists(atPath: url.path) else { return }
+            guard !directories.contains(url) else { return }
+            directories.append(url)
+        }
+
+        appendUnique(store.sessionURL(for: session))
+
+        let shortID = String(session.id.uuidString.prefix(8))
+        let matchingDirs = (try? FileManager.default.contentsOfDirectory(
+            at: store.baseURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: .skipsHiddenFiles
+        )) ?? []
+        for url in matchingDirs where url.lastPathComponent.hasSuffix("_\(shortID)") {
+            appendUnique(url)
+        }
+        return directories
+    }
+
+    private static func sourceType(forAudioURL url: URL) -> AudioSourceType? {
+        let stem = url.deletingPathExtension().lastPathComponent
+        return AudioSourceType.allCases.first { $0.fileNamePrefix == stem }
+    }
+
+    private static func isUsableAudioFile(_ url: URL) -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+        return size > 0
+    }
+
+    private static func modificationDate(for url: URL) -> Date {
+        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+        return values?.contentModificationDate ?? .distantPast
     }
 
     #if canImport(AVFoundation)

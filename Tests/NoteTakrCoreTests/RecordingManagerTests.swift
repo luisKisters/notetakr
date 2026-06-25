@@ -183,6 +183,33 @@ final class RecordingManagerTests: XCTestCase {
         }
     }
 
+    func testStopRecordingRecoversAudioFileAfterRecordingFolderMoves() async throws {
+        let movingRecorder = MovedFolderAudioRecorder()
+        manager = RecordingManager(store: store, recorder: movingRecorder)
+
+        let started = try await manager.startRecording(title: "Original Title")
+        var renamed = started
+        renamed.title = "Renamed While Recording"
+        renamed.status = .recording
+        try store.save(renamed)
+        movingRecorder.writeDirectory = store.sessionURL(for: renamed)
+
+        let stopped = try await manager.stopRecording()
+
+        XCTAssertEqual(stopped.audioFilePaths.count, 1)
+        let recoveredPath = try XCTUnwrap(stopped.audioFilePaths.first)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recoveredPath), "Missing recovered file: \(recoveredPath)")
+        XCTAssertTrue(recoveredPath.hasSuffix("microphone.m4a"))
+
+        let micStatus = try XCTUnwrap(stopped.audioSourceStatuses.first { $0.source == .microphone })
+        XCTAssertNotNil(micStatus.fileSizeBytes)
+        XCTAssertNil(micStatus.missingReason)
+
+        let loaded = try XCTUnwrap(store.load(id: started.id))
+        XCTAssertEqual(loaded.audioFilePaths.count, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(loaded.audioFilePaths.first)))
+    }
+
     func testStopRecordingClearsActiveSession() async throws {
         _ = try await manager.startRecording(title: "Meeting")
         _ = try await manager.stopRecording()
@@ -323,5 +350,32 @@ final class RecordingManagerTests: XCTestCase {
         } catch AudioRecorderError.recordingFailed {
             XCTAssertFalse(recorder.isRecording)
         }
+    }
+}
+
+private final class MovedFolderAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter, @unchecked Sendable {
+    private(set) var isRecording = false
+    var writeDirectory: URL?
+    var lastMissingReasons: [String: String] = [
+        AudioSourceType.microphone.rawValue: "No samples received"
+    ]
+
+    func startRecording(into directory: URL) async throws {
+        try await startRecording(into: directory, options: .default)
+    }
+
+    func startRecording(into directory: URL, options: AudioRecordingOptions) async throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        isRecording = true
+    }
+
+    func stopRecording() async throws -> [URL] {
+        guard isRecording else { throw AudioRecorderError.notRecording }
+        let directory = try XCTUnwrap(writeDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("microphone.m4a")
+        try Data("audio data that exists despite a stale recorder URL".utf8).write(to: url)
+        isRecording = false
+        return []
     }
 }
