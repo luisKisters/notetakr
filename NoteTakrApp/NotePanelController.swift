@@ -576,6 +576,12 @@ final class NotePanelController {
                 startDate: now.addingTimeInterval(-4 * 60 * 60),
                 endDate: now.addingTimeInterval(-3 * 60 * 60)
             ),
+            CalendarEvent(
+                id: "e2e-commandk-stale-long-calendar-only",
+                title: "E2E UI Repair - Stale Long Calendar Ghost Must Stay Hidden",
+                startDate: now.addingTimeInterval(-12 * 60 * 60),
+                endDate: now.addingTimeInterval(12 * 60 * 60)
+            ),
         ]
     }
     #endif

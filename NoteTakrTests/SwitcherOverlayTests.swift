@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 import NoteTakrKit
 @testable import NoteTakr
 
@@ -192,6 +193,36 @@ final class SwitcherOverlayTests: XCTestCase {
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events[0].title, "Standup")
         XCTAssertEqual(events[0].participants[0].name, "Alice")
+    }
+
+    // MARK: - 6. Theme adaptation
+
+    func testSwitcherOverlayDarkAppearanceUsesSolidEditorDarkTokens() {
+        XCTAssertEqual(
+            SwitcherOverlayPalette.colors(for: .dark, colorScheme: .light),
+            Theme.dark
+        )
+        XCTAssertEqual(SwitcherOverlayPalette.colors(for: .dark, colorScheme: .light).background.a, 1.0)
+    }
+
+    func testSwitcherOverlayLightAppearanceUsesSolidEditorLightTokens() {
+        XCTAssertEqual(
+            SwitcherOverlayPalette.colors(for: .light, colorScheme: .dark),
+            Theme.light
+        )
+        XCTAssertEqual(SwitcherOverlayPalette.colors(for: .light, colorScheme: .dark).background.a, 1.0)
+    }
+
+    func testSwitcherOverlayGlassAppearanceResolvesToSolidSystemPalette() {
+        let lightPalette = SwitcherOverlayPalette.colors(for: .glass, colorScheme: .light)
+        let darkPalette = SwitcherOverlayPalette.colors(for: .glass, colorScheme: .dark)
+
+        XCTAssertEqual(lightPalette, Theme.light)
+        XCTAssertEqual(darkPalette, Theme.dark)
+        XCTAssertNotEqual(lightPalette, Theme.glass)
+        XCTAssertNotEqual(darkPalette, Theme.glass)
+        XCTAssertEqual(lightPalette.background.a, 1.0)
+        XCTAssertEqual(darkPalette.background.a, 1.0)
     }
 
     // MARK: - Helpers
