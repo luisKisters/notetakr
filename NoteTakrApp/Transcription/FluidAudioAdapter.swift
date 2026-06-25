@@ -90,9 +90,13 @@ struct FluidAudioSampleLoader: AudioSampleLoading {
 
 actor OfflineDiarizationRuntime: SpeakerDiarizing {
     private let manager = OfflineDiarizerManager(config: .default)
+    private var didPrepareModels = false
 
     func diarize(samples: [Float]) async throws -> [SpeakerSpan] {
-        // `process` lazily downloads + prepares the CoreML models on first use.
+        if !didPrepareModels {
+            try await manager.prepareModels()
+            didPrepareModels = true
+        }
         let result = try await manager.process(audio: samples)
         return result.segments.map {
             SpeakerSpan(
@@ -298,7 +302,18 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
             }
         }
 
-        let segments = TranscriptAssembler.assemble(words: words, speakerSpans: spans)
+        var segments = TranscriptAssembler.assemble(words: words, speakerSpans: spans)
+        if Self.shouldUseCoarseTimingFallback(segments: segments, speakerSpans: spans) {
+            let fallbackText = words.map(\.text).joined(separator: " ")
+            let fallback = TranscriptAssembler.assembleFallback(
+                text: fallbackText.isEmpty ? asr.text : fallbackText,
+                speakerSpans: spans
+            )
+            if !fallback.isEmpty {
+                Self.log.info("coarse ASR timings collapsed speaker labels; fallback assembled \(fallback.count) segment(s)")
+                segments = fallback
+            }
+        }
         if segments.isEmpty {
             Self.log.info("assembled 0 segments — returning single fallback segment with raw ASR text")
             return [TranscriptSegment(timestamp: 0, speaker: nil, text: asr.text)]
@@ -307,18 +322,36 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
         return segments
     }
 
+    private static func shouldUseCoarseTimingFallback(
+        segments: [TranscriptSegment],
+        speakerSpans: [SpeakerSpan]
+    ) -> Bool {
+        let detectedSpeakerCount = Set(speakerSpans.map(\.speakerId)).count
+        guard detectedSpeakerCount > 1 else { return false }
+        let assembledSpeakerCount = Set(segments.compactMap(\.speaker)).count
+        return assembledSpeakerCount <= 1
+    }
+
     private static func diarizeIfNeeded(
         _ enabled: Bool,
         diarizer: any SpeakerDiarizing,
         samples: [Float]
     ) async -> [SpeakerSpan] {
         guard enabled else { return [] }
-        return (try? await diarizer.diarize(samples: samples)) ?? []
+        do {
+            let spans = try await diarizer.diarize(samples: samples)
+            Self.log.info("diarizer produced \(spans.count) span(s)")
+            return spans
+        } catch {
+            Self.log.error("diarizer FAILED: \(String(describing: error), privacy: .public)")
+            return []
+        }
     }
 
-    /// Reconstructs word-level timings from SentencePiece token timings. Tokens
-    /// that begin a new word are prefixed with "▁" (U+2581); continuation tokens
-    /// are appended to the current word.
+    /// Reconstructs word-level timings from FluidAudio token timings. Depending
+    /// on the model path, word starts may be prefixed with either SentencePiece's
+    /// "▁" (U+2581) or a literal space; continuation tokens are appended to the
+    /// current word.
     static func reconstructWords(from timings: [TokenTiming]?, fallbackText: String) -> [TimedWord] {
         guard let timings, !timings.isEmpty else {
             let trimmed = fallbackText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -340,8 +373,17 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
 
         for timing in timings {
             let token = timing.token
-            let startsWord = token.hasPrefix(String(wordBoundary))
-            let piece = token.replacingOccurrences(of: String(wordBoundary), with: "")
+            if token.isEmpty || token == "<blank>" || token == "<pad>" {
+                continue
+            }
+            let startsWord = token.hasPrefix(String(wordBoundary)) || token.hasPrefix(" ")
+            var piece = token
+            if piece.hasPrefix(String(wordBoundary)) {
+                piece.removeFirst()
+            }
+            while piece.hasPrefix(" ") {
+                piece.removeFirst()
+            }
 
             if startsWord || currentText.isEmpty {
                 if startsWord { flush() }

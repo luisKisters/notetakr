@@ -73,6 +73,51 @@ final class FluidAudioAdapterTests: XCTestCase {
         XCTAssertEqual(segments[1].text, "Hi")
     }
 
+    func testDiarizationHandlesLiteralSpaceTokenBoundaries() async throws {
+        let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
+        try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
+        let timings = [
+            token(" Welcome", 0.0, 0.4),
+            token(" everyone", 0.4, 0.8),
+            token(" Okay", 2.0, 2.4),
+            token(" thanks", 2.4, 2.8),
+        ]
+        let runtime = FakeFluidAudioRuntime(
+            text: "Welcome everyone Okay thanks",
+            tokenTimings: timings
+        )
+        let diarizer = FakeDiarizer(spans: [
+            SpeakerSpan(speakerId: "moderator", start: 0.0, end: 1.0),
+            SpeakerSpan(speakerId: "panelist", start: 1.8, end: 3.0),
+        ])
+        let adapter = makeAdapter(store: store, runtime: runtime, diarizer: diarizer)
+
+        let segments = try await adapter.transcribe(audioURL: makeAudioURL(), vocabulary: [])
+
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments[0].speaker, "Speaker 1")
+        XCTAssertEqual(segments[0].text, "Welcome everyone")
+        XCTAssertEqual(segments[1].speaker, "Speaker 2")
+        XCTAssertEqual(segments[1].text, "Okay thanks")
+    }
+
+    func testDiarizationFallsBackWhenASRTimingsAreCoarse() async throws {
+        let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
+        try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
+        let runtime = FakeFluidAudioRuntime(text: "Welcome everyone Okay thanks", tokenTimings: nil)
+        let diarizer = FakeDiarizer(spans: [
+            SpeakerSpan(speakerId: "moderator", start: 0.0, end: 1.0),
+            SpeakerSpan(speakerId: "panelist", start: 1.0, end: 2.0),
+        ])
+        let adapter = makeAdapter(store: store, runtime: runtime, diarizer: diarizer)
+
+        let segments = try await adapter.transcribe(audioURL: makeAudioURL(), vocabulary: [])
+
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments[0].speaker, "Speaker 1")
+        XCTAssertEqual(segments[1].speaker, "Speaker 2")
+    }
+
     func testMultiSourceCollapsesMicAndOffsetsSystemSpeakers() async throws {
         let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
         try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))

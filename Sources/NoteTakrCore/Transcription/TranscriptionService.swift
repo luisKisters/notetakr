@@ -54,6 +54,7 @@ public final class TranscriptionService: @unchecked Sendable {
             let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
             guard size > 0 else { return nil }
             let role = role(forFileName: url.lastPathComponent)
+            guard shouldInclude(role: role, for: session) else { return nil }
             return TranscriptionSource(url: url, role: role)
         }
     }
@@ -64,6 +65,15 @@ public final class TranscriptionService: @unchecked Sendable {
             return .systemAudio
         }
         return .microphone
+    }
+
+    private static func shouldInclude(role: AudioSourceType, for session: MeetingSession) -> Bool {
+        switch role {
+        case .microphone:
+            return session.microphoneEnabled
+        case .systemAudio:
+            return session.systemAudioEnabled && !session.inPerson
+        }
     }
 
     private func generateNote(for session: MeetingSession) {

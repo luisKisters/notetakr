@@ -118,6 +118,63 @@ final class RecordingManagerTests: XCTestCase {
         XCTAssertEqual(loaded?.audioFilePaths.count, 2)
     }
 
+    func testStopRecordingWithInPersonSessionSkipsSystemAudio() async throws {
+        let input = MeetingSession(
+            title: "In Person",
+            date: Date(),
+            inPerson: true,
+            microphoneEnabled: true,
+            systemAudioEnabled: true
+        )
+
+        _ = try await manager.startRecording(session: input)
+        let stopped = try await manager.stopRecording()
+
+        XCTAssertEqual(stopped.audioFilePaths.count, 1)
+        XCTAssertTrue(stopped.audioFilePaths[0].hasSuffix("microphone.wav"))
+        XCTAssertEqual(
+            stopped.audioSourceStatuses.first { $0.source == .systemAudio }?.missingReason,
+            "System audio disabled"
+        )
+    }
+
+    func testStopRecordingWithMicDisabledCapturesOnlySystemAudio() async throws {
+        let input = MeetingSession(
+            title: "System Only",
+            date: Date(),
+            microphoneEnabled: false,
+            systemAudioEnabled: true
+        )
+
+        _ = try await manager.startRecording(session: input)
+        let stopped = try await manager.stopRecording()
+
+        XCTAssertEqual(stopped.audioFilePaths.count, 1)
+        XCTAssertTrue(stopped.audioFilePaths[0].hasSuffix("system-audio.wav"))
+        XCTAssertEqual(
+            stopped.audioSourceStatuses.first { $0.source == .microphone }?.missingReason,
+            "Microphone disabled"
+        )
+    }
+
+    func testStartRecordingWithNoEnabledSourcesThrows() async throws {
+        let input = MeetingSession(
+            title: "No Sources",
+            date: Date(),
+            microphoneEnabled: false,
+            systemAudioEnabled: false
+        )
+
+        do {
+            _ = try await manager.startRecording(session: input)
+            XCTFail("Expected recordingFailed")
+        } catch AudioRecorderError.recordingFailed(let reason) {
+            XCTAssertEqual(reason, "No audio sources are enabled")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testStopRecordingCreatesFixtureAudioFiles() async throws {
         _ = try await manager.startRecording(title: "Audio Files")
         let stopped = try await manager.stopRecording()

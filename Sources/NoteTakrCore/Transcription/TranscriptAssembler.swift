@@ -96,6 +96,57 @@ public enum TranscriptAssembler {
         return segments
     }
 
+    /// Last-resort assembly for ASR results without useful word timings. When
+    /// diarization clearly detects multiple speakers but ASR timing collapses to
+    /// one coarse text block, divide the transcript across diarized speaker runs
+    /// by run duration so distinct speakers remain visible instead of silently
+    /// flattening to one label.
+    public static func assembleFallback(text: String, speakerSpans: [SpeakerSpan]) -> [TranscriptSegment] {
+        let words = text
+            .split(whereSeparator: { $0.isWhitespace })
+            .map(String.init)
+        guard !words.isEmpty else { return [] }
+
+        let cleanedSpans = speakerSpans
+            .filter { $0.end > $0.start }
+            .sorted { $0.start < $1.start }
+        guard !cleanedSpans.isEmpty else {
+            return [TranscriptSegment(timestamp: 0, speaker: nil, text: words.joined(separator: " "))]
+        }
+
+        let labels = speakerLabels(for: cleanedSpans)
+        let runs = speakerRuns(from: cleanedSpans)
+        let totalDuration = runs.reduce(0) { $0 + max(0.001, $1.duration) }
+        guard totalDuration > 0 else { return [] }
+
+        var segments: [TranscriptSegment] = []
+        var wordIndex = 0
+        for (runIndex, run) in runs.enumerated() where wordIndex < words.count {
+            let remainingWords = words.count - wordIndex
+            let remainingRuns = runs.count - runIndex
+            let count: Int
+            if runIndex == runs.indices.last {
+                count = remainingWords
+            } else {
+                let proportional = Int((Double(words.count) * run.duration / totalDuration).rounded())
+                count = max(1, min(proportional, remainingWords - max(0, remainingRuns - 1)))
+            }
+            guard count > 0 else { continue }
+            let nextIndex = min(words.count, wordIndex + count)
+            let text = words[wordIndex..<nextIndex].joined(separator: " ")
+            segments.append(
+                TranscriptSegment(
+                    timestamp: run.start,
+                    speaker: labels[run.speakerId],
+                    text: text
+                )
+            )
+            wordIndex = nextIndex
+        }
+
+        return segments
+    }
+
     /// Applies confident vocabulary-boosting replacements to the word list,
     /// preserving timing. Each replacement is matched (case-insensitively,
     /// ignoring surrounding punctuation) against the next not-yet-replaced word,
@@ -170,6 +221,26 @@ public enum TranscriptAssembler {
             }
         }
         return bestSpeaker
+    }
+
+    private struct SpeakerRun {
+        var speakerId: String
+        var start: TimeInterval
+        var end: TimeInterval
+
+        var duration: TimeInterval { max(0, end - start) }
+    }
+
+    private static func speakerRuns(from spans: [SpeakerSpan]) -> [SpeakerRun] {
+        var runs: [SpeakerRun] = []
+        for span in spans {
+            if let last = runs.last, last.speakerId == span.speakerId {
+                runs[runs.count - 1].end = max(last.end, span.end)
+            } else {
+                runs.append(SpeakerRun(speakerId: span.speakerId, start: span.start, end: span.end))
+            }
+        }
+        return runs
     }
 
     // MARK: - Boost helpers
