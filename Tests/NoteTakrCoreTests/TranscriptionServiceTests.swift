@@ -188,6 +188,57 @@ final class TranscriptionServiceTests: XCTestCase {
         XCTAssertTrue(content.contains("Auto note text"))
         XCTAssertTrue(content.contains("Alice"))
     }
+
+    func testInPersonSessionSendsOnlyMicrophoneSourceToTranscription() async throws {
+        let engine = SourceCapturingTranscriptionEngine()
+        let service = TranscriptionService(engine: engine, store: store)
+        var session = MeetingSession(title: "In Person", date: Date(), inPerson: true)
+        let mic = tempDir.appendingPathComponent("microphone.m4a")
+        let system = tempDir.appendingPathComponent("system-audio.m4a")
+        try Data("mic".utf8).write(to: mic)
+        try Data("system".utf8).write(to: system)
+        session.audioFilePaths = [mic.path, system.path]
+        try store.save(session)
+
+        _ = try await service.transcribe(session: session, vocabulary: [])
+
+        XCTAssertEqual(engine.lastSources.map(\.role), [.microphone])
+    }
+
+    func testDisabledMicrophoneSendsOnlySystemAudioSourceToTranscription() async throws {
+        let engine = SourceCapturingTranscriptionEngine()
+        let service = TranscriptionService(engine: engine, store: store)
+        var session = MeetingSession(
+            title: "System Only",
+            date: Date(),
+            microphoneEnabled: false,
+            systemAudioEnabled: true
+        )
+        let mic = tempDir.appendingPathComponent("microphone.m4a")
+        let system = tempDir.appendingPathComponent("system-audio.m4a")
+        try Data("mic".utf8).write(to: mic)
+        try Data("system".utf8).write(to: system)
+        session.audioFilePaths = [mic.path, system.path]
+        try store.save(session)
+
+        _ = try await service.transcribe(session: session, vocabulary: [])
+
+        XCTAssertEqual(engine.lastSources.map(\.role), [.systemAudio])
+    }
+}
+
+private final class SourceCapturingTranscriptionEngine: TranscriptionEngine, @unchecked Sendable {
+    private(set) var lastSources: [TranscriptionSource] = []
+
+    func transcribe(audioURL: URL, vocabulary: [VocabularyEntry]) async throws -> [TranscriptSegment] {
+        lastSources = [TranscriptionSource(url: audioURL, role: .microphone)]
+        return [TranscriptSegment(timestamp: 0, speaker: "Speaker 1", text: "single")]
+    }
+
+    func transcribe(sources: [TranscriptionSource], vocabulary: [VocabularyEntry]) async throws -> [TranscriptSegment] {
+        lastSources = sources
+        return [TranscriptSegment(timestamp: 0, speaker: "Speaker 1", text: "multi")]
+    }
 }
 
 // MARK: - Stale-path regression (title rename moved the session folder)

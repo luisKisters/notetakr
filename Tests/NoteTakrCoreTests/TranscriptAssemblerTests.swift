@@ -82,4 +82,22 @@ final class TranscriptAssemblerTests: XCTestCase {
         XCTAssertEqual(labels["y"], "Speaker 1")
         XCTAssertEqual(labels["z"], "Speaker 2")
     }
+
+    func testFallbackSplitsCoarseTranscriptAcrossSpeakerRuns() {
+        let spans = [
+            SpeakerSpan(speakerId: "moderator", start: 0.0, end: 2.0),
+            SpeakerSpan(speakerId: "panelist", start: 2.0, end: 4.0),
+        ]
+
+        let segments = TranscriptAssembler.assembleFallback(
+            text: "Welcome everyone Okay thanks",
+            speakerSpans: spans
+        )
+
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments[0].speaker, "Speaker 1")
+        XCTAssertEqual(segments[0].text, "Welcome everyone")
+        XCTAssertEqual(segments[1].speaker, "Speaker 2")
+        XCTAssertEqual(segments[1].text, "Okay thanks")
+    }
 }

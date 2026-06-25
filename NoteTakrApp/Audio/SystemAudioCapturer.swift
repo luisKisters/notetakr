@@ -12,6 +12,7 @@ final class SystemAudioCapturer: NSObject, SCStreamDelegate, SCStreamOutput, @un
     private var assetWriter: AVAssetWriter?
     private var audioInput: AVAssetWriterInput?
     private var sessionStarted = false
+    private var receivedAudioSamples = false
 
     func startCapture(to url: URL) async throws {
         let content = try await SCShareableContent.current
@@ -40,6 +41,7 @@ final class SystemAudioCapturer: NSObject, SCStreamDelegate, SCStreamOutput, @un
         assetWriter = writer
         audioInput = input
         sessionStarted = false
+        receivedAudioSamples = false
 
         let captureStream = SCStream(filter: filter, configuration: config, delegate: self)
         try captureStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: .global(qos: .userInitiated))
@@ -52,8 +54,14 @@ final class SystemAudioCapturer: NSObject, SCStreamDelegate, SCStreamOutput, @un
         stream = nil
         audioInput?.markAsFinished()
         await assetWriter?.finishWriting()
+        let didReceiveAudio = receivedAudioSamples
         assetWriter = nil
         audioInput = nil
+        sessionStarted = false
+        receivedAudioSamples = false
+        guard didReceiveAudio else {
+            throw SystemAudioError.noSamplesReceived
+        }
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of outputType: SCStreamOutputType) {
@@ -67,7 +75,9 @@ final class SystemAudioCapturer: NSObject, SCStreamDelegate, SCStreamOutput, @un
             assetWriter?.startSession(atSourceTime: pts)
             sessionStarted = true
         }
-        input.append(sampleBuffer)
+        if input.append(sampleBuffer) {
+            receivedAudioSamples = true
+        }
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
@@ -75,7 +85,17 @@ final class SystemAudioCapturer: NSObject, SCStreamDelegate, SCStreamOutput, @un
     }
 }
 
-enum SystemAudioError: Error {
+enum SystemAudioError: LocalizedError {
     case noDisplayAvailable
+    case noSamplesReceived
+
+    var errorDescription: String? {
+        switch self {
+        case .noDisplayAvailable:
+            return "No display available for ScreenCaptureKit"
+        case .noSamplesReceived:
+            return "No system audio samples received"
+        }
+    }
 }
 #endif

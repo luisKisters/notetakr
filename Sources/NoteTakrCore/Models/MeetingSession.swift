@@ -13,6 +13,9 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
     public var linkedEventID: String?
     public var linkedEventTitle: String?
     public var participants: [Participant]
+    public var inPerson: Bool
+    public var microphoneEnabled: Bool
+    public var systemAudioEnabled: Bool
 
     public init(
         id: UUID = UUID(),
@@ -26,7 +29,10 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         summary: String? = nil,
         linkedEventID: String? = nil,
         linkedEventTitle: String? = nil,
-        participants: [Participant] = []
+        participants: [Participant] = [],
+        inPerson: Bool = false,
+        microphoneEnabled: Bool = true,
+        systemAudioEnabled: Bool = true
     ) {
         self.id = id
         self.title = title
@@ -40,6 +46,9 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         self.linkedEventID = linkedEventID
         self.linkedEventTitle = linkedEventTitle
         self.participants = participants
+        self.inPerson = inPerson
+        self.microphoneEnabled = microphoneEnabled
+        self.systemAudioEnabled = systemAudioEnabled
     }
 
     // Custom decoder so existing session.json files without the newer fields
@@ -58,11 +67,24 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         linkedEventID = try? c.decodeIfPresent(String.self, forKey: .linkedEventID)
         linkedEventTitle = try? c.decodeIfPresent(String.self, forKey: .linkedEventTitle)
         participants = (try? c.decode([Participant].self, forKey: .participants)) ?? []
+        inPerson = (try? c.decode(Bool.self, forKey: .inPerson)) ?? false
+        microphoneEnabled = (try? c.decode(Bool.self, forKey: .microphoneEnabled)) ?? true
+        systemAudioEnabled = (try? c.decode(Bool.self, forKey: .systemAudioEnabled)) ?? true
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, date, status, transcriptSegments, personalNotes
         case audioFilePaths, audioSourceStatuses
         case summary, linkedEventID, linkedEventTitle, participants
+        case inPerson, microphoneEnabled, systemAudioEnabled
+    }
+}
+
+public extension MeetingSession {
+    var audioRecordingOptions: AudioRecordingOptions {
+        AudioRecordingOptions(
+            microphoneEnabled: microphoneEnabled,
+            systemAudioEnabled: systemAudioEnabled && !inPerson
+        )
     }
 }

@@ -125,7 +125,15 @@ final class NotePanelController {
         if (try? store.load(id: sessionID)) == nil,
            let uuid = UUID(uuidString: sessionID),
            let session = try? sessionStore?.load(id: uuid) {
-            let note = MeetingNote(id: sessionID, title: session.title, date: session.date)
+            let note = MeetingNote(
+                id: sessionID,
+                title: session.title,
+                date: session.date,
+                participants: session.participants.map {
+                    NoteTakrKit.Participant(name: $0.name, email: $0.email)
+                },
+                inPerson: session.inPerson
+            )
             try? store.save(note)
         }
 

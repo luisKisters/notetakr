@@ -142,10 +142,17 @@ final class AppModel: ObservableObject {
     func startRecording(title: String? = nil) async {
         guard !recordingManager.isRecording else { return }
         recordingError = nil
+        let inPerson = appSettings.inPersonByDefault
+        let options = audioOptions(inPerson: inPerson)
+
+        guard options.microphoneEnabled || options.systemAudioEnabled else {
+            recordingError = "Turn on at least one audio source before recording."
+            return
+        }
 
         // Gate on microphone permission BEFORE creating a session — otherwise the
         // recorder silently captures nothing and the note ends up with no audio.
-        guard await ensureMicrophonePermission() else {
+        if options.microphoneEnabled, !(await ensureMicrophonePermission()) {
             recordingError = "Microphone access is required to record. Turn it on for "
                 + "NoteTakr in System Settings → Privacy & Security → Microphone."
             FluidAudioAdapter.log.error("recording blocked: microphone permission not granted")
@@ -154,7 +161,14 @@ final class AppModel: ObservableObject {
 
         let name = title ?? nextMeeting?.title ?? "Meeting Recording"
         do {
-            let session = try await recordingManager.startRecording(title: name)
+            let pendingSession = MeetingSession(
+                title: name,
+                date: Date(),
+                inPerson: inPerson,
+                microphoneEnabled: options.microphoneEnabled,
+                systemAudioEnabled: options.systemAudioEnabled
+            )
+            let session = try await recordingManager.startRecording(session: pendingSession)
             isRecording = true
             onRecordingStarted?(session.id.uuidString)
         } catch {
@@ -171,8 +185,15 @@ final class AppModel: ObservableObject {
     func startRecording(for note: MeetingNote) async {
         guard !recordingManager.isRecording else { return }
         recordingError = nil
+        let inPerson = effectiveInPerson(for: note)
+        let options = audioOptions(inPerson: inPerson)
 
-        guard await ensureMicrophonePermission() else {
+        guard options.microphoneEnabled || options.systemAudioEnabled else {
+            recordingError = "Turn on at least one audio source before recording."
+            return
+        }
+
+        if options.microphoneEnabled, !(await ensureMicrophonePermission()) {
             recordingError = "Microphone access is required to record. Turn it on for "
                 + "NoteTakr in System Settings → Privacy & Security → Microphone."
             FluidAudioAdapter.log.error("recording blocked: microphone permission not granted")
@@ -249,8 +270,24 @@ final class AppModel: ObservableObject {
         session.participants = note.participants.map {
             NoteTakrCore.Participant(name: $0.name, email: $0.email)
         }
+        let inPerson = effectiveInPerson(for: note)
+        let options = audioOptions(inPerson: inPerson)
+        session.inPerson = inPerson
+        session.microphoneEnabled = options.microphoneEnabled
+        session.systemAudioEnabled = options.systemAudioEnabled
         session.personalNotes = note.body
         return session
+    }
+
+    private func effectiveInPerson(for note: MeetingNote) -> Bool {
+        EffectiveMeetingSettings.resolve(note: note, defaults: appSettings, globalVocabulary: []).inPerson
+    }
+
+    private func audioOptions(inPerson: Bool) -> AudioRecordingOptions {
+        AudioRecordingOptions(
+            microphoneEnabled: appSettings.micEnabled,
+            systemAudioEnabled: appSettings.systemAudioEnabled && !inPerson
+        )
     }
 
     // MARK: - Transcription (called by TranscriptionRequestingAdapter)

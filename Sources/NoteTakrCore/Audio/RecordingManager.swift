@@ -40,7 +40,15 @@ public final class RecordingManager: @unchecked Sendable {
         try store.save(session)
         let dir = store.sessionURL(for: session)
         do {
-            try await recorder.startRecording(into: dir)
+            let options = session.audioRecordingOptions
+            if !options.microphoneEnabled && !options.systemAudioEnabled {
+                throw AudioRecorderError.recordingFailed("No audio sources are enabled")
+            }
+            if let configurable = recorder as? any ConfigurableAudioRecorder {
+                try await configurable.startRecording(into: dir, options: options)
+            } else {
+                try await recorder.startRecording(into: dir)
+            }
         } catch {
             session.status = .failed
             try store.save(session)

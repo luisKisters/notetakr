@@ -1,8 +1,9 @@
 import Foundation
 
-public final class MockAudioRecorder: AudioRecorder, AudioCaptureReporter, @unchecked Sendable {
+public final class MockAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter, @unchecked Sendable {
     public private(set) var isRecording: Bool = false
     private var currentDirectory: URL?
+    private var currentOptions: AudioRecordingOptions = .default
 
     public var shouldFailOnStart: Bool = false
     public var shouldFailOnStop: Bool = false
@@ -19,6 +20,10 @@ public final class MockAudioRecorder: AudioRecorder, AudioCaptureReporter, @unch
     public init() {}
 
     public func startRecording(into directory: URL) async throws {
+        try await startRecording(into: directory, options: .default)
+    }
+
+    public func startRecording(into directory: URL, options: AudioRecordingOptions) async throws {
         startCallCount += 1
         if shouldFailOnStart {
             throw AudioRecorderError.recordingFailed("mock start failure")
@@ -26,8 +31,18 @@ public final class MockAudioRecorder: AudioRecorder, AudioCaptureReporter, @unch
         guard !isRecording else {
             throw AudioRecorderError.alreadyRecording
         }
+        guard options.microphoneEnabled || options.systemAudioEnabled else {
+            throw AudioRecorderError.recordingFailed("No audio sources are enabled")
+        }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         currentDirectory = directory
+        currentOptions = options
+        if !options.microphoneEnabled {
+            mockMissingReasons[AudioSourceType.microphone.rawValue] = "Microphone disabled"
+        }
+        if !options.systemAudioEnabled {
+            mockMissingReasons[AudioSourceType.systemAudio.rawValue] = "System audio disabled"
+        }
         isRecording = true
     }
 
@@ -41,17 +56,21 @@ public final class MockAudioRecorder: AudioRecorder, AudioCaptureReporter, @unch
             currentDirectory = nil
             throw AudioRecorderError.recordingFailed("mock stop failure")
         }
-        let micURL = dir.appendingPathComponent("microphone.wav")
-        let sysURL = dir.appendingPathComponent("system-audio.wav")
         let placeholder = Data("RIFF fixture".utf8)
-        try placeholder.write(to: micURL)
-        var results: [URL] = [micURL]
-        if !omitSystemAudio {
+        var results: [URL] = []
+        if currentOptions.microphoneEnabled {
+            let micURL = dir.appendingPathComponent("microphone.wav")
+            try placeholder.write(to: micURL)
+            results.append(micURL)
+        }
+        if currentOptions.systemAudioEnabled && !omitSystemAudio {
+            let sysURL = dir.appendingPathComponent("system-audio.wav")
             try placeholder.write(to: sysURL)
             results.append(sysURL)
         }
         isRecording = false
         currentDirectory = nil
+        currentOptions = .default
         return results
     }
 }
