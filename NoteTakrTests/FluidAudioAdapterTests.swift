@@ -140,6 +140,44 @@ final class FluidAudioAdapterTests: XCTestCase {
         XCTAssertTrue(speakers.contains("Speaker 2"), "Expected offset system label, got \(speakers)")
     }
 
+    func testMultiSourceUsesMixedAudioAndMicAnchorWhenConfident() async throws {
+        let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
+        try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
+        let timings = [
+            token("\u{2581}Podcast", 0.0, 0.5),
+            token("\u{2581}My", 10.0, 10.3),
+            token("\u{2581}reply", 10.3, 10.8),
+            token("\u{2581}Continues", 22.0, 22.5),
+        ]
+        let runtime = FakeFluidAudioRuntime(text: "Podcast My reply Continues", tokenTimings: timings)
+        let diarizer = FakeDiarizer(spans: [
+            SpeakerSpan(speakerId: "podcast", start: 0.0, end: 8.0),
+            SpeakerSpan(speakerId: "me", start: 9.5, end: 12.0),
+            SpeakerSpan(speakerId: "podcast", start: 21.0, end: 25.0),
+        ])
+        let vad = FakeVoiceActivityDetector(windows: [
+            0.1: [NoteTakrCore.TranscriptMerger.SpeechWindow(start: 9.8, end: 11.8)],
+            0.0: [],
+        ])
+        let micSamples = Array(repeating: Float(0.1), count: 200_000)
+        let systemSamples = Array(repeating: Float(0.0), count: 200_000)
+        let loader = FakeAudioLoader(sampleBatches: [micSamples, systemSamples])
+        let adapter = makeAdapter(
+            store: store,
+            runtime: runtime,
+            loader: loader,
+            diarizer: diarizer,
+            voiceActivityDetector: vad
+        )
+
+        let mic = TranscriptionSource(url: makeAudioURL(), role: .microphone)
+        let system = TranscriptionSource(url: makeAudioURL(), role: .systemAudio)
+        let segments = try await adapter.transcribe(sources: [mic, system], vocabulary: [])
+
+        XCTAssertEqual(segments.map(\.speaker), ["Speaker 2", "Speaker 1 (You)", "Speaker 2"])
+        XCTAssertEqual(segments.map(\.text), ["Podcast", "My reply", "Continues"])
+    }
+
     func testSingleSourceFallsBackToLegacyDiarization() async throws {
         let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
         try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
@@ -177,13 +215,15 @@ final class FluidAudioAdapterTests: XCTestCase {
         store: TranscriptionSettingsStore,
         runtime: FakeFluidAudioRuntime,
         loader: FakeAudioLoader = FakeAudioLoader(),
-        diarizer: FakeDiarizer = FakeDiarizer(spans: [])
+        diarizer: FakeDiarizer = FakeDiarizer(spans: []),
+        voiceActivityDetector: FakeVoiceActivityDetector = FakeVoiceActivityDetector(windows: [])
     ) -> FluidAudioAdapter {
         FluidAudioAdapter(
             settingsStore: store,
             runtime: runtime,
             audioLoader: loader,
             diarizer: diarizer,
+            voiceActivityDetector: voiceActivityDetector,
             booster: NoopVocabularyBooster()
         )
     }
@@ -226,10 +266,26 @@ final class FakeFluidAudioRuntime: FluidAudioRuntimeProtocol, @unchecked Sendabl
 }
 
 final class FakeAudioLoader: AudioSampleLoading, @unchecked Sendable {
+    private let samples: [Float]
+    private var sampleBatches: [[Float]]
     private(set) var didLoad = false
+
+    init(samples: [Float] = []) {
+        self.samples = samples
+        self.sampleBatches = []
+    }
+
+    init(sampleBatches: [[Float]]) {
+        self.samples = []
+        self.sampleBatches = sampleBatches
+    }
+
     func loadSamples(from url: URL) throws -> [Float] {
         didLoad = true
-        return []
+        if !sampleBatches.isEmpty {
+            return sampleBatches.removeFirst()
+        }
+        return samples
     }
 }
 
@@ -237,6 +293,26 @@ final class FakeDiarizer: SpeakerDiarizing, @unchecked Sendable {
     private let spans: [SpeakerSpan]
     init(spans: [SpeakerSpan]) { self.spans = spans }
     func diarize(samples: [Float]) async throws -> [SpeakerSpan] { spans }
+}
+
+final class FakeVoiceActivityDetector: VoiceActivityDetecting, @unchecked Sendable {
+    private let windows: [NoteTakrCore.TranscriptMerger.SpeechWindow]
+    private let windowsByFirstSample: [Float: [NoteTakrCore.TranscriptMerger.SpeechWindow]]
+
+    init(windows: [NoteTakrCore.TranscriptMerger.SpeechWindow]) {
+        self.windows = windows
+        self.windowsByFirstSample = [:]
+    }
+
+    init(windows: [Float: [NoteTakrCore.TranscriptMerger.SpeechWindow]]) {
+        self.windows = []
+        self.windowsByFirstSample = windows
+    }
+
+    func speechWindows(samples: [Float]) async throws -> [NoteTakrCore.TranscriptMerger.SpeechWindow] {
+        guard let first = samples.first else { return windows }
+        return windowsByFirstSample[first] ?? windows
+    }
 }
 
 final class NoopVocabularyBooster: VocabularyBoosting, @unchecked Sendable {

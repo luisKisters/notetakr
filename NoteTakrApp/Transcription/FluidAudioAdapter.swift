@@ -21,6 +21,11 @@ protocol SpeakerDiarizing: Sendable {
     func diarize(samples: [Float]) async throws -> [SpeakerSpan]
 }
 
+/// Voice-activity seam: detects when the local microphone has speech.
+protocol VoiceActivityDetecting: Sendable {
+    func speechWindows(samples: [Float]) async throws -> [NoteTakrCore.TranscriptMerger.SpeechWindow]
+}
+
 /// Vocabulary-boosting seam: returns confident word replacements for the transcript.
 protocol VocabularyBoosting: Sendable {
     func boost(
@@ -108,6 +113,35 @@ actor OfflineDiarizationRuntime: SpeakerDiarizing {
     }
 }
 
+// MARK: - Voice activity detection runtime (Silero VAD)
+
+actor FluidAudioVoiceActivityDetector: VoiceActivityDetecting {
+    private var manager: VadManager?
+
+    func speechWindows(samples: [Float]) async throws -> [NoteTakrCore.TranscriptMerger.SpeechWindow] {
+        let manager = try await manager()
+        let config = VadSegmentationConfig(
+            minSpeechDuration: 0.25,
+            minSilenceDuration: 0.45,
+            maxSpeechDuration: 20.0,
+            speechPadding: 0.15
+        )
+        let segments = try await manager.segmentSpeech(samples, config: config)
+        return segments.map {
+            NoteTakrCore.TranscriptMerger.SpeechWindow(start: $0.startTime, end: $0.endTime)
+        }
+    }
+
+    private func manager() async throws -> VadManager {
+        if let manager {
+            return manager
+        }
+        let manager = try await VadManager(config: VadConfig(defaultThreshold: 0.70))
+        self.manager = manager
+        return manager
+    }
+}
+
 // MARK: - Vocabulary boosting (CTC keyword spotting + rescoring)
 
 actor FluidAudioVocabularyBooster: VocabularyBoosting {
@@ -183,11 +217,19 @@ actor FluidAudioVocabularyBooster: VocabularyBoosting {
 final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
     static let log = Logger(subsystem: "com.notetakr.app", category: "transcription")
     private static let microphoneInterjectionGap: TimeInterval = 2.0
+    private static let mixedMicrophoneGain: Float = 1.0
+    private static let mixedSystemAudioGain: Float = 1.0
+
+    private struct TranscribedSamples {
+        var segments: [TranscriptSegment]
+        var speakerSpans: [SpeakerSpan]
+    }
 
     private let settingsStore: TranscriptionSettingsStore
     private let runtime: any FluidAudioRuntimeProtocol
     private let audioLoader: any AudioSampleLoading
     private let diarizer: any SpeakerDiarizing
+    private let voiceActivityDetector: any VoiceActivityDetecting
     private let booster: any VocabularyBoosting
 
     init(
@@ -195,12 +237,14 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
         runtime: any FluidAudioRuntimeProtocol = FluidAudioRuntime(),
         audioLoader: any AudioSampleLoading = FluidAudioSampleLoader(),
         diarizer: any SpeakerDiarizing = OfflineDiarizationRuntime(),
+        voiceActivityDetector: any VoiceActivityDetecting = FluidAudioVoiceActivityDetector(),
         booster: any VocabularyBoosting = FluidAudioVocabularyBooster()
     ) {
         self.settingsStore = settingsStore
         self.runtime = runtime
         self.audioLoader = audioLoader
         self.diarizer = diarizer
+        self.voiceActivityDetector = voiceActivityDetector
         self.booster = booster
     }
 
@@ -215,9 +259,11 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
     }
 
     /// Multi-stream entry point: transcribes the microphone and system-audio files
-    /// separately, then merges them into one timeline-ordered transcript. The
-    /// microphone collapses to a single "Speaker 1 (You)" (no diarization needed);
-    /// system-audio speakers are diarized and shifted to "Speaker 2", "Speaker 3", …
+    /// into one timeline-ordered transcript. Remote recordings with both mic and
+    /// system audio use a mixed-audio pass first: diarize the combined timeline,
+    /// detect mic speech windows, and promote the diarized speaker matching those
+    /// windows to "Speaker 1 (You)". If that anchor match is not confident, the
+    /// older separate-stream merge is used as a fallback.
     ///
     /// With a single source we fall back to the legacy single-stream behaviour
     /// (normal diarization, "Speaker 1/2…"). The in-person/one-device case lands
@@ -237,6 +283,29 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
             )
         }
 
+        if let microphone = sources.first(where: { $0.role == .microphone }),
+           let systemAudio = sources.first(where: { $0.role == .systemAudio }),
+           let anchored = try await transcribeMixedRemoteSession(
+                microphoneURL: microphone.url,
+                systemAudioURL: systemAudio.url,
+                vocabulary: vocabulary,
+                settings: settings
+           ) {
+            return anchored
+        }
+
+        return try await transcribeSeparateSources(
+            sources: sources,
+            vocabulary: vocabulary,
+            settings: settings
+        )
+    }
+
+    private func transcribeSeparateSources(
+        sources: [TranscriptionSource],
+        vocabulary: [VocabularyEntry],
+        settings: TranscriptionModelSettings
+    ) async throws -> [TranscriptSegment] {
         var groups: [[TranscriptSegment]] = []
         for source in sources {
             // Diarize microphone in multi-source mode for speech timing/splits, then
@@ -252,12 +321,102 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
             )
             switch source.role {
             case .microphone:
-                groups.append(TranscriptMerger.forceSingleSpeaker(segments, label: TranscriptMerger.primarySpeakerLabel))
+                groups.append(NoteTakrCore.TranscriptMerger.forceSingleSpeaker(segments, label: NoteTakrCore.TranscriptMerger.primarySpeakerLabel))
             case .systemAudio:
-                groups.append(TranscriptMerger.offsetSpeakers(segments, startingAt: 2))
+                groups.append(NoteTakrCore.TranscriptMerger.offsetSpeakers(segments, startingAt: 2))
             }
         }
-        return TranscriptMerger.merge(groups)
+        return NoteTakrCore.TranscriptMerger.merge(groups)
+    }
+
+    private func transcribeMixedRemoteSession(
+        microphoneURL: URL,
+        systemAudioURL: URL,
+        vocabulary: [VocabularyEntry],
+        settings: TranscriptionModelSettings
+    ) async throws -> [TranscriptSegment]? {
+        let microphoneSamples: [Float]
+        let systemAudioSamples: [Float]
+        do {
+            microphoneSamples = try audioLoader.loadSamples(from: microphoneURL)
+            systemAudioSamples = try audioLoader.loadSamples(from: systemAudioURL)
+        } catch {
+            Self.log.error("mixed remote load FAILED: \(String(describing: error), privacy: .public)")
+            throw error
+        }
+
+        let mixedSamples = Self.mixSamples(
+            microphoneSamples,
+            systemAudioSamples,
+            leftGain: Self.mixedMicrophoneGain,
+            rightGain: Self.mixedSystemAudioGain
+        )
+        guard !mixedSamples.isEmpty else {
+            Self.log.error("mixed remote transcription skipped: mixed audio has zero samples")
+            return nil
+        }
+
+        async let microphoneSpeechWindows = Self.detectSpeechWindows(
+            detector: voiceActivityDetector,
+            samples: microphoneSamples
+        )
+        async let systemAudioSpeechWindows = Self.detectSpeechWindows(
+            detector: voiceActivityDetector,
+            samples: systemAudioSamples
+        )
+        let mixed = try await transcribeSamples(
+            samples: mixedSamples,
+            sourceDescription: "mixed-microphone-system",
+            vocabulary: vocabulary,
+            settings: settings,
+            diarize: true,
+            sameSpeakerSplitGap: Self.microphoneInterjectionGap
+        )
+
+        let micWindows = await microphoneSpeechWindows
+        let systemWindows = await systemAudioSpeechWindows
+        let micOnlyWindows = NoteTakrCore.TranscriptMerger.microphoneOnlySpeechWindows(
+            microphoneWindows: micWindows,
+            systemAudioWindows: systemWindows
+        )
+        let anchorWindows = Self.microphoneDominantSpeechWindows(
+            micOnlyWindows,
+            microphoneSamples: microphoneSamples,
+            systemAudioSamples: systemAudioSamples
+        )
+        Self.log.info(
+            "mixed remote VAD windows: mic=\(micWindows.count), system=\(systemWindows.count), micOnly=\(micOnlyWindows.count), micDominant=\(anchorWindows.count)"
+        )
+
+        guard let anchored = NoteTakrCore.TranscriptMerger.promoteAnchoredSpeaker(
+            in: mixed.segments,
+            speakerSpans: mixed.speakerSpans,
+            anchorWindows: anchorWindows,
+            requireAnchorOverlapForPrimary: true
+        ) else {
+            Self.log.info("mixed remote anchor match unavailable or low-confidence; falling back to separate streams")
+            return nil
+        }
+
+        Self.log.info(
+            "mixed remote anchor matched \(anchored.match.speaker, privacy: .public): anchorCoverage=\(anchored.match.anchorCoverage, format: .fixed(precision: 2)), speakerCoverage=\(anchored.match.speakerCoverage, format: .fixed(precision: 2)), score=\(anchored.match.score, format: .fixed(precision: 2))"
+        )
+        return anchored.segments
+    }
+
+    private static func microphoneDominantSpeechWindows(
+        _ windows: [NoteTakrCore.TranscriptMerger.SpeechWindow],
+        microphoneSamples: [Float],
+        systemAudioSamples: [Float],
+        maxSystemToMicrophoneRMSRatio: Float = 0.80,
+        minMicrophoneRMS: Float = 0.0005
+    ) -> [NoteTakrCore.TranscriptMerger.SpeechWindow] {
+        windows.filter { window in
+            let microphoneRMS = rms(samples: microphoneSamples, window: window)
+            guard microphoneRMS >= minMicrophoneRMS else { return false }
+            let systemRMS = rms(samples: systemAudioSamples, window: window)
+            return systemRMS / microphoneRMS <= maxSystemToMicrophoneRMSRatio
+        }
     }
 
     /// Runs ASR (+ optional diarization + vocabulary boosting) on one audio file
@@ -277,8 +436,27 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
             Self.log.error("audio load FAILED for \(url.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
             throw error
         }
+        let result = try await transcribeSamples(
+            samples: samples,
+            sourceDescription: url.lastPathComponent,
+            vocabulary: vocabulary,
+            settings: settings,
+            diarize: diarize,
+            sameSpeakerSplitGap: sameSpeakerSplitGap
+        )
+        return result.segments
+    }
+
+    private func transcribeSamples(
+        samples: [Float],
+        sourceDescription: String,
+        vocabulary: [VocabularyEntry],
+        settings: TranscriptionModelSettings,
+        diarize: Bool,
+        sameSpeakerSplitGap: TimeInterval? = nil
+    ) async throws -> TranscribedSamples {
         let seconds = Double(samples.count) / 16_000.0
-        Self.log.info("loaded \(samples.count) samples (\(seconds, format: .fixed(precision: 1))s) from \(url.lastPathComponent, privacy: .public); diarize=\(diarize)")
+        Self.log.info("loaded \(samples.count) samples (\(seconds, format: .fixed(precision: 1))s) from \(sourceDescription, privacy: .public); diarize=\(diarize)")
         if samples.isEmpty {
             Self.log.error("audio has ZERO samples — recording captured no audio (check mic/system-audio permissions)")
         }
@@ -329,10 +507,13 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
         }
         if segments.isEmpty {
             Self.log.info("assembled 0 segments — returning single fallback segment with raw ASR text")
-            return [TranscriptSegment(timestamp: 0, speaker: nil, text: asr.text)]
+            return TranscribedSamples(
+                segments: [TranscriptSegment(timestamp: 0, speaker: nil, text: asr.text)],
+                speakerSpans: spans
+            )
         }
         Self.log.info("assembled \(segments.count) transcript segment(s)")
-        return segments
+        return TranscribedSamples(segments: segments, speakerSpans: spans)
     }
 
     private static func shouldUseCoarseTimingFallback(
@@ -359,6 +540,62 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
             Self.log.error("diarizer FAILED: \(String(describing: error), privacy: .public)")
             return []
         }
+    }
+
+    private static func detectSpeechWindows(
+        detector: any VoiceActivityDetecting,
+        samples: [Float]
+    ) async -> [NoteTakrCore.TranscriptMerger.SpeechWindow] {
+        do {
+            let windows = try await detector.speechWindows(samples: samples)
+            Self.log.info("mic VAD produced \(windows.count) speech window(s)")
+            return windows
+        } catch {
+            Self.log.error("mic VAD FAILED: \(String(describing: error), privacy: .public)")
+            return []
+        }
+    }
+
+    static func mixSamples(
+        _ left: [Float],
+        _ right: [Float],
+        leftGain: Float = 1.0,
+        rightGain: Float = 1.0
+    ) -> [Float] {
+        let count = max(left.count, right.count)
+        guard count > 0 else { return [] }
+
+        var mixed = Array(repeating: Float(0), count: count)
+        var peak = Float(0)
+        for index in 0..<count {
+            let leftSample = index < left.count ? left[index] * leftGain : 0
+            let rightSample = index < right.count ? right[index] * rightGain : 0
+            let sample = leftSample + rightSample
+            mixed[index] = sample
+            peak = max(peak, abs(sample))
+        }
+
+        guard peak > 1 else { return mixed }
+        let scale = 1 / peak
+        return mixed.map { $0 * scale }
+    }
+
+    private static func rms(
+        samples: [Float],
+        window: NoteTakrCore.TranscriptMerger.SpeechWindow,
+        sampleRate: Double = 16_000
+    ) -> Float {
+        guard !samples.isEmpty, window.end > window.start else { return 0 }
+        let start = max(0, min(samples.count, Int((window.start * sampleRate).rounded(.down))))
+        let end = max(start, min(samples.count, Int((window.end * sampleRate).rounded(.up))))
+        guard end > start else { return 0 }
+
+        var sum = Double(0)
+        for sample in samples[start..<end] {
+            let value = Double(sample)
+            sum += value * value
+        }
+        return Float((sum / Double(end - start)).squareRoot())
     }
 
     /// Reconstructs word-level timings from FluidAudio token timings. Depending
