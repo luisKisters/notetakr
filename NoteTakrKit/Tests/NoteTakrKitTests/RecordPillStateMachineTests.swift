@@ -34,6 +34,40 @@ final class RecordPillStateMachineTests: XCTestCase {
         XCTAssertEqual(received, .recording(elapsed: 0))
     }
 
+    func testRequestStartDoesNotEnterRecordingUntilConfirmed() {
+        let m = RecordPillStateMachine()
+        var fired = false
+        m.onStarted = { fired = true }
+
+        m.requestStart()
+
+        XCTAssertTrue(fired)
+        XCTAssertEqual(m.state, .idle)
+        XCTAssertTrue(m.isStartPending)
+
+        m.confirmStarted()
+        XCTAssertEqual(m.state, .recording(elapsed: 0))
+        XCTAssertFalse(m.isStartPending)
+    }
+
+    func testRequestStartWithoutCallbackDoesNotFakeRecording() {
+        let m = RecordPillStateMachine()
+        m.requestStart()
+        XCTAssertEqual(m.state, .idle)
+        XCTAssertFalse(m.isStartPending)
+    }
+
+    func testResetClearsPendingStart() {
+        let m = RecordPillStateMachine()
+        m.onStarted = {}
+        m.requestStart()
+
+        m.reset()
+
+        XCTAssertEqual(m.state, .idle)
+        XCTAssertFalse(m.isStartPending)
+    }
+
     // MARK: - tick
 
     func testTickAdvancesElapsedWhenRecording() {

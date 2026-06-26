@@ -34,6 +34,7 @@ public enum StopIntent: Equatable {
 public final class RecordPillStateMachine {
 
     public private(set) var state: RecordPillState = .idle
+    public private(set) var isStartPending = false
 
     // MARK: - Callbacks
 
@@ -107,6 +108,22 @@ public final class RecordPillStateMachine {
         case .doneTranscript:
             onViewTranscript?()
         }
+    }
+
+    /// App-facing start request. Unlike `tap()` this does not optimistically enter
+    /// `.recording`; the controller must call `confirmStarted()` after the recorder
+    /// actually starts.
+    public func requestStart() {
+        guard state == .idle, !isStartPending, let onStarted else { return }
+        isStartPending = true
+        onStarted()
+    }
+
+    /// Confirms a pending start after the backing recorder is live.
+    public func confirmStarted() {
+        guard isStartPending, state == .idle else { return }
+        isStartPending = false
+        transition(to: .recording(elapsed: 0))
     }
 
     /// Advance the elapsed counter by one second. No-op unless `.recording`.
@@ -191,6 +208,7 @@ public final class RecordPillStateMachine {
     /// make it look already "Transcribed". Call this when loading any note so every note
     /// opens at Record. Unlike `cancelBusyPipeline()`, this resets from terminal states too.
     public func reset() {
+        isStartPending = false
         if state != .idle {
             transition(to: .idle)
         }

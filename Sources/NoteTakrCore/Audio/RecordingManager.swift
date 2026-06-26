@@ -12,6 +12,7 @@ public final class RecordingManager: @unchecked Sendable {
     public let store: SessionStore
     public let recorder: any AudioRecorder
     private var _activeSession: MeetingSession?
+    private var _recordingStartedAt: Date?
 
     public var activeSession: MeetingSession? { _activeSession }
     public var isRecording: Bool { recorder.isRecording }
@@ -37,6 +38,8 @@ public final class RecordingManager: @unchecked Sendable {
         session.status = .recording
         session.audioFilePaths = []
         session.audioSourceStatuses = []
+        let recordingStartedAt = Date()
+        _recordingStartedAt = recordingStartedAt
         try store.save(session)
         let dir = store.sessionURL(for: session)
         do {
@@ -52,6 +55,7 @@ public final class RecordingManager: @unchecked Sendable {
         } catch {
             session.status = .failed
             try store.save(session)
+            _recordingStartedAt = nil
             throw error
         }
         _activeSession = session
@@ -66,10 +70,14 @@ public final class RecordingManager: @unchecked Sendable {
         }
         do {
             let reportedURLs = try await recorder.stopRecording()
+            let enabledSources = session.audioRecordingOptions.enabledSources
+            let recordingStartedAt = _recordingStartedAt ?? .distantPast
             let urls = Self.recoverRecordedURLs(
                 for: session,
                 store: store,
-                returnedURLs: reportedURLs
+                returnedURLs: reportedURLs,
+                enabledSources: enabledSources,
+                recordingStartedAt: recordingStartedAt
             )
             let missingReasons = (recorder as? AudioCaptureReporter)?.lastMissingReasons ?? [:]
             session.audioFilePaths = urls.map { $0.path }
@@ -81,11 +89,13 @@ public final class RecordingManager: @unchecked Sendable {
             try store.save(session)
             let persisted = (try? store.load(id: session.id)) ?? session
             _activeSession = nil
+            _recordingStartedAt = nil
             return persisted
         } catch {
             session.status = .failed
             try store.save(session)
             _activeSession = nil
+            _recordingStartedAt = nil
             throw error
         }
     }
@@ -97,6 +107,7 @@ public final class RecordingManager: @unchecked Sendable {
         session.status = .failed
         try? store.save(session)
         _activeSession = nil
+        _recordingStartedAt = nil
     }
 
     // Derives per-source statuses from the URLs returned by stopRecording().
@@ -129,17 +140,21 @@ public final class RecordingManager: @unchecked Sendable {
     private static func recoverRecordedURLs(
         for session: MeetingSession,
         store: SessionStore,
-        returnedURLs: [URL]
+        returnedURLs: [URL],
+        enabledSources: Set<AudioSourceType>,
+        recordingStartedAt: Date
     ) -> [URL] {
         var bySource: [AudioSourceType: URL] = [:]
+        let earliestAllowedModification = recordingStartedAt.addingTimeInterval(-1)
 
         for url in returnedURLs where isUsableAudioFile(url) {
             guard let source = sourceType(forAudioURL: url) else { continue }
+            guard enabledSources.contains(source) else { continue }
             bySource[source] = url
         }
 
         let candidateDirs = candidateSessionDirectories(for: session, store: store)
-        for source in AudioSourceType.allCases where bySource[source] == nil {
+        for source in enabledSources where bySource[source] == nil {
             let candidates = candidateDirs.compactMap { directory -> URL? in
                 let contents = (try? FileManager.default.contentsOfDirectory(
                     at: directory,
@@ -148,6 +163,7 @@ public final class RecordingManager: @unchecked Sendable {
                 )) ?? []
                 return contents
                     .filter { sourceType(forAudioURL: $0) == source && isUsableAudioFile($0) }
+                    .filter { modificationDate(for: $0) >= earliestAllowedModification }
                     .sorted { modificationDate(for: $0) > modificationDate(for: $1) }
                     .first
             }
@@ -220,4 +236,13 @@ public final class RecordingManager: @unchecked Sendable {
         }
     }
     #endif
+}
+
+private extension AudioRecordingOptions {
+    var enabledSources: Set<AudioSourceType> {
+        var sources: Set<AudioSourceType> = []
+        if microphoneEnabled { sources.insert(.microphone) }
+        if systemAudioEnabled { sources.insert(.systemAudio) }
+        return sources
+    }
 }

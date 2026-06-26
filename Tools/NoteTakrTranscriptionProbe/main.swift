@@ -37,12 +37,27 @@ struct ProbeOptions {
     var modelFolderURL: URL?
     var autoDownload = false
     var version: ProbeModelVersion = .v3
+    var diarizeOnly = false
 }
 
 struct ProbeOutput: Encodable {
     let text: String
     let durationSeconds: Double
     let modelVersion: String
+}
+
+struct DiarizationProbeOutput: Encodable {
+    struct Span: Encodable {
+        let speakerId: String
+        let start: Double
+        let end: Double
+    }
+
+    let durationSeconds: Double
+    let sampleCount: Int
+    let spanCount: Int
+    let speakerIds: [String]
+    let spans: [Span]
 }
 
 @main
@@ -57,6 +72,12 @@ struct NoteTakrTranscriptionProbe {
             let options = try parseArguments(arguments)
             let audioURL = try requireAudioURL(options.audioURL)
             let startedAt = Date()
+            if options.diarizeOnly {
+                let output = try await diarize(audioURL: audioURL)
+                let data = try JSONEncoder().encode(output)
+                print(String(decoding: data, as: UTF8.self))
+                return
+            }
             let text = try await transcribe(audioURL: audioURL, options: options)
             let output = ProbeOutput(
                 text: text,
@@ -97,6 +118,9 @@ struct NoteTakrTranscriptionProbe {
                 }
                 options.version = version
                 index += 2
+            case "--diarize-only":
+                options.diarizeOnly = true
+                index += 1
             default:
                 throw ProbeError.invalidArguments("Unknown argument: \(argument)\n\(usage)")
             }
@@ -105,7 +129,7 @@ struct NoteTakrTranscriptionProbe {
         if options.autoDownload, options.modelFolderURL != nil {
             throw ProbeError.invalidArguments("Use only one model source: --model-folder or --auto-download")
         }
-        guard options.autoDownload || options.modelFolderURL != nil else {
+        guard options.diarizeOnly || options.autoDownload || options.modelFolderURL != nil else {
             throw ProbeError.missingModelSource
         }
         return options
@@ -146,6 +170,27 @@ struct NoteTakrTranscriptionProbe {
         return result.text
     }
 
+    private static func diarize(audioURL: URL) async throws -> DiarizationProbeOutput {
+        let samples = try AudioConverter().resampleAudioFile(audioURL)
+        let manager = OfflineDiarizerManager(config: .default)
+        try await manager.prepareModels()
+        let result = try await manager.process(audio: samples)
+        let spans = result.segments.map {
+            DiarizationProbeOutput.Span(
+                speakerId: $0.speakerId,
+                start: Double($0.startTimeSeconds),
+                end: Double($0.endTimeSeconds)
+            )
+        }
+        return DiarizationProbeOutput(
+            durationSeconds: Double(samples.count) / 16_000,
+            sampleCount: samples.count,
+            spanCount: spans.count,
+            speakerIds: Array(Set(spans.map(\.speakerId))).sorted(),
+            spans: spans
+        )
+    }
+
     private static func downloadModels(version: ProbeModelVersion) async throws -> AsrModels {
         switch version {
         case .v3:
@@ -173,6 +218,7 @@ struct NoteTakrTranscriptionProbe {
         Usage:
           swift run NoteTakrTranscriptionProbe --audio /path/to/audio.wav --model-folder /path/to/parakeet-tdt-0.6b-v3-coreml --version v3
           swift run NoteTakrTranscriptionProbe --audio /path/to/audio.wav --auto-download --version tdtCtc110m
+          swift run NoteTakrTranscriptionProbe --audio /path/to/audio.wav --diarize-only
         """
     }
 

@@ -236,7 +236,10 @@ final class NotePanelController {
                 tabsBridge: tabsBridge,
                 switcherBridge: switcherBridge,
                 settingsBridge: settingsBridge,
-                recordPillMachine: recordPillMachine
+                recordPillMachine: recordPillMachine,
+                onRenameSpeaker: { [weak self] noteID, oldName, newName in
+                    self?.appModelRef?.renameSpeaker(noteID: noteID, from: oldName, to: newName)
+                }
             ),
             hoverChanged: { [weak p] isHovered in
                 p?.setCloseButtonVisible(isHovered)
@@ -303,9 +306,13 @@ final class NotePanelController {
                 self.showRecordingError("The current note could not be loaded for recording.")
                 return
             }
+            NSLog("NoteTakr record pill start requested for note \(note.id)")
             Task { @MainActor in
-                await appModel.startRecording(for: note)
-                guard appModel.isRecording else {
+                let didStart = await appModel.startRecording(for: note)
+                NSLog(
+                    "NoteTakr record pill start completed: didStart=\(didStart) isRecording=\(appModel.isRecording)"
+                )
+                guard didStart, appModel.isRecording else {
                     // Start failed (classic cause: mic permission). Don't let the pill
                     // pretend to record — reset it and tell the user why.
                     self.recordPillMachine.reset()
@@ -314,6 +321,7 @@ final class NotePanelController {
                     )
                     return
                 }
+                self.recordPillMachine.confirmStarted()
                 self.startPillTickTimer()
             }
         }
@@ -342,8 +350,8 @@ final class NotePanelController {
             Task { @MainActor in
                 self.pillPipelineCancellables.removeAll()
                 await appModel.stopRecording()
-                await appModel.startRecording(for: note)
-                guard appModel.isRecording else {
+                let didStart = await appModel.startRecording(for: note)
+                guard didStart, appModel.isRecording else {
                     self.recordPillMachine.reset()
                     self.showRecordingError(
                         appModel.recordingError ?? "Recording could not be restarted."
@@ -656,6 +664,9 @@ final class NotePanelController {
     /// True while the record pill represents an in-progress (or paused) recording session.
     /// Used to avoid resetting the pill during the recording-start reload of `loadNote`.
     private var isPillActivelyRecording: Bool {
+        if recordPillMachine.isStartPending {
+            return true
+        }
         switch recordPillMachine.state {
         case .recording, .paused: return true
         default: return false

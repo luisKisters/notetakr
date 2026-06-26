@@ -8,6 +8,7 @@ struct EditorView: View {
     @ObservedObject var switcherBridge: SwitcherBridge
     @ObservedObject var settingsBridge: SettingsSheetViewModel
     let recordPillMachine: RecordPillStateMachine
+    let onRenameSpeaker: ((String, String, String) -> Void)?
     @State private var pillState: RecordPillState = .idle
 
     private var themeColors: ThemeColors {
@@ -166,7 +167,11 @@ struct EditorView: View {
                 state: tabsBridge.transcriptState,
                 speakerResolutions: tabsBridge.speakerResolutions,
                 onGenerate: tabsBridge.canGenerateTranscript
-                    ? { tabsBridge.generateTranscript() } : nil
+                    ? { tabsBridge.generateTranscript() } : nil,
+                onRenameSpeaker: { oldName, newName in
+                    guard !frontmatterBridge.noteID.isEmpty else { return }
+                    onRenameSpeaker?(frontmatterBridge.noteID, oldName, newName)
+                }
             )
             .environment(\.themeColors, themeColors)
         }

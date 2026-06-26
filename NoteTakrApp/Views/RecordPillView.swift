@@ -49,7 +49,6 @@ struct RecordPillView: View {
     var body: some View {
         badge
             .contentShape(Capsule())
-            .onTapGesture { /* handled by sub-buttons; this prevents click-throughs */ }
     }
 
     // MARK: - Badge shell
@@ -81,8 +80,12 @@ struct RecordPillView: View {
         Button {
             guard !isBusy else { return }
             menuOpen = false
-            if pillState == .idle, let onIdleTapOverride {
-                onIdleTapOverride()
+            if pillState == .idle {
+                if let onIdleTapOverride {
+                    onIdleTapOverride()
+                } else {
+                    machine.requestStart()
+                }
             } else {
                 machine.tap()
             }

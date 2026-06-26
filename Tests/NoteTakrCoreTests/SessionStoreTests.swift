@@ -150,6 +150,24 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertNil(loaded?.transcriptSegments[1].speaker)
     }
 
+    func testRenameSpeakerPersistsMatchingSegmentsOnly() throws {
+        var session = MeetingSession(title: "With Speakers", date: Date(timeIntervalSince1970: 1_700_000_000))
+        session.transcriptSegments = [
+            TranscriptSegment(timestamp: 0, speaker: "Speaker 1", text: "Hello"),
+            TranscriptSegment(timestamp: 5, speaker: "Speaker 2", text: "World"),
+            TranscriptSegment(timestamp: 10, speaker: "Speaker 1", text: "Again")
+        ]
+        try store.save(session)
+
+        let updated = try store.renameSpeaker(in: session.id, from: "Speaker 1", to: "Connor")
+
+        XCTAssertEqual(updated?.transcriptSegments.map(\.speaker), ["Connor", "Speaker 2", "Connor"])
+        XCTAssertEqual(updated?.transcriptSegments.map(\.text), ["Hello", "World", "Again"])
+
+        let loaded = try store.load(id: session.id)
+        XCTAssertEqual(loaded?.transcriptSegments.map(\.speaker), ["Connor", "Speaker 2", "Connor"])
+    }
+
     func testFolderSanitizationLongTitle() {
         let longTitle = String(repeating: "a", count: 100)
         let sanitized = SessionStore.sanitizeTitle(longTitle)

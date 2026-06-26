@@ -44,6 +44,13 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
         currentOptions = options
 
         if options.microphoneEnabled {
+            try? FileManager.default.removeItem(at: micURL)
+        }
+        if options.systemAudioEnabled {
+            try? FileManager.default.removeItem(at: sysURL)
+        }
+
+        if options.microphoneEnabled {
             let settings: [String: Any] = [
                 AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
                 AVSampleRateKey: 44_100.0,
@@ -60,11 +67,11 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
             _lastMissingReasons[AudioSourceType.microphone.rawValue] = "Microphone disabled"
         }
 
-        // System-audio via ScreenCaptureKit; requires screen recording permission.
+        // System-audio via ScreenCaptureKit; requires Screen & System Audio Recording permission.
         // Gracefully skipped when permission is absent or hardware is unavailable.
         if !options.systemAudioEnabled {
             _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "System audio disabled"
-        } else if CGPreflightScreenCaptureAccess() {
+        } else if Self.hasScreenCaptureAccess() {
             let capturer = SystemAudioCapturer()
             do {
                 try await capturer.startCapture(to: sysURL)
@@ -76,7 +83,8 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
                 sysAudioCapturer = nil
             }
         } else {
-            _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "Screen Recording permission not granted"
+            _lastMissingReasons[AudioSourceType.systemAudio.rawValue] =
+                "Screen & System Audio Recording permission not granted"
         }
 
         guard micRecorder != nil || sysAudioCapturer != nil else {
@@ -100,20 +108,20 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
 
         micRecorder?.stop()
         micRecorder = nil
-        if let url = capturedMicURL, FileManager.default.fileExists(atPath: url.path) {
+        if let url = capturedMicURL, await Self.isReadableRecordingFile(url) {
             results.append(url)
         } else if currentOptions.microphoneEnabled {
-            _lastMissingReasons[AudioSourceType.microphone.rawValue] = "No samples received"
+            _lastMissingReasons[AudioSourceType.microphone.rawValue] = "No readable samples received"
         }
         capturedMicURL = nil
 
         if let capturer = sysAudioCapturer {
             do {
                 try await capturer.stopCapture()
-                if let url = capturedSysURL, FileManager.default.fileExists(atPath: url.path) {
+                if let url = capturedSysURL, await Self.isReadableRecordingFile(url) {
                     results.append(url)
                 } else {
-                    _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "No samples received"
+                    _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "No readable samples received"
                 }
             } catch {
                 _lastMissingReasons[AudioSourceType.systemAudio.rawValue] =
@@ -125,6 +133,34 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
         currentOptions = .default
 
         return results
+    }
+
+    private static func isReadableRecordingFile(_ url: URL) async -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+        guard size > 0 else { return false }
+
+        let asset = AVURLAsset(url: url)
+        if #available(macOS 12, *) {
+            guard let duration = try? await asset.load(.duration) else { return false }
+            let seconds = CMTimeGetSeconds(duration)
+            return seconds.isFinite && seconds > 0
+        } else {
+            return await withCheckedContinuation { continuation in
+                asset.loadValuesAsynchronously(forKeys: ["duration"]) {
+                    let seconds = CMTimeGetSeconds(asset.duration)
+                    continuation.resume(returning: seconds.isFinite && seconds > 0)
+                }
+            }
+        }
+    }
+
+    private static func hasScreenCaptureAccess() -> Bool {
+        if CGPreflightScreenCaptureAccess() {
+            return true
+        }
+        return CGRequestScreenCaptureAccess()
     }
 }
 #endif

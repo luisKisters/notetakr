@@ -157,6 +157,60 @@ final class RecordingManagerTests: XCTestCase {
         )
     }
 
+    func testStopRecordingDoesNotRecoverStaleDisabledSystemAudio() async throws {
+        let input = MeetingSession(
+            title: "Stale Disabled System",
+            date: Date(),
+            microphoneEnabled: true,
+            systemAudioEnabled: false
+        )
+        let dir = store.sessionURL(for: input)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let staleSystemURL = dir.appendingPathComponent("system-audio.wav")
+        try Data(repeating: 7, count: 512).write(to: staleSystemURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSinceNow: -120)],
+            ofItemAtPath: staleSystemURL.path
+        )
+
+        _ = try await manager.startRecording(session: input)
+        let stopped = try await manager.stopRecording()
+
+        XCTAssertEqual(stopped.audioFilePaths.count, 1)
+        XCTAssertTrue(stopped.audioFilePaths[0].hasSuffix("microphone.wav"))
+        let sysStatus = try XCTUnwrap(stopped.audioSourceStatuses.first { $0.source == .systemAudio })
+        XCTAssertFalse(sysStatus.isPresent)
+        XCTAssertEqual(sysStatus.missingReason, "System audio disabled")
+    }
+
+    func testStopRecordingDoesNotRecoverStaleEnabledSystemAudioAfterCaptureFailure() async throws {
+        recorder.omitSystemAudio = true
+        recorder.mockMissingReasons = ["systemAudio": "Capture start failure"]
+        let input = MeetingSession(
+            title: "Stale Enabled System",
+            date: Date(),
+            microphoneEnabled: true,
+            systemAudioEnabled: true
+        )
+        let dir = store.sessionURL(for: input)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let staleSystemURL = dir.appendingPathComponent("system-audio.wav")
+        try Data(repeating: 9, count: 512).write(to: staleSystemURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSinceNow: -120)],
+            ofItemAtPath: staleSystemURL.path
+        )
+
+        _ = try await manager.startRecording(session: input)
+        let stopped = try await manager.stopRecording()
+
+        XCTAssertEqual(stopped.audioFilePaths.count, 1)
+        XCTAssertTrue(stopped.audioFilePaths[0].hasSuffix("microphone.wav"))
+        let sysStatus = try XCTUnwrap(stopped.audioSourceStatuses.first { $0.source == .systemAudio })
+        XCTAssertFalse(sysStatus.isPresent)
+        XCTAssertEqual(sysStatus.missingReason, "Capture start failure")
+    }
+
     func testStartRecordingWithNoEnabledSourcesThrows() async throws {
         let input = MeetingSession(
             title: "No Sources",

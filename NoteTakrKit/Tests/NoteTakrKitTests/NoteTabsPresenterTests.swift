@@ -452,10 +452,18 @@ final class NoteTabsPresenterTests: XCTestCase {
         )
         let summaryGen = ImmediateMockGenerator(result: .success("Nice summary"))
         let p = NoteTabsPresenter(summaryGenerator: summaryGen, transcriptGenerator: transcriptGen)
+        var transcriptFulfilled = false
+        var summaryFulfilled = false
 
         p.onChange = {
-            if case .segments = p.transcriptState(for: "n1") { transcriptExp.fulfill() }
-            if case .ready = p.summaryState(for: "n1") { summaryExp.fulfill() }
+            if !transcriptFulfilled, case .segments = p.transcriptState(for: "n1") {
+                transcriptFulfilled = true
+                transcriptExp.fulfill()
+            }
+            if !summaryFulfilled, case .ready = p.summaryState(for: "n1") {
+                summaryFulfilled = true
+                summaryExp.fulfill()
+            }
         }
 
         p.transcribeAndSummarize(for: "n1")

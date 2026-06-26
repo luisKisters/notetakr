@@ -17,43 +17,43 @@ struct ChipsRowView: View {
     @State private var isChevronHovering = false
 
     var body: some View {
-        // The outer button covers the whole row for expand toggle.
-        // RecordPillView (nested Button) intercepts taps within its own bounds.
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { bridge.isExpanded.toggle() }
-        } label: {
-            HStack(spacing: 0) {
-                RecordPillView(
-                    machine: machine,
-                    pillState: pillState,
-                    onIdleTapOverride: onRecordPillIdleTap
-                )
-                    .environment(\.themeColors, theme)
-                    .padding(.trailing, 6)
+        HStack(spacing: 0) {
+            RecordPillView(
+                machine: machine,
+                pillState: pillState,
+                onIdleTapOverride: onRecordPillIdleTap
+            )
+            .environment(\.themeColors, theme)
+            .padding(.trailing, 6)
 
-                // Vertical divider
-                Rectangle()
-                    .fill(theme.hairline.swiftUIColor)
-                    .frame(width: 1, height: 11)
-                    .padding(.trailing, 9)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { bridge.isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 0) {
+                    // Vertical divider
+                    Rectangle()
+                        .fill(theme.hairline.swiftUIColor)
+                        .frame(width: 1, height: 11)
+                        .padding(.trailing, 9)
 
-                // Non-recording chips (recording chip removed — pill handles the display)
-                HStack(spacing: 6) {
-                    ForEach(Array(nonRecordingChips.enumerated()), id: \.offset) { _, chip in
-                        chipView(chip)
+                    // Non-recording chips (recording chip removed — pill handles the display)
+                    HStack(spacing: 6) {
+                        ForEach(Array(nonRecordingChips.enumerated()), id: \.offset) { _, chip in
+                            chipView(chip)
+                        }
                     }
+                    .onHover { isChipsAreaHovering = $0 }
+
+                    Spacer(minLength: 0)
+
+                    chevron
                 }
-                .onHover { isChipsAreaHovering = $0 }
-
-                Spacer(minLength: 0)
-
-                chevron
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 4)
         .padding(.bottom, 2)
     }
 

@@ -5,6 +5,7 @@ struct TranscriptView: View {
     let state: TranscriptState
     var speakerResolutions: [String: SpeakerResolution] = [:]
     var onGenerate: (() -> Void)? = nil
+    var onRenameSpeaker: ((String, String) -> Void)? = nil
 
     @Environment(\.themeColors) private var theme
     @State private var collapsedIndices: Set<Int> = []
@@ -197,7 +198,11 @@ struct TranscriptView: View {
 
     private func applyRename(speakerID: String?, newName: String) {
         guard let id = speakerID else { return }
-        nameOverrides[id] = newName
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let persistedID = nameOverrides[id] ?? id
+        nameOverrides[id] = trimmed
+        onRenameSpeaker?(persistedID, trimmed)
     }
 
     private func showCopyToastBriefly() {

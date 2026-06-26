@@ -44,6 +44,7 @@ final class AppModel: ObservableObject {
 
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
+    private var recordingActivity: NSObjectProtocol?
 
     /// Called when recording starts; argument is the session ID string.
     var onRecordingStarted: ((String) -> Void)?
@@ -126,12 +127,16 @@ final class AppModel: ObservableObject {
         }
         #endif
 
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        NSLog("NoteTakr microphone authorization status before recording: \(Self.microphoneStatusDescription(status))")
+        switch status {
         case .authorized:
             return true
         case .notDetermined:
             // Shows the system prompt and awaits the user's choice.
-            return await AVCaptureDevice.requestAccess(for: .audio)
+            let granted = await requestMicrophoneAccessWithTimeout()
+            NSLog("NoteTakr microphone permission request completed: \(granted)")
+            return granted
         case .denied, .restricted:
             return false
         @unknown default:
@@ -139,28 +144,60 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func requestMicrophoneAccessWithTimeout() async -> Bool {
+        await withCheckedContinuation { continuation in
+            let gate = MicrophonePermissionGate(continuation)
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                gate.resume(returning: granted)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                gate.resume(returning: false)
+            }
+        }
+    }
+
+    private static func microphoneStatusDescription(_ status: AVAuthorizationStatus) -> String {
+        switch status {
+        case .authorized: return "authorized"
+        case .notDetermined: return "notDetermined"
+        case .denied: return "denied"
+        case .restricted: return "restricted"
+        @unknown default: return "unknown"
+        }
+    }
+
+    private func resolveMicrophoneAvailability(for options: inout AudioRecordingOptions) async -> Bool {
+        guard options.microphoneEnabled else { return true }
+        guard !(await ensureMicrophonePermission()) else { return true }
+        guard options.systemAudioEnabled else { return false }
+        options.microphoneEnabled = false
+        NSLog("NoteTakr microphone permission missing; continuing with system audio only")
+        FluidAudioAdapter.log.error("microphone permission missing; continuing with system audio only")
+        return true
+    }
+
     func startRecording(title: String? = nil) async {
         guard !recordingManager.isRecording else { return }
         recordingError = nil
         let inPerson = appSettings.inPersonByDefault
-        let options = audioOptions(inPerson: inPerson)
+        var options = audioOptions(inPerson: inPerson)
 
         guard options.microphoneEnabled || options.systemAudioEnabled else {
             recordingError = "Turn on at least one audio source before recording."
             return
         }
 
-        // Gate on microphone permission BEFORE creating a session — otherwise the
-        // recorder silently captures nothing and the note ends up with no audio.
-        if options.microphoneEnabled, !(await ensureMicrophonePermission()) {
+        if options.microphoneEnabled,
+           !(await resolveMicrophoneAvailability(for: &options)) {
             recordingError = "Microphone access is required to record. Turn it on for "
                 + "NoteTakr in System Settings → Privacy & Security → Microphone."
-            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted")
+            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted and no fallback source")
             return  // isRecording stays false → caller resets the pill + shows the alert
         }
 
         let name = title ?? nextMeeting?.title ?? "Meeting Recording"
         do {
+            beginRecordingActivity()
             let pendingSession = MeetingSession(
                 title: name,
                 date: Date(),
@@ -172,6 +209,7 @@ final class AppModel: ObservableObject {
             isRecording = true
             onRecordingStarted?(session.id.uuidString)
         } catch {
+            endRecordingActivity()
             isRecording = recordingManager.isRecording
             // Surface the failure — swallowing it leaves the pill "recording" nothing
             // (the classic cause: mic permission lost after an unsigned rebuild).
@@ -182,36 +220,52 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func startRecording(for note: MeetingNote) async {
-        guard !recordingManager.isRecording else { return }
+    @discardableResult
+    func startRecording(for note: MeetingNote) async -> Bool {
+        NSLog("NoteTakr recording start requested for note \(note.id)")
+        guard !recordingManager.isRecording else { return true }
         recordingError = nil
         let inPerson = effectiveInPerson(for: note)
-        let options = audioOptions(inPerson: inPerson)
+        var options = audioOptions(inPerson: inPerson)
 
         guard options.microphoneEnabled || options.systemAudioEnabled else {
             recordingError = "Turn on at least one audio source before recording."
-            return
+            NSLog("NoteTakr recording start blocked: no enabled audio sources")
+            return false
         }
 
-        if options.microphoneEnabled, !(await ensureMicrophonePermission()) {
+        if options.microphoneEnabled,
+           !(await resolveMicrophoneAvailability(for: &options)) {
             recordingError = "Microphone access is required to record. Turn it on for "
                 + "NoteTakr in System Settings → Privacy & Security → Microphone."
-            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted")
-            return
+            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted and no fallback source")
+            NSLog("NoteTakr recording start blocked: microphone permission not granted and no fallback source")
+            return false
         }
 
-        guard let session = sessionForRecording(note: note) else { return }
+        guard let session = sessionForRecording(note: note, options: options) else {
+            NSLog("NoteTakr recording start blocked: invalid note id \(note.id)")
+            return false
+        }
 
         do {
+            beginRecordingActivity()
+            NSLog("NoteTakr recording manager start begin for session \(session.id.uuidString)")
             let started = try await recordingManager.startRecording(session: session)
+            NSLog("NoteTakr recording manager start returned for session \(started.id.uuidString)")
             isRecording = true
             onRecordingStarted?(started.id.uuidString)
+            NSLog("NoteTakr recording started for session \(started.id.uuidString)")
+            return true
         } catch {
+            endRecordingActivity()
             isRecording = recordingManager.isRecording
             let message = (error as? AudioRecorderError).map(Self.recorderErrorMessage)
                 ?? error.localizedDescription
             recordingError = message
             FluidAudioAdapter.log.error("recording START failed: \(message, privacy: .public)")
+            NSLog("NoteTakr recording START failed: \(message)")
+            return false
         }
     }
 
@@ -222,6 +276,7 @@ final class AppModel: ObservableObject {
     func stopRecording() async {
         guard recordingManager.isRecording else { return }
         let stopped: MeetingSession?
+        defer { endRecordingActivity() }
         do {
             stopped = try await recordingManager.stopRecording()
         } catch {
@@ -231,6 +286,31 @@ final class AppModel: ObservableObject {
         }
         isRecording = false
         onRecordingStopped?(stopped?.id.uuidString)
+    }
+
+    func renameSpeaker(noteID: String, from oldName: String, to newName: String) {
+        guard let uuid = UUID(uuidString: noteID) else { return }
+        guard let updated = try? store.renameSpeaker(in: uuid, from: oldName, to: newName) else { return }
+        regenerateNote(for: updated)
+    }
+
+    private func beginRecordingActivity() {
+        guard recordingActivity == nil else { return }
+        recordingActivity = ProcessInfo.processInfo.beginActivity(
+            options: [
+                .userInitiated,
+                .idleSystemSleepDisabled,
+                .suddenTerminationDisabled,
+                .automaticTerminationDisabled
+            ],
+            reason: "Recording audio"
+        )
+    }
+
+    private func endRecordingActivity() {
+        guard let activity = recordingActivity else { return }
+        ProcessInfo.processInfo.endActivity(activity)
+        recordingActivity = nil
     }
 
     private static func recorderErrorMessage(_ error: AudioRecorderError) -> String {
@@ -252,7 +332,10 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func sessionForRecording(note: MeetingNote) -> MeetingSession? {
+    private func sessionForRecording(
+        note: MeetingNote,
+        options: AudioRecordingOptions? = nil
+    ) -> MeetingSession? {
         guard let uuid = UUID(uuidString: note.id) else {
             recordingError = "This note cannot be recorded because it has an invalid ID."
             return nil
@@ -271,7 +354,7 @@ final class AppModel: ObservableObject {
             NoteTakrCore.Participant(name: $0.name, email: $0.email)
         }
         let inPerson = effectiveInPerson(for: note)
-        let options = audioOptions(inPerson: inPerson)
+        let options = options ?? audioOptions(inPerson: inPerson)
         session.inPerson = inPerson
         session.microphoneEnabled = options.microphoneEnabled
         session.systemAudioEnabled = options.systemAudioEnabled
@@ -539,5 +622,22 @@ final class AppModel: ObservableObject {
         } catch {
             calendarError = "Calendar unavailable"
         }
+    }
+}
+
+private final class MicrophonePermissionGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    init(_ continuation: CheckedContinuation<Bool, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(returning value: Bool) {
+        lock.lock()
+        let continuation = continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume(returning: value)
     }
 }

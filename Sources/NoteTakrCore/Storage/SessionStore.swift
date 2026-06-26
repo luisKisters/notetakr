@@ -101,6 +101,27 @@ public final class SessionStore: @unchecked Sendable {
         try FileManager.default.removeItem(at: dir)
     }
 
+    @discardableResult
+    public func renameSpeaker(in sessionID: UUID, from oldName: String, to newName: String) throws -> MeetingSession? {
+        let trimmedOldName = oldName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedNewName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedOldName.isEmpty, !trimmedNewName.isEmpty else { return try load(id: sessionID) }
+        guard var session = try load(id: sessionID) else { return nil }
+
+        var didChange = false
+        session.transcriptSegments = session.transcriptSegments.map { segment in
+            guard segment.speaker == trimmedOldName else { return segment }
+            var renamed = segment
+            renamed.speaker = trimmedNewName
+            didChange = true
+            return renamed
+        }
+
+        guard didChange else { return session }
+        try save(session)
+        return session
+    }
+
     // Marks any in-progress sessions as failed — call on app launch to recover from interruptions.
     public func recoverInterruptedSessions() throws {
         let sessions = try loadAll()
