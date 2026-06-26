@@ -49,14 +49,22 @@ public enum TranscriptAssembler {
     /// Consecutive words from the same speaker are merged into one segment.
     ///
     /// When `speakerSpans` is empty (diarization unavailable or single speaker),
-    /// the words are merged into one segment with no speaker label.
-    public static func assemble(words: [TimedWord], speakerSpans: [SpeakerSpan]) -> [TranscriptSegment] {
+    /// the words are merged into one unlabeled segment unless `sameSpeakerSplitGap`
+    /// is provided, in which case long silences split separate turns.
+    public static func assemble(
+        words: [TimedWord],
+        speakerSpans: [SpeakerSpan],
+        sameSpeakerSplitGap: TimeInterval? = nil
+    ) -> [TranscriptSegment] {
         let cleanedWords = words.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
         guard !cleanedWords.isEmpty else { return [] }
 
         guard !speakerSpans.isEmpty else {
-            let text = cleanedWords.map(\.text).joined(separator: " ")
-            return [TranscriptSegment(timestamp: cleanedWords[0].start, speaker: nil, text: text)]
+            return assembleSingleSpeakerWords(
+                cleanedWords,
+                speaker: nil,
+                sameSpeakerSplitGap: sameSpeakerSplitGap
+            )
         }
 
         let labels = speakerLabels(for: speakerSpans)
@@ -65,6 +73,7 @@ public enum TranscriptAssembler {
         var currentSpeaker: String?
         var currentWords: [String] = []
         var currentStart: TimeInterval = cleanedWords[0].start
+        var previousWordEnd: TimeInterval?
 
         func flush() {
             guard !currentWords.isEmpty else { return }
@@ -84,12 +93,17 @@ public enum TranscriptAssembler {
             if currentWords.isEmpty {
                 currentSpeaker = label
                 currentStart = word.start
-            } else if label != currentSpeaker {
+            } else if label != currentSpeaker || shouldSplitAfterGap(
+                previousWordEnd: previousWordEnd,
+                nextWordStart: word.start,
+                sameSpeakerSplitGap: sameSpeakerSplitGap
+            ) {
                 flush()
                 currentSpeaker = label
                 currentStart = word.start
             }
             currentWords.append(word.text)
+            previousWordEnd = max(previousWordEnd ?? word.end, word.end)
         }
         flush()
 
@@ -241,6 +255,67 @@ public enum TranscriptAssembler {
             }
         }
         return runs
+    }
+
+    private static func assembleSingleSpeakerWords(
+        _ words: [TimedWord],
+        speaker: String?,
+        sameSpeakerSplitGap: TimeInterval?
+    ) -> [TranscriptSegment] {
+        guard let sameSpeakerSplitGap, sameSpeakerSplitGap > 0 else {
+            return [
+                TranscriptSegment(
+                    timestamp: words[0].start,
+                    speaker: speaker,
+                    text: words.map(\.text).joined(separator: " ")
+                )
+            ]
+        }
+
+        var segments: [TranscriptSegment] = []
+        var currentWords: [String] = []
+        var currentStart = words[0].start
+        var previousWordEnd: TimeInterval?
+
+        func flush() {
+            guard !currentWords.isEmpty else { return }
+            segments.append(
+                TranscriptSegment(
+                    timestamp: currentStart,
+                    speaker: speaker,
+                    text: currentWords.joined(separator: " ")
+                )
+            )
+            currentWords.removeAll(keepingCapacity: true)
+        }
+
+        for word in words {
+            if currentWords.isEmpty {
+                currentStart = word.start
+            } else if shouldSplitAfterGap(
+                previousWordEnd: previousWordEnd,
+                nextWordStart: word.start,
+                sameSpeakerSplitGap: sameSpeakerSplitGap
+            ) {
+                flush()
+                currentStart = word.start
+            }
+            currentWords.append(word.text)
+            previousWordEnd = max(previousWordEnd ?? word.end, word.end)
+        }
+        flush()
+        return segments
+    }
+
+    private static func shouldSplitAfterGap(
+        previousWordEnd: TimeInterval?,
+        nextWordStart: TimeInterval,
+        sameSpeakerSplitGap: TimeInterval?
+    ) -> Bool {
+        guard let previousWordEnd,
+              let sameSpeakerSplitGap,
+              sameSpeakerSplitGap > 0 else { return false }
+        return nextWordStart - previousWordEnd > sameSpeakerSplitGap
     }
 
     // MARK: - Boost helpers

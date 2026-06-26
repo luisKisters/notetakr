@@ -57,6 +57,12 @@ public final class TranscriptionService: @unchecked Sendable {
             guard shouldInclude(role: role, for: session) else { return nil }
             return TranscriptionSource(url: url, role: role)
         }
+        .sorted {
+            if $0.role != $1.role {
+                return sourceSortRank($0.role) < sourceSortRank($1.role)
+            }
+            return $0.url.lastPathComponent < $1.url.lastPathComponent
+        }
     }
 
     static func role(forFileName name: String) -> AudioSourceType {
@@ -73,6 +79,13 @@ public final class TranscriptionService: @unchecked Sendable {
             return session.microphoneEnabled
         case .systemAudio:
             return session.systemAudioEnabled && !session.inPerson
+        }
+    }
+
+    private static func sourceSortRank(_ role: AudioSourceType) -> Int {
+        switch role {
+        case .microphone: return 0
+        case .systemAudio: return 1
         }
     }
 

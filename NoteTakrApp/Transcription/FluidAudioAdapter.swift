@@ -182,6 +182,7 @@ actor FluidAudioVocabularyBooster: VocabularyBoosting {
 /// optional vocabulary boosting, producing speaker-labelled transcript segments.
 final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
     static let log = Logger(subsystem: "com.notetakr.app", category: "transcription")
+    private static let microphoneInterjectionGap: TimeInterval = 2.0
 
     private let settingsStore: TranscriptionSettingsStore
     private let runtime: any FluidAudioRuntimeProtocol
@@ -238,9 +239,16 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
 
         var groups: [[TranscriptSegment]] = []
         for source in sources {
-            let diarize = source.role == .systemAudio
+            // Diarize microphone in multi-source mode for speech timing/splits, then
+            // collapse it back to "You". Without this, mic speech can become one
+            // coarse 0:00 block instead of interleaving with system-audio turns.
+            let diarize = source.role == .microphone || source.role == .systemAudio
             let segments = try await transcribeSource(
-                url: source.url, vocabulary: vocabulary, settings: settings, diarize: diarize
+                url: source.url,
+                vocabulary: vocabulary,
+                settings: settings,
+                diarize: diarize,
+                sameSpeakerSplitGap: source.role == .microphone ? Self.microphoneInterjectionGap : nil
             )
             switch source.role {
             case .microphone:
@@ -259,7 +267,8 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
         url: URL,
         vocabulary: [VocabularyEntry],
         settings: TranscriptionModelSettings,
-        diarize: Bool
+        diarize: Bool,
+        sameSpeakerSplitGap: TimeInterval? = nil
     ) async throws -> [TranscriptSegment] {
         let samples: [Float]
         do {
@@ -302,7 +311,11 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
             }
         }
 
-        var segments = TranscriptAssembler.assemble(words: words, speakerSpans: spans)
+        var segments = TranscriptAssembler.assemble(
+            words: words,
+            speakerSpans: spans,
+            sameSpeakerSplitGap: sameSpeakerSplitGap
+        )
         if Self.shouldUseCoarseTimingFallback(segments: segments, speakerSpans: spans) {
             let fallbackText = words.map(\.text).joined(separator: " ")
             let fallback = TranscriptAssembler.assembleFallback(

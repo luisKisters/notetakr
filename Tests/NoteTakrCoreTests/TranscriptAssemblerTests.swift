@@ -15,6 +15,28 @@ final class TranscriptAssemblerTests: XCTestCase {
         XCTAssertEqual(segments[0].timestamp, 1.0)
     }
 
+    func testNoSpeakersCanSplitOnSilenceGap() {
+        let words = [
+            TimedWord(text: "I", start: 4.0, end: 4.1),
+            TimedWord(text: "agree", start: 4.1, end: 4.6),
+            TimedWord(text: "Actually", start: 20.0, end: 20.5),
+            TimedWord(text: "wait", start: 20.5, end: 20.8),
+        ]
+
+        let segments = TranscriptAssembler.assemble(
+            words: words,
+            speakerSpans: [],
+            sameSpeakerSplitGap: 2.0
+        )
+
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertNil(segments[0].speaker)
+        XCTAssertEqual(segments[0].timestamp, 4.0)
+        XCTAssertEqual(segments[0].text, "I agree")
+        XCTAssertEqual(segments[1].timestamp, 20.0)
+        XCTAssertEqual(segments[1].text, "Actually wait")
+    }
+
     func testGroupsConsecutiveWordsBySpeaker() {
         let words = [
             TimedWord(text: "Hello", start: 0.0, end: 0.5),
@@ -44,6 +66,30 @@ final class TranscriptAssemblerTests: XCTestCase {
         let segments = TranscriptAssembler.assemble(words: words, speakerSpans: spans)
         XCTAssertEqual(segments.count, 1)
         XCTAssertEqual(segments[0].speaker, "Speaker 2") // nearest span is "b"
+    }
+
+    func testSameSpeakerCanSplitOnSilenceGap() {
+        let words = [
+            TimedWord(text: "Quick", start: 1.0, end: 1.2),
+            TimedWord(text: "note", start: 1.2, end: 1.5),
+            TimedWord(text: "Second", start: 12.0, end: 12.5),
+            TimedWord(text: "thought", start: 12.5, end: 13.0),
+        ]
+        let spans = [
+            SpeakerSpan(speakerId: "me", start: 0.8, end: 2.0),
+            SpeakerSpan(speakerId: "me", start: 11.8, end: 13.2),
+        ]
+
+        let segments = TranscriptAssembler.assemble(
+            words: words,
+            speakerSpans: spans,
+            sameSpeakerSplitGap: 2.0
+        )
+
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments.map(\.speaker), ["Speaker 1", "Speaker 1"])
+        XCTAssertEqual(segments.map(\.timestamp), [1.0, 12.0])
+        XCTAssertEqual(segments.map(\.text), ["Quick note", "Second thought"])
     }
 
     func testApplyBoostReplacesSingleWordPreservingPunctuation() {

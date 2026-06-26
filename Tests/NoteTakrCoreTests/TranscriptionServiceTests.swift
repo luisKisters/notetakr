@@ -225,6 +225,28 @@ final class TranscriptionServiceTests: XCTestCase {
 
         XCTAssertEqual(engine.lastSources.map(\.role), [.systemAudio])
     }
+
+    func testRemoteSessionSendsMicrophoneBeforeSystemAudio() async throws {
+        let engine = SourceCapturingTranscriptionEngine()
+        let service = TranscriptionService(engine: engine, store: store)
+        var session = MeetingSession(
+            title: "Remote",
+            date: Date(),
+            microphoneEnabled: true,
+            systemAudioEnabled: true
+        )
+        let mic = tempDir.appendingPathComponent("microphone.m4a")
+        let system = tempDir.appendingPathComponent("system-audio.m4a")
+        try Data("mic".utf8).write(to: mic)
+        try Data("system".utf8).write(to: system)
+        session.audioFilePaths = [system.path, mic.path]
+        try store.save(session)
+
+        _ = try await service.transcribe(session: session, vocabulary: [])
+
+        XCTAssertEqual(engine.lastSources.map(\.role), [.microphone, .systemAudio])
+        XCTAssertEqual(engine.lastSources.map { $0.url.lastPathComponent }, ["microphone.m4a", "system-audio.m4a"])
+    }
 }
 
 private final class SourceCapturingTranscriptionEngine: TranscriptionEngine, @unchecked Sendable {
