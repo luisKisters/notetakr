@@ -267,11 +267,41 @@ final class NotePanelController {
             }
         }
         p.commandNHandler = { [weak self] in
-            guard let self, self.switcherBridge.isVisible else { return false }
-            self.switcherBridge.triggerCreateBlankNote()
+            guard let self else { return false }
+            if self.switcherBridge.isVisible {
+                self.switcherBridge.triggerCreateBlankNote()
+            } else {
+                self.createNewNote()
+            }
             return true
         }
+        p.commandBackspaceHandler = { [weak self] in
+            guard let self, !self.settingsBridge.isVisible else { return false }
+            if self.switcherBridge.isVisible {
+                return self.deleteSelectedSwitcherNote()
+            }
+            return self.deleteCurrentNote()
+        }
         self.panel = p
+    }
+
+    private func deleteSelectedSwitcherNote() -> Bool {
+        guard let item = switcherBridge.viewModel.selectedItem else { return false }
+        guard case .note(let id, _, _, _) = item.kind else { return false }
+        switcherBridge.deleteNote(id)
+        return true
+    }
+
+    /// Deletes the currently open editor note, then loads the next available note
+    /// through the switcher deletion callback.
+    @discardableResult
+    func deleteCurrentNote() -> Bool {
+        let noteID = bridge.viewModel.noteID ?? frontmatterBridge.noteID
+        guard !noteID.isEmpty else { return false }
+        guard switcherBridge.activeRecordingNoteID != noteID else { return false }
+        switcherBridge.deleteNote(noteID)
+        ensurePanelKey()
+        return true
     }
 
     private func loadCurrentNote() {
@@ -758,10 +788,17 @@ private final class FloatingPanel: NSPanel {
     var cancelHandler: (() -> Bool)?
     /// Return `true` to consume a command-key equivalent before SwiftUI/TextField handling.
     var commandNHandler: (() -> Bool)?
+    /// Return `true` after deleting the targeted note with command-backspace.
+    var commandBackspaceHandler: (() -> Bool)?
 
     override func cancelOperation(_ sender: Any?) {
         if let handler = cancelHandler, handler() { return }
         orderOut(nil)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if isCommandBackspace(event), commandBackspaceHandler?() == true { return }
+        super.keyDown(with: event)
     }
 
     /// Wire ⌘W to hide the floating panel. There is no standard window menu here, so the
@@ -775,11 +812,22 @@ private final class FloatingPanel: NSPanel {
                 return true
             case "n":
                 if commandNHandler?() == true { return true }
+            case "\u{7F}":
+                if commandBackspaceHandler?() == true { return true }
             default:
+                if isCommandBackspace(event), commandBackspaceHandler?() == true { return true }
                 break
             }
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    private func isCommandBackspace(_ event: NSEvent) -> Bool {
+        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command else {
+            return false
+        }
+        if event.keyCode == 51 { return true }  // Normal Mac delete/backspace key.
+        return event.charactersIgnoringModifiers == "\u{7F}"
     }
 
     func setCloseButtonVisible(_ isVisible: Bool) {
