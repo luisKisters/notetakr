@@ -1,6 +1,6 @@
 cask "notetakr" do
-  version "1.0,79"
-  sha256 "d03190f84efefefdae7f57119f53bf5854e68d2bb77abc08ca183a8cb02a124b"
+  version "1.0,80"
+  sha256 "a77f2e3d095e38d26b127e8818e5b1eb458d936874da94e94b26f6a1a27eeda2"
 
   url "https://github.com/luisKisters/notetakr/releases/download/v#{version.csv.first}-#{version.csv.second}/NoteTakr-#{version.csv.first}-#{version.csv.second}.dmg",
       verified: "github.com/luisKisters/notetakr/"
