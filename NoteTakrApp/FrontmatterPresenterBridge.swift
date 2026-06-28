@@ -59,7 +59,12 @@ final class FrontmatterPresenterBridge: ObservableObject {
         locationText: String? = nil,
         meetingLink: String? = nil
     ) {
-        let participants = attendees.map { Participant(name: $0.name, email: $0.email) }
+        let participants = attendees.map {
+            Participant(
+                name: Participant.displayName(name: $0.name, email: $0.email),
+                email: $0.email?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            )
+        }
         let info = LinkedEventInfo(
             eventID: id,
             title: title,
@@ -124,6 +129,10 @@ final class FrontmatterPresenterBridge: ObservableObject {
 
     var noteID: String { presenter?.note.id ?? "" }
     var noteTitle: String { presenter?.note.title ?? "" }
+    var noteDate: Date? { presenter?.note.date }
+    var noteEnd: Date? { presenter?.note.end }
+    var noteLocationText: String? { presenter?.note.locationText }
+    var noteMeetingLink: String? { presenter?.note.meetingLink }
     var noteTranscribe: Bool? { presenter?.note.transcribe }
     var noteLanguage: TranscribeLanguage? { presenter?.note.language }
     var noteVocabulary: [String] { presenter?.note.vocabulary ?? [] }
@@ -141,5 +150,11 @@ final class FrontmatterPresenterBridge: ObservableObject {
         guard let p = presenter else { return }
         chips = p.chips
         propertyRows = p.propertyRows
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }

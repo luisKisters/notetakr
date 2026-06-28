@@ -128,15 +128,9 @@ public final class FrontmatterPresenter {
             note.date = startDate
             note.end = event.endDate
         }
-        if let lt = event.locationText {
-            note.locationText = lt.isEmpty ? nil : lt
-        }
-        if let ml = event.meetingLink {
-            note.meetingLink = ml.isEmpty ? nil : ml
-        }
-        for p in event.participants where !note.participants.contains(p) {
-            note.participants.append(p)
-        }
+        note.locationText = Self.trimmedNonEmpty(event.locationText)
+        note.meetingLink = Self.trimmedNonEmpty(event.meetingLink)
+        note.participants = Self.normalizedParticipants(event.participants)
         try store.save(note)
         onChange?()
     }
@@ -246,5 +240,26 @@ public final class FrontmatterPresenter {
             return String(format: "%d:%02d:%02d", h, m, s)
         }
         return String(format: "%d:%02d", m, s)
+    }
+
+    private static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
+    private static func normalizedParticipants(_ participants: [Participant]) -> [Participant] {
+        var seen = Set<String>()
+        var result: [Participant] = []
+
+        for participant in participants {
+            let email = trimmedNonEmpty(participant.email)
+            let name = Participant.displayName(name: participant.name, email: email)
+            let key = (email ?? name).lowercased()
+            guard !key.isEmpty, !seen.contains(key) else { continue }
+            seen.insert(key)
+            result.append(Participant(name: name, email: email))
+        }
+
+        return result
     }
 }

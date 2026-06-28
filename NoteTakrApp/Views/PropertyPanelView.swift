@@ -224,6 +224,7 @@ private struct EventPickerMenu: View {
 
     @State private var searchQuery = ""
     @State private var loadedWindow: EventPickerWindow?
+    @State private var pendingConfirmation: EventLinkConfirmation?
 
     private var effectiveWindow: EventPickerWindow {
         loadedWindow ?? bridge.availableEventWindow ?? EventPickerWindow.defaultWindow(now: Date())
@@ -318,6 +319,19 @@ private struct EventPickerMenu: View {
                 loadedWindow = newWindow
             }
         }
+        .overlay {
+            if let pendingConfirmation {
+                EventSwitchConfirmationOverlay(
+                    confirmation: pendingConfirmation,
+                    theme: theme,
+                    cancel: { self.pendingConfirmation = nil },
+                    confirm: {
+                        applyEvent(pendingConfirmation.event)
+                        self.pendingConfirmation = nil
+                    }
+                )
+            }
+        }
     }
 
     private var searchField: some View {
@@ -346,16 +360,7 @@ private struct EventPickerMenu: View {
                 } else {
                     ForEach(filteredEvents, id: \.id) { event in
                         Button {
-                            bridge.linkCalendarEvent(
-                                id: event.id,
-                                title: event.title,
-                                attendees: event.participants.map { (name: $0.name, email: $0.email) },
-                                startDate: event.start,
-                                endDate: event.end,
-                                locationText: event.locationText,
-                                meetingLink: event.meetingLink
-                            )
-                            dismiss()
+                            selectEvent(event)
                         } label: {
                             EventPickerRow(event: event, theme: theme)
                         }
@@ -396,11 +401,242 @@ private struct EventPickerMenu: View {
         bridge.requestCalendarEvents(window: window)
     }
 
+    private func selectEvent(_ event: UpcomingEvent) {
+        let changes = confirmationChanges(for: event)
+        if changes.isEmpty {
+            applyEvent(event)
+        } else {
+            pendingConfirmation = EventLinkConfirmation(event: event, changes: changes)
+        }
+    }
+
+    private func applyEvent(_ event: UpcomingEvent) {
+        bridge.linkCalendarEvent(
+            id: event.id,
+            title: event.title,
+            attendees: event.participants.map { (name: $0.name, email: $0.email) },
+            startDate: event.start,
+            endDate: event.end,
+            locationText: event.locationText,
+            meetingLink: event.meetingLink
+        )
+        dismiss()
+    }
+
+    private func confirmationChanges(for event: UpcomingEvent) -> [EventLinkChange] {
+        var changes: [EventLinkChange] = []
+        let isSwitchingLinkedEvent = bridge.noteCalendarEvent != nil && bridge.noteCalendarEvent != event.id
+
+        if isSwitchingLinkedEvent,
+           !valuesMatch(bridge.noteTitle, event.title) {
+            changes.append(EventLinkChange(field: "Title", before: bridge.noteTitle, after: event.title))
+        }
+
+        if isSwitchingLinkedEvent,
+           let currentStart = bridge.noteDate,
+           !datesMatch(currentStart, event.start) || !optionalDatesMatch(bridge.noteEnd, event.end) {
+            changes.append(EventLinkChange(
+                field: "Time",
+                before: timeRangeText(start: currentStart, end: bridge.noteEnd),
+                after: timeRangeText(start: event.start, end: event.end)
+            ))
+        }
+
+        let currentLocation = normalizedText(bridge.noteLocationText)
+        let eventLocation = normalizedText(event.locationText)
+        if currentLocation != nil, currentLocation != eventLocation {
+            changes.append(EventLinkChange(
+                field: "Location",
+                before: currentLocation ?? "No location",
+                after: eventLocation ?? "No location"
+            ))
+        }
+
+        let currentLink = normalizedText(bridge.noteMeetingLink)
+        let eventLink = normalizedText(event.meetingLink)
+        if currentLink != nil, currentLink != eventLink {
+            changes.append(EventLinkChange(
+                field: "Link",
+                before: currentLink ?? "No link",
+                after: eventLink ?? "No link"
+            ))
+        }
+
+        let currentPeople = bridge.participants
+        let eventPeople = event.participants
+        if !currentPeople.isEmpty, !participantsMatch(currentPeople, eventPeople) {
+            changes.append(EventLinkChange(
+                field: "People",
+                before: peopleText(currentPeople),
+                after: eventPeople.isEmpty ? "No people" : peopleText(eventPeople)
+            ))
+        }
+
+        return Array(changes.prefix(5))
+    }
+
     private func windowLabel(_ window: EventPickerWindow) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         let inclusiveEnd = window.end.addingTimeInterval(-1)
         return "\(formatter.string(from: window.start)) - \(formatter.string(from: inclusiveEnd))"
+    }
+
+    private func normalizedText(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
+    private func valuesMatch(_ lhs: String, _ rhs: String) -> Bool {
+        normalizedText(lhs) == normalizedText(rhs)
+    }
+
+    private func datesMatch(_ lhs: Date, _ rhs: Date) -> Bool {
+        abs(lhs.timeIntervalSince(rhs)) < 1
+    }
+
+    private func optionalDatesMatch(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return true
+        case (.some(let lhs), .some(let rhs)):
+            return datesMatch(lhs, rhs)
+        default:
+            return false
+        }
+    }
+
+    private func participantsMatch(_ lhs: [Participant], _ rhs: [Participant]) -> Bool {
+        normalizedParticipantKeys(lhs) == normalizedParticipantKeys(rhs)
+    }
+
+    private func normalizedParticipantKeys(_ participants: [Participant]) -> [String] {
+        participants
+            .map { participant in
+                let email = normalizedText(participant.email)
+                let name = Participant.displayName(name: participant.name, email: email)
+                return (email ?? name).lowercased()
+            }
+            .sorted()
+    }
+
+    private func peopleText(_ participants: [Participant]) -> String {
+        participants
+            .prefix(3)
+            .map { $0.displayName }
+            .joined(separator: ", ")
+    }
+
+    private func timeRangeText(start: Date, end: Date?) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, HH:mm"
+        let startText = formatter.string(from: start)
+        guard let end else { return startText }
+        return "\(startText)-\(formatter.string(from: end))"
+    }
+}
+
+private struct EventLinkConfirmation: Identifiable {
+    let id = UUID()
+    let event: UpcomingEvent
+    let changes: [EventLinkChange]
+}
+
+private struct EventLinkChange: Identifiable {
+    let id = UUID()
+    let field: String
+    let before: String
+    let after: String
+}
+
+private struct EventSwitchConfirmationOverlay: View {
+    let confirmation: EventLinkConfirmation
+    let theme: ThemeColors
+    let cancel: () -> Void
+    let confirm: () -> Void
+
+    var body: some View {
+        ZStack {
+            theme.background.swiftUIColor.opacity(0.55)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.accent.swiftUIColor)
+                        .frame(width: 20, height: 20)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Update note details?")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(theme.primaryText.swiftUIColor)
+                        Text(confirmation.event.title)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                            .lineLimit(1)
+                    }
+                }
+
+                VStack(spacing: 6) {
+                    ForEach(confirmation.changes) { change in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(change.field)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                                .frame(width: 48, alignment: .leading)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(change.before)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(theme.secondaryText.swiftUIColor)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 8, weight: .semibold))
+                                    Text(change.after)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                                .foregroundStyle(theme.primaryText.swiftUIColor)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(theme.fieldFill.swiftUIColor))
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Spacer()
+                    Button("Cancel", action: cancel)
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.secondaryText.swiftUIColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+
+                    Button(action: confirm) {
+                        Text("Update")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(theme.accent.swiftUIColor))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(14)
+            .frame(width: 300)
+            .background(theme.panelFill.swiftUIColor)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.hairline.swiftUIColor, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .shadow(color: Color.black.opacity(0.22), radius: 18, y: 10)
+        }
+        .transition(.opacity)
     }
 }
 
@@ -819,87 +1055,86 @@ private struct PeopleValue: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let theme: ThemeColors
 
-    @State private var hoveredParticipant: Participant? = nil
     @State private var menuParticipant: Participant? = nil
-    @State private var showAddField = false
+    @State private var showAddPopover = false
     @State private var newPersonName = ""
-    @FocusState private var addFieldFocused: Bool
+    @State private var newPersonEmail = ""
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 5) {
             if participants.isEmpty {
                 Text("—")
                     .font(.system(size: 12))
                     .foregroundStyle(theme.tertiaryText.swiftUIColor)
             } else {
-                ForEach(Array(participants.enumerated()), id: \.offset) { _, participant in
+                ForEach(participants.prefix(6), id: \.self) { participant in
                     participantCircle(participant)
+                }
+                if participants.count > 6 {
+                    Text("+\(participants.count - 6)")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(theme.chipFill.swiftUIColor))
                 }
             }
 
-            // Add field — fixed width prevents layout shift when toggling between
-            // the "+" avatar button and the name TextField.
-            Group {
-                if showAddField {
-                    TextField("Name…", text: $newPersonName)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 11))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(theme.hairline.swiftUIColor, lineWidth: 1)
-                        )
-                        .focused($addFieldFocused)
-                        .onSubmit { commitAdd() }
-                        .onExitCommand { cancelAdd() }
-                        .onAppear { addFieldFocused = true }
-                } else {
-                    Button {
-                        showAddField = true
-                    } label: {
-                        Text("+")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(theme.tertiaryText.swiftUIColor)
-                            .frame(width: 24, height: 24)
-                            .background(Circle().fill(theme.chipFill.swiftUIColor))
-                            .overlay(Circle().stroke(theme.hairline.swiftUIColor.opacity(0.8), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
+            Button {
+                showAddPopover = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(theme.chipFill.swiftUIColor))
+                    .overlay(Circle().stroke(theme.hairline.swiftUIColor.opacity(0.8), lineWidth: 1))
             }
-            .frame(width: 88, alignment: .leading)
+            .buttonStyle(.plain)
+            .help("Add person")
+            .popover(isPresented: $showAddPopover, arrowEdge: .bottom) {
+                AddParticipantPopover(
+                    name: $newPersonName,
+                    email: $newPersonEmail,
+                    theme: theme,
+                    cancel: {
+                        newPersonName = ""
+                        newPersonEmail = ""
+                        showAddPopover = false
+                    },
+                    add: {
+                        commitAdd()
+                        showAddPopover = false
+                    }
+                )
+            }
         }
+        .frame(minWidth: 116, alignment: .trailing)
     }
 
     @ViewBuilder
     private func participantCircle(_ participant: Participant) -> some View {
-        let initials = initials(for: participant.name)
-        let isHovered = hoveredParticipant == participant
+        let displayName = participant.displayName
+        let initials = initials(for: displayName)
 
-        ZStack {
-            Circle()
-                .fill(theme.avatarFill.swiftUIColor)
-                .frame(width: 24, height: 24)
-            Circle()
-                .stroke(theme.hairline.swiftUIColor.opacity(0.8), lineWidth: 1)
-                .frame(width: 24, height: 24)
+        Button {
+            menuParticipant = participant
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(theme.avatarFill.swiftUIColor)
+                    .frame(width: 26, height: 26)
+                Circle()
+                    .stroke(theme.hairline.swiftUIColor.opacity(0.8), lineWidth: 1)
+                    .frame(width: 26, height: 26)
 
-            if isHovered {
-                Text("✕")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.red)
-            } else {
                 Text(initials)
                     .font(.system(size: 8.5, weight: .semibold))
                     .foregroundStyle(theme.secondaryText.swiftUIColor)
             }
+            .frame(width: 28, height: 28)
+            .contentShape(Circle())
         }
-        .frame(width: 24, height: 24)
-        .onHover { hoveredParticipant = $0 ? participant : nil }
-        .onTapGesture {
-            menuParticipant = (menuParticipant == participant) ? nil : participant
-        }
+        .buttonStyle(.plain)
         .popover(
             isPresented: Binding(
                 get: { menuParticipant == participant },
@@ -910,54 +1145,155 @@ private struct PeopleValue: View {
             ParticipantMenu(
                 participant: participant,
                 bridge: bridge,
+                theme: theme,
                 dismiss: { menuParticipant = nil }
             )
         }
-        .help("\(participant.name)\(participant.email.map { "\n\($0)" } ?? "")\nClick to manage")
+        .help("\(displayName)\(participant.email.map { "\n\($0)" } ?? "")\nClick to manage")
     }
 
     private func initials(for name: String) -> String {
-        name.split(separator: " ").prefix(2)
+        let initials = name.split(separator: " ").prefix(2)
             .compactMap { $0.first.map { String($0).uppercased() } }
             .joined()
+        return initials.isEmpty ? "?" : initials
     }
 
     private func commitAdd() {
-        let trimmed = newPersonName.trimmingCharacters(in: .whitespaces)
-        if !trimmed.isEmpty {
-            bridge.addParticipant(name: trimmed)
+        let trimmedName = newPersonName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = newPersonEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = trimmedEmail.isEmpty ? nil : trimmedEmail
+        let name = Participant.displayName(
+            name: trimmedName.isEmpty ? nil : trimmedName,
+            email: email
+        )
+
+        if !name.isEmpty {
+            bridge.addParticipant(name: name, email: email)
         }
+
         newPersonName = ""
-        showAddField = false
+        newPersonEmail = ""
+    }
+}
+
+private struct AddParticipantPopover: View {
+    @Binding var name: String
+    @Binding var email: String
+    let theme: ThemeColors
+    let cancel: () -> Void
+    let add: () -> Void
+
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case name
+        case email
     }
 
-    private func cancelAdd() {
-        newPersonName = ""
-        showAddField = false
+    private var canAdd: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.accent.swiftUIColor)
+                Text("Add person")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(theme.primaryText.swiftUIColor)
+            }
+
+            VStack(spacing: 8) {
+                personTextField("Name", text: $name, focus: .name)
+                personTextField("Email", text: $email, focus: .email)
+            }
+
+            HStack(spacing: 8) {
+                Spacer()
+                Button("Cancel", action: cancel)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.secondaryText.swiftUIColor)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+
+                Button(action: add) {
+                    Text("Add")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 7)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(canAdd ? theme.accent.swiftUIColor : theme.tertiaryText.swiftUIColor)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(!canAdd)
+            }
+        }
+        .frame(width: 240)
+        .padding(12)
+        .background(theme.panelFill.swiftUIColor)
+        .onAppear { focusedField = .name }
+    }
+
+    @ViewBuilder
+    private func personTextField(_ placeholder: String, text: Binding<String>, focus: Field) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(.system(size: 12))
+            .foregroundStyle(theme.primaryText.swiftUIColor)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 7).fill(theme.fieldFill.swiftUIColor))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1))
+            .focused($focusedField, equals: focus)
+            .onSubmit(add)
     }
 }
 
 private struct ParticipantMenu: View {
     let participant: Participant
     @ObservedObject var bridge: FrontmatterPresenterBridge
+    let theme: ThemeColors
     let dismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(participant.name)
-                    .font(.system(size: 12, weight: .medium))
-                if let email = participant.email {
-                    Text(email)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Text(initials(for: participant.displayName))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.secondaryText.swiftUIColor)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(theme.avatarFill.swiftUIColor))
+                    .overlay(Circle().stroke(theme.hairline.swiftUIColor.opacity(0.9), lineWidth: 1))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(participant.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(theme.primaryText.swiftUIColor)
+                        .lineLimit(1)
+                    Text(participant.email ?? "No email")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
 
-            Divider().padding(.horizontal, 6)
+            if showsInferredNameHint {
+                Label("Name inferred from email", systemImage: "sparkles")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                    .labelStyle(.titleAndIcon)
+            }
+
+            Divider().overlay(theme.hairline.swiftUIColor)
 
             Button {
                 bridge.removeParticipant(participant)
@@ -971,15 +1307,32 @@ private struct ParticipantMenu: View {
                         .font(.system(size: 12))
                     Spacer()
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .foregroundStyle(theme.destructive.swiftUIColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 7)
                 .contentShape(Rectangle())
+                .background(RoundedRectangle(cornerRadius: 7).fill(theme.hoverFill.swiftUIColor))
             }
             .buttonStyle(.plain)
-
         }
-        .frame(minWidth: 190)
-        .padding(.bottom, 4)
+        .frame(width: 240)
+        .padding(12)
+        .background(theme.panelFill.swiftUIColor)
+    }
+
+    private var showsInferredNameHint: Bool {
+        guard let email = participant.email,
+              let inferred = Participant.inferredName(fromEmail: email) else {
+            return false
+        }
+        return participant.name.caseInsensitiveCompare(inferred) == .orderedSame
+    }
+
+    private func initials(for name: String) -> String {
+        let initials = name.split(separator: " ").prefix(2)
+            .compactMap { $0.first.map { String($0).uppercased() } }
+            .joined()
+        return initials.isEmpty ? "?" : initials
     }
 }
 
@@ -998,6 +1351,7 @@ private struct EditableTextValue: View {
 
     private var isEmpty: Bool { value.isEmpty }
     private var display: String { isEmpty ? placeholder : value }
+    private let fieldWidth: CGFloat = 190
 
     var body: some View {
         if isEditing {
@@ -1005,13 +1359,20 @@ private struct EditableTextValue: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(theme.primaryText.swiftUIColor)
-                .frame(minWidth: 90, alignment: .trailing)
+                .multilineTextAlignment(.trailing)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .frame(width: fieldWidth, alignment: .trailing)
+                .background(RoundedRectangle(cornerRadius: 6).fill(theme.fieldFill.swiftUIColor))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1))
                 .focused($focused)
                 .onSubmit { commit() }
                 .onExitCommand { cancel() }
                 .onAppear {
                     editText = value
-                    focused = true
+                    DispatchQueue.main.async {
+                        focused = true
+                    }
                 }
         } else {
             Text(display)
@@ -1021,9 +1382,17 @@ private struct EditableTextValue: View {
                         ? theme.tertiaryText.swiftUIColor
                         : theme.primaryText.swiftUIColor.opacity(0.85)
                 )
-                // Same minWidth as the TextField so entering edit mode doesn't reflow the row.
-                .frame(minWidth: 90, alignment: .trailing)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .frame(width: fieldWidth, alignment: .trailing)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isHovering ? theme.hoverFill.swiftUIColor : Color.clear)
+                )
                 .underline(isHovering, color: theme.hairline.swiftUIColor)
+                .contentShape(Rectangle())
                 .onHover { isHovering = $0 }
                 .onTapGesture { isEditing = true }
         }

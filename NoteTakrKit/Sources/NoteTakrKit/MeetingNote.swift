@@ -8,6 +8,45 @@ public struct Participant: Equatable, Hashable, Codable {
         self.name = name
         self.email = email
     }
+
+    public var displayName: String {
+        Self.displayName(name: name, email: email)
+    }
+
+    public static func displayName(name: String?, email: String?) -> String {
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let trimmedName,
+           !trimmedName.isEmpty,
+           trimmedName.caseInsensitiveCompare(trimmedEmail ?? "") != .orderedSame {
+            return trimmedName
+        }
+
+        if let trimmedEmail,
+           let inferred = inferredName(fromEmail: trimmedEmail) {
+            return inferred
+        }
+
+        return trimmedName?.isEmpty == false ? trimmedName! : "Unknown"
+    }
+
+    public static func inferredName(fromEmail email: String) -> String? {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let atIndex = trimmed.firstIndex(of: "@") else { return nil }
+        let localPart = trimmed[..<atIndex].split(separator: "+", maxSplits: 1).first ?? ""
+        let pieces = localPart
+            .split { character in
+                character == "." || character == "_" || character == "-"
+            }
+            .map(String.init)
+            .filter { !$0.isEmpty }
+
+        guard !pieces.isEmpty else { return nil }
+        return pieces
+            .map { $0.localizedCapitalized }
+            .joined(separator: " ")
+    }
 }
 
 public enum Location: String, Equatable, Hashable, Codable, CaseIterable {

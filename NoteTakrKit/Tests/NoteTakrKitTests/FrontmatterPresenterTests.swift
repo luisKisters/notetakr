@@ -300,7 +300,38 @@ final class FrontmatterPresenterTests: XCTestCase {
         XCTAssertEqual(saved.participants.count, 2)
     }
 
-    func testLinkEvent_mergesParticipantsNoDuplicates() throws {
+    func testLinkEvent_replacesEventOwnedFields() throws {
+        var note = baseNote()
+        note.calendarEvent = "OLD-EVT"
+        note.title = "Old title"
+        note.locationText = "Old room"
+        note.meetingLink = "https://old.example/meeting"
+        note.participants = [
+            Participant(name: "Old Person", email: "old@example.com"),
+            Participant(name: "Manual Guest")
+        ]
+        let (presenter, store) = try makeTempPresenter(note: note)
+
+        let event = LinkedEventInfo(
+            eventID: "NEW-EVT",
+            title: "New Planning",
+            participants: [Participant(name: "New Person", email: "new@example.com")],
+            startDate: utcDate(2026, 6, 11, 9, 0),
+            endDate: utcDate(2026, 6, 11, 9, 30),
+            locationText: nil,
+            meetingLink: nil
+        )
+        try presenter.linkEvent(event)
+
+        let saved = try XCTUnwrap(try store.load(id: "test-id"))
+        XCTAssertEqual(saved.calendarEvent, "NEW-EVT")
+        XCTAssertEqual(saved.title, "New Planning")
+        XCTAssertEqual(saved.locationText, nil)
+        XCTAssertEqual(saved.meetingLink, nil)
+        XCTAssertEqual(saved.participants, [Participant(name: "New Person", email: "new@example.com")])
+    }
+
+    func testLinkEvent_deduplicatesEventParticipants() throws {
         var note = baseNote()
         note.participants = [Participant(name: "Existing")]
         let (presenter, store) = try makeTempPresenter(note: note)
@@ -309,16 +340,27 @@ final class FrontmatterPresenterTests: XCTestCase {
             eventID: "EVT-123",
             title: "Q3 Planning",
             participants: [
-                Participant(name: "Existing"),
+                Participant(name: "Existing", email: "existing@example.com"),
+                Participant(name: "Existing Dupe", email: "existing@example.com"),
                 Participant(name: "New Person")
             ]
         )
         try presenter.linkEvent(event)
 
         let saved = try XCTUnwrap(try store.load(id: "test-id"))
-        XCTAssertEqual(saved.participants.count, 2, "Existing participant must not be duplicated")
-        XCTAssertTrue(saved.participants.contains(Participant(name: "Existing")))
-        XCTAssertTrue(saved.participants.contains(Participant(name: "New Person")))
+        XCTAssertEqual(saved.participants, [
+            Participant(name: "Existing", email: "existing@example.com"),
+            Participant(name: "New Person")
+        ])
+    }
+
+    func testParticipantDisplayNameFallsBackToEmailLocalPart() {
+        XCTAssertEqual(
+            Participant.displayName(name: "ada.lovelace@example.com", email: "ada.lovelace@example.com"),
+            "Ada Lovelace"
+        )
+        XCTAssertEqual(Participant.displayName(name: "", email: "grace_hopper@navy.mil"), "Grace Hopper")
+        XCTAssertEqual(Participant.displayName(name: "Existing Name", email: "person@example.com"), "Existing Name")
     }
 
     func testLinkEvent_doesNotUpdateDateWhenNil() throws {

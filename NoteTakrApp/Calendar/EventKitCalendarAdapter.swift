@@ -64,9 +64,10 @@ private extension CalendarEvent {
 
 private extension Participant {
     init(ekParticipant: EKParticipant) {
+        let email = Participant.email(from: ekParticipant)
         self.init(
-            name: ekParticipant.name ?? Participant.email(from: ekParticipant) ?? "Unknown",
-            email: Participant.email(from: ekParticipant)
+            name: Participant.displayName(name: ekParticipant.name, email: email),
+            email: email
         )
     }
 
@@ -77,6 +78,41 @@ private extension Participant {
         guard components?.scheme?.lowercased() == "mailto" else { return nil }
         let path = components?.path ?? ""
         return path.isEmpty ? nil : path
+    }
+
+    static func displayName(name: String?, email: String?) -> String {
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let trimmedName,
+           !trimmedName.isEmpty,
+           trimmedName.caseInsensitiveCompare(trimmedEmail ?? "") != .orderedSame {
+            return trimmedName
+        }
+
+        if let trimmedEmail,
+           let inferred = inferredName(fromEmail: trimmedEmail) {
+            return inferred
+        }
+
+        return trimmedName?.isEmpty == false ? trimmedName! : "Unknown"
+    }
+
+    static func inferredName(fromEmail email: String) -> String? {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let atIndex = trimmed.firstIndex(of: "@") else { return nil }
+        let localPart = trimmed[..<atIndex].split(separator: "+", maxSplits: 1).first ?? ""
+        let pieces = localPart
+            .split { character in
+                character == "." || character == "_" || character == "-"
+            }
+            .map(String.init)
+            .filter { !$0.isEmpty }
+
+        guard !pieces.isEmpty else { return nil }
+        return pieces
+            .map { $0.localizedCapitalized }
+            .joined(separator: " ")
     }
 }
 #endif
