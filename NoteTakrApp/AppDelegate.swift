@@ -160,7 +160,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak coordinator] _ in
-            coordinator?.toggle()
+            Task { @MainActor in
+                coordinator?.toggle()
+            }
         }
     }
 

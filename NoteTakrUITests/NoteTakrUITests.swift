@@ -187,6 +187,7 @@ final class NoteTakrUITests: XCTestCase {
         DistributedNotificationCenter.default().post(
             name: Notification.Name("com.notetakr.e2e.togglePanel"),
             object: nil,
+            userInfo: nil,
             deliverImmediately: true
         )
     }
