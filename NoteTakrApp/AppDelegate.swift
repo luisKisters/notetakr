@@ -14,7 +14,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        let isHostedE2ELaunch = ProcessInfo.processInfo.environment["NOTETAKR_E2E_SHOW_PANEL"] == "1"
+        NSApp.setActivationPolicy(isHostedE2ELaunch ? .regular : .accessory)
+        #else
         NSApp.setActivationPolicy(.accessory)
+        #endif
 
         let appModel = AppModel.shared
         let notesRoot = appModel.store.baseURL

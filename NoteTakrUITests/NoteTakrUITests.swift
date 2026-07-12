@@ -48,9 +48,8 @@ final class NoteTakrUITests: XCTestCase {
         let inPersonToggle = element("inPersonMeetingToggle")
         XCTAssertTrue(inPersonToggle.waitForExistence(timeout: 5))
         XCTAssertTrue(inPersonToggle.isEnabled)
-        inPersonToggle.coordinate(
-            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)
-        ).click()
+        waitUntilHittable(inPersonToggle)
+        inPersonToggle.click()
         let checked = expectation(
             for: NSPredicate(format: "value == '1'"),
             evaluatedWith: inPersonToggle
@@ -106,6 +105,7 @@ final class NoteTakrUITests: XCTestCase {
             "switcherRow_note-11111111-1111-1111-1111-111111111111"
         ]
         XCTAssertTrue(selectedMeeting.waitForExistence(timeout: 8))
+        waitUntilHittable(selectedMeeting)
         selectedMeeting.click()
 
         let titleField = element("meetingTitleField")
@@ -142,6 +142,7 @@ final class NoteTakrUITests: XCTestCase {
         app.launchEnvironment["NOTETAKR_E2E_ENABLE_PANEL_TOGGLE_CONTROL"] =
             enablePanelToggleControl ? "1" : "0"
         app.launch()
+        app.activate()
 
         let launchAnchor: XCUIElement
         if openSettings {
@@ -159,6 +160,14 @@ final class NoteTakrUITests: XCTestCase {
 
     private func element(_ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 5) {
+        let hittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: element
+        )
+        wait(for: [hittable], timeout: timeout)
     }
 
     private func seedMeeting(id: String, title: String, date: String) throws {
