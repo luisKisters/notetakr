@@ -1370,6 +1370,7 @@ final class HotkeyRecorderControl: NSControl {
         let chars = (event.charactersIgnoringModifiers ?? "").uppercased()
         guard let keyChar = chars.first,
               let combo = try? HotkeyCombo(modifiers: mods, key: keyChar) else {
+            stopRecording()
             return
         }
 

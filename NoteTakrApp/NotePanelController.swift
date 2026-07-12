@@ -233,7 +233,7 @@ final class NotePanelController {
 
     private func show(loadCurrentNote shouldLoadCurrentNote: Bool) {
         refreshActiveRecordingSnapshot()
-        if shouldLoadCurrentNote {
+        if shouldLoadCurrentNote && recordingBridge == nil {
             loadCurrentNote()
         }
         panel?.makeKeyAndOrderFront(nil)
