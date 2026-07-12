@@ -192,6 +192,16 @@ struct SettingsView: View {
                         Task { await permissions.requestCalendarAccess() }
                     }
                 )
+                permissionRow(
+                    label: "Contacts",
+                    detail: "Optional: show attendee names from email addresses",
+                    status: permissions.contactsStatus,
+                    buttonTitle: permissions.contactsRequestInFlight ? "Requesting..." : "Grant Access",
+                    isBusy: permissions.contactsRequestInFlight,
+                    action: {
+                        Task { await permissions.requestContactsAccess() }
+                    }
+                )
                 systemAudioPermissionRow()
             }
 

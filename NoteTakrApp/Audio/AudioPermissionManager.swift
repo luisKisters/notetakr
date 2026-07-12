@@ -8,18 +8,27 @@ import NoteTakrCore
 #if canImport(EventKit)
 import EventKit
 #endif
+#if canImport(Contacts)
+import Contacts
+#endif
 
 @MainActor
 final class AudioPermissionManager: ObservableObject {
     @Published private(set) var microphoneStatus: PermissionStatus = .notDetermined
     @Published private(set) var systemAudioStatus: PermissionStatus = .notDetermined
     @Published private(set) var calendarStatus: PermissionStatus = .notDetermined
+    @Published private(set) var contactsStatus: PermissionStatus = .notDetermined
     @Published private(set) var systemAudioRestartRequired = false
     @Published private(set) var calendarRequestInFlight = false
+    @Published private(set) var contactsRequestInFlight = false
 
 #if canImport(EventKit)
     // Lazy so EKEventStore is not allocated until calendar access is actually requested.
     private lazy var eventStore = EKEventStore()
+#endif
+#if canImport(Contacts)
+    // Lazy so Contacts is untouched until the user explicitly requests access.
+    private lazy var contactStore = CNContactStore()
 #endif
 
     init() {
@@ -35,6 +44,7 @@ final class AudioPermissionManager: ObservableObject {
         if includeCalendar {
             calendarStatus = currentCalendarStatus()
         }
+        contactsStatus = currentContactsStatus()
     }
 
     func requestMicrophoneAccess() async {
@@ -107,6 +117,35 @@ final class AudioPermissionManager: ObservableObject {
 #endif
     }
 
+    func requestContactsAccess() async {
+#if canImport(Contacts)
+        contactsStatus = currentContactsStatus()
+        guard contactsStatus == .notDetermined else {
+            if contactsStatus == .granted {
+                NotificationCenter.default.post(name: .noteTakrContactsAccessGranted, object: nil)
+            }
+            scheduleAppReactivation()
+            return
+        }
+        guard !contactsRequestInFlight else { return }
+        contactsRequestInFlight = true
+        defer { contactsRequestInFlight = false }
+
+        let granted = await withCheckedContinuation { continuation in
+            contactStore.requestAccess(for: .contacts) { granted, _ in
+                continuation.resume(returning: granted)
+            }
+        }
+        contactsStatus = granted ? .granted : currentContactsStatus()
+        if granted {
+            NotificationCenter.default.post(name: .noteTakrContactsAccessGranted, object: nil)
+        }
+        scheduleAppReactivation()
+#else
+        contactsStatus = .denied
+#endif
+    }
+
     private func currentMicrophoneStatus() -> PermissionStatus {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: return .granted
@@ -138,6 +177,23 @@ final class AudioPermissionManager: ObservableObject {
             case .notDetermined: return .notDetermined
             @unknown default: return .denied
             }
+        }
+#else
+        return .denied
+#endif
+    }
+
+    private func currentContactsStatus() -> PermissionStatus {
+#if canImport(Contacts)
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized:
+            return .granted
+        case .denied, .restricted:
+            return .denied
+        case .notDetermined:
+            return .notDetermined
+        @unknown default:
+            return .denied
         }
 #else
         return .denied
@@ -181,5 +237,7 @@ final class AudioPermissionManager: ObservableObject {
 extension Notification.Name {
     static let noteTakrCalendarAccessGranted =
         Notification.Name("NoteTakrCalendarAccessGranted")
+    static let noteTakrContactsAccessGranted =
+        Notification.Name("NoteTakrContactsAccessGranted")
 }
 #endif

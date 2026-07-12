@@ -903,6 +903,13 @@ struct SettingsSheetView: View {
                 action: { Task { await permissions.requestCalendarAccess() } }
             )
 
+            permRow(
+                label: "Contacts",
+                detail: "Names attendees from email",
+                status: permissions.contactsStatus,
+                action: { Task { await permissions.requestContactsAccess() } }
+            )
+
             systemAudioRow
 
             Text("macOS may ask again after updates. NoteTakr never sends audio off this Mac.")

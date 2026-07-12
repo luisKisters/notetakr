@@ -131,10 +131,26 @@ final class MVPPolishTests: XCTestCase {
         let data = try Data(contentsOf: infoURL)
         let plist = try XCTUnwrap(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
 
-        for key in ["NSMicrophoneUsageDescription", "NSCalendarsUsageDescription", "NSScreenCaptureUsageDescription"] {
+        for key in ["NSMicrophoneUsageDescription", "NSCalendarsUsageDescription", "NSContactsUsageDescription", "NSScreenCaptureUsageDescription"] {
             let value = try XCTUnwrap(plist[key] as? String, "\(key) must exist to avoid TCC crashes")
             XCTAssertFalse(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
+    }
+
+    func testContactsEntitlementExists() throws {
+        let entitlementsURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("NoteTakrApp/NoteTakr.entitlements")
+        let data = try Data(contentsOf: entitlementsURL)
+        let entitlements = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        )
+
+        XCTAssertEqual(
+            entitlements["com.apple.security.personal-information.addressbook"] as? Bool,
+            true
+        )
     }
 
     // MARK: - Helpers

@@ -1,11 +1,71 @@
 #if canImport(EventKit)
+import Contacts
 import EventKit
 import NoteTakrCore
 
+protocol ContactNameResolving {
+    /// Returns a Contacts display name only when the user has authorized access.
+    /// A nil result tells callers to preserve their non-Contacts fallback.
+    func displayName(forEmail email: String) -> String?
+}
+
+/// Privacy-gated, read-only lookup of contact names by attendee email address.
+///
+/// This type never requests access. Permission is requested only from the explicit
+/// Contacts row in Settings; calendar loading merely uses access already granted.
+final class ContactNameResolver: ContactNameResolving {
+    typealias ContactLookup = (NSPredicate, [any CNKeyDescriptor]) throws -> [CNContact]
+
+    private let authorizationStatus: () -> CNAuthorizationStatus
+    private let contactLookup: ContactLookup
+
+    init(store: CNContactStore = CNContactStore()) {
+        authorizationStatus = { CNContactStore.authorizationStatus(for: .contacts) }
+        contactLookup = { predicate, keys in
+            try store.unifiedContacts(matching: predicate, keysToFetch: keys)
+        }
+    }
+
+    /// Dependency-injected initializer for permission and fallback regression tests.
+    init(
+        authorizationStatus: @escaping () -> CNAuthorizationStatus,
+        contactLookup: @escaping ContactLookup
+    ) {
+        self.authorizationStatus = authorizationStatus
+        self.contactLookup = contactLookup
+    }
+
+    func displayName(forEmail email: String) -> String? {
+        // Do not touch CNContactStore unless the user has explicitly granted access.
+        guard authorizationStatus() == .authorized else { return nil }
+
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedEmail.isEmpty else { return nil }
+
+        let predicate = CNContact.predicateForContacts(matchingEmailAddress: normalizedEmail)
+        let keys: [any CNKeyDescriptor] = [
+            CNContactFormatter.descriptorForRequiredKeys(for: .fullName)
+        ]
+        guard let contacts = try? contactLookup(predicate, keys) else { return nil }
+
+        return contacts.lazy.compactMap { contact in
+            CNContactFormatter.string(from: contact, style: .fullName)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }.first(where: { !$0.isEmpty })
+    }
+}
+
 public final class EventKitCalendarAdapter: CalendarAdapter {
     private let store = EKEventStore()
+    private let contactNameResolver: any ContactNameResolving
 
-    public init() {}
+    public convenience init() {
+        self.init(contactNameResolver: ContactNameResolver())
+    }
+
+    init(contactNameResolver: any ContactNameResolving) {
+        self.contactNameResolver = contactNameResolver
+    }
 
     public var hasAccess: Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
@@ -33,12 +93,14 @@ public final class EventKitCalendarAdapter: CalendarAdapter {
 
     public func fetchUpcomingEvents(from: Date, to: Date) async throws -> [CalendarEvent] {
         let predicate = store.predicateForEvents(withStart: from, end: to, calendars: nil)
-        return store.events(matching: predicate).map(CalendarEvent.init(ekEvent:))
+        return store.events(matching: predicate).map {
+            CalendarEvent(ekEvent: $0, contactNameResolver: contactNameResolver)
+        }
     }
 }
 
 private extension CalendarEvent {
-    init(ekEvent: EKEvent) {
+    init(ekEvent: EKEvent, contactNameResolver: any ContactNameResolving) {
         self.init(
             id: Self.occurrenceID(for: ekEvent),
             title: ekEvent.title ?? "Untitled",
@@ -47,7 +109,9 @@ private extension CalendarEvent {
             location: ekEvent.location,
             url: ekEvent.url,
             notes: ekEvent.notes,
-            attendees: (ekEvent.attendees ?? []).map(Participant.init(ekParticipant:)),
+            attendees: (ekEvent.attendees ?? []).map {
+                Participant(ekParticipant: $0, contactNameResolver: contactNameResolver)
+            },
             organizerEmail: ekEvent.organizer.flatMap { Participant.email(from: $0) }
         )
     }
@@ -62,13 +126,26 @@ private extension CalendarEvent {
     }
 }
 
-private extension Participant {
-    init(ekParticipant: EKParticipant) {
+extension Participant {
+    init(ekParticipant: EKParticipant, contactNameResolver: any ContactNameResolving) {
         let email = Participant.email(from: ekParticipant)
         self.init(
-            name: Participant.displayName(name: ekParticipant.name, email: email),
+            name: Participant.resolvedDisplayName(
+                calendarName: ekParticipant.name,
+                email: email,
+                contactNameResolver: contactNameResolver
+            ),
             email: email
         )
+    }
+
+    static func resolvedDisplayName(
+        calendarName: String?,
+        email: String?,
+        contactNameResolver: any ContactNameResolving
+    ) -> String {
+        email.flatMap(contactNameResolver.displayName(forEmail:))
+            ?? displayName(name: calendarName, email: email)
     }
 
     /// Attendee emails are best-effort: EventKit exposes them via the participant's

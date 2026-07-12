@@ -84,6 +84,10 @@ final class AppModel: ObservableObject {
             self, selector: #selector(handleCalendarAccessGranted),
             name: .noteTakrCalendarAccessGranted, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleContactsAccessGranted),
+            name: .noteTakrContactsAccessGranted, object: nil
+        )
     }
 
     private static func applicationSupportBaseURL() -> URL {
@@ -528,6 +532,14 @@ final class AppModel: ObservableObject {
             calendarAdapter = EventKitCalendarAdapter()
         }
         calendarAuthorized = calendarAdapter?.hasAccess ?? false
+        Task {
+            await refreshNextMeeting()
+            await loadUpcomingEvents()
+        }
+    }
+
+    @objc private func handleContactsAccessGranted() {
+        // Re-fetch so attendee names already visible in the UI are enriched.
         Task {
             await refreshNextMeeting()
             await loadUpcomingEvents()
