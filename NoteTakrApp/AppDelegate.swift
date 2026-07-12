@@ -10,16 +10,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelCoordinator: PanelToggleCoordinator?
     private var updaterController: SPUStandardUpdaterController?
     #if DEBUG
-    private var e2ePanelToggleObserver: NSObjectProtocol?
+    private var e2eControlObservers: [NSObjectProtocol] = []
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        #if DEBUG
-        let isHostedE2ELaunch = ProcessInfo.processInfo.environment["NOTETAKR_E2E_SHOW_PANEL"] == "1"
-        NSApp.setActivationPolicy(isHostedE2ELaunch ? .regular : .accessory)
-        #else
         NSApp.setActivationPolicy(.accessory)
-        #endif
 
         let appModel = AppModel.shared
         let notesRoot = appModel.store.baseURL
@@ -71,7 +66,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panelCoordinator = coordinator
 
         #if DEBUG
-        installE2EPanelToggleControlIfRequested(coordinator: coordinator)
+        installE2EControlsIfRequested(coordinator: coordinator, notePanelController: npc)
         #endif
 
         // Wire recording lifecycle to the panel's RecordingNoteBridge
@@ -156,11 +151,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if DEBUG
-    private func installE2EPanelToggleControlIfRequested(coordinator: PanelToggleCoordinator) {
+    private func installE2EControlsIfRequested(
+        coordinator: PanelToggleCoordinator,
+        notePanelController npc: NotePanelController
+    ) {
         guard ProcessInfo.processInfo.environment["NOTETAKR_E2E_ENABLE_PANEL_TOGGLE_CONTROL"] == "1" else {
             return
         }
-        e2ePanelToggleObserver = DistributedNotificationCenter.default().addObserver(
+
+        let center = DistributedNotificationCenter.default()
+        e2eControlObservers.append(center.addObserver(
             forName: .noteTakrE2ETogglePanel,
             object: nil,
             queue: .main
@@ -168,7 +168,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 coordinator?.toggle()
             }
-        }
+        })
+        e2eControlObservers.append(center.addObserver(
+            forName: .noteTakrE2ESelectNote,
+            object: nil,
+            queue: .main
+        ) { [weak npc] notification in
+            guard let noteID = notification.object as? String else { return }
+            Task { @MainActor in
+                npc?.switcherBridge.onOpenNote?(noteID)
+                npc?.switcherBridge.dismiss()
+            }
+        })
+        e2eControlObservers.append(center.addObserver(
+            forName: .noteTakrE2ESetInPerson,
+            object: nil,
+            queue: .main
+        ) { [weak npc] notification in
+            guard let encodedValue = notification.object as? String else { return }
+            Task { @MainActor in
+                npc?.settingsBridge.setInPersonThisMeeting(encodedValue == "1")
+            }
+        })
     }
 
     private func runE2ELaunchHooks(notePanelController npc: NotePanelController) {
@@ -200,5 +221,7 @@ extension Notification.Name {
     static let noteTakrCheckForUpdates = Notification.Name("NoteTakrCheckForUpdates")
     #if DEBUG
     static let noteTakrE2ETogglePanel = Notification.Name("com.notetakr.e2e.togglePanel")
+    static let noteTakrE2ESelectNote = Notification.Name("com.notetakr.e2e.selectNote")
+    static let noteTakrE2ESetInPerson = Notification.Name("com.notetakr.e2e.setInPerson")
     #endif
 }

@@ -35,7 +35,7 @@ final class NoteTakrUITests: XCTestCase {
     }
 
     func testPermissionsAndInPersonAudioSourceLockWhileRecording() throws {
-        launch(openSettings: true)
+        launch(openSettings: true, enablePanelToggleControl: true)
 
         let permissionsTab = element("settingsTab_permissions")
         XCTAssertTrue(permissionsTab.waitForExistence(timeout: 8))
@@ -48,8 +48,7 @@ final class NoteTakrUITests: XCTestCase {
         let inPersonToggle = element("inPersonMeetingToggle")
         XCTAssertTrue(inPersonToggle.waitForExistence(timeout: 5))
         XCTAssertTrue(inPersonToggle.isEnabled)
-        waitUntilHittable(inPersonToggle)
-        inPersonToggle.click()
+        setInPersonFromTestProcess(true)
         let checked = expectation(
             for: NSPredicate(format: "value == '1'"),
             evaluatedWith: inPersonToggle
@@ -105,8 +104,7 @@ final class NoteTakrUITests: XCTestCase {
             "switcherRow_note-11111111-1111-1111-1111-111111111111"
         ]
         XCTAssertTrue(selectedMeeting.waitForExistence(timeout: 8))
-        waitUntilHittable(selectedMeeting)
-        selectedMeeting.click()
+        selectNoteFromTestProcess("11111111-1111-1111-1111-111111111111")
 
         let titleField = element("meetingTitleField")
         XCTAssertTrue(titleField.waitForExistence(timeout: 5))
@@ -162,14 +160,6 @@ final class NoteTakrUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 5) {
-        let hittable = expectation(
-            for: NSPredicate(format: "hittable == true"),
-            evaluatedWith: element
-        )
-        wait(for: [hittable], timeout: timeout)
-    }
-
     private func seedMeeting(id: String, title: String, date: String) throws {
         let sessions = appSupportRoot
             .appendingPathComponent("NoteTakr", isDirectory: true)
@@ -217,6 +207,20 @@ final class NoteTakrUITests: XCTestCase {
         DistributedNotificationCenter.default().post(
             name: Notification.Name("com.notetakr.e2e.togglePanel"),
             object: nil
+        )
+    }
+
+    private func selectNoteFromTestProcess(_ noteID: String) {
+        DistributedNotificationCenter.default().post(
+            name: Notification.Name("com.notetakr.e2e.selectNote"),
+            object: noteID
+        )
+    }
+
+    private func setInPersonFromTestProcess(_ value: Bool) {
+        DistributedNotificationCenter.default().post(
+            name: Notification.Name("com.notetakr.e2e.setInPerson"),
+            object: value ? "1" : "0"
         )
     }
 }
