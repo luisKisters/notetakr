@@ -48,7 +48,9 @@ final class NoteTakrUITests: XCTestCase {
         let inPersonToggle = element("inPersonMeetingToggle")
         XCTAssertTrue(inPersonToggle.waitForExistence(timeout: 5))
         XCTAssertTrue(inPersonToggle.isEnabled)
-        inPersonToggle.click()
+        inPersonToggle.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)
+        ).click()
         let checked = expectation(
             for: NSPredicate(format: "value == '1'"),
             evaluatedWith: inPersonToggle
@@ -100,7 +102,9 @@ final class NoteTakrUITests: XCTestCase {
         )
         launch(openSwitcher: true, enablePanelToggleControl: true)
 
-        let selectedMeeting = app.staticTexts["Selected older meeting"]
+        let selectedMeeting = app.buttons[
+            "switcherRow_note-11111111-1111-1111-1111-111111111111"
+        ]
         XCTAssertTrue(selectedMeeting.waitForExistence(timeout: 8))
         selectedMeeting.click()
 
