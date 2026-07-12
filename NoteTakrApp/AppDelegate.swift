@@ -9,6 +9,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var notePanelController: NotePanelController?
     private var panelCoordinator: PanelToggleCoordinator?
     private var updaterController: SPUStandardUpdaterController?
+    #if DEBUG
+    private var e2ePanelToggleObserver: NSObjectProtocol?
+    #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -61,6 +64,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             coordinator?.updateHotkeys(panelToggle: settings.hotkey, recordingStart: settings.recordingHotkey)
         }
         panelCoordinator = coordinator
+
+        #if DEBUG
+        installE2EPanelToggleControlIfRequested(coordinator: coordinator)
+        #endif
 
         // Wire recording lifecycle to the panel's RecordingNoteBridge
         appModel.onRecordingStarted = { [weak npc] sessionID in
@@ -144,6 +151,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if DEBUG
+    private func installE2EPanelToggleControlIfRequested(coordinator: PanelToggleCoordinator) {
+        guard ProcessInfo.processInfo.environment["NOTETAKR_E2E_ENABLE_PANEL_TOGGLE_CONTROL"] == "1" else {
+            return
+        }
+        e2ePanelToggleObserver = DistributedNotificationCenter.default().addObserver(
+            forName: .noteTakrE2ETogglePanel,
+            object: nil,
+            queue: .main
+        ) { [weak coordinator] _ in
+            coordinator?.toggle()
+        }
+    }
+
     private func runE2ELaunchHooks(notePanelController npc: NotePanelController) {
         let env = ProcessInfo.processInfo.environment
         let showPanel = env["NOTETAKR_E2E_SHOW_PANEL"] == "1"
@@ -171,4 +191,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension Notification.Name {
     static let noteTakrCheckForUpdates = Notification.Name("NoteTakrCheckForUpdates")
+    #if DEBUG
+    static let noteTakrE2ETogglePanel = Notification.Name("com.notetakr.e2e.togglePanel")
+    #endif
 }

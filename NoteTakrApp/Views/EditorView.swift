@@ -59,6 +59,7 @@ struct EditorView: View {
                     get: { bridge.title },
                     set: { bridge.setTitle($0) }
                 ))
+                .accessibilityIdentifier("meetingTitleField")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(themeColors.primaryText.swiftUIColor)
                 .textFieldStyle(.plain)

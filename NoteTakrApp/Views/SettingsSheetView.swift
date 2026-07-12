@@ -229,6 +229,7 @@ struct SettingsSheetView: View {
                                  ? "Stop recording to change audio sources"
                                  : "Mic only — skips system audio")
                                 .font(.system(size: 11)).foregroundColor(textTertiary)
+                                .accessibilityIdentifier("inPersonMeetingDetail")
                         }
                         Spacer()
                     }
@@ -237,6 +238,7 @@ struct SettingsSheetView: View {
                 .controlSize(.mini)
                 .tint(accent)
                 .disabled(viewModel.frontmatterBridge.isRecording)
+                .accessibilityIdentifier("inPersonMeetingToggle")
             }
 
             sectionLabel("Calendar")

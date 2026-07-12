@@ -5,6 +5,7 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
 
 jobs:
   kit-tests:
@@ -121,3 +122,82 @@ jobs:
         with:
           name: xcodebuild-log
           path: /tmp/xcodebuild.log
+
+  gui-e2e:
+    name: Hosted macOS GUI E2E
+    if: github.event_name == 'workflow_dispatch'
+    needs: kit-tests
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -r | head -1 || true)"
+          if [[ -z "$XCODE_PATH" && -d /Applications/Xcode.app ]]; then
+            XCODE_PATH="/Applications/Xcode.app"
+          fi
+          if [[ -z "$XCODE_PATH" ]]; then
+            echo "Xcode 16 is required for FluidAudio Swift tools 6.0 support."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode / {print $2}')"
+          XCODE_MAJOR="${XCODE_VERSION%%.*}"
+          if [[ "${XCODE_MAJOR:-0}" -lt 16 ]]; then
+            echo "Xcode 16 is required; selected Xcode $XCODE_VERSION."
+            exit 1
+          fi
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/SourcePackages
+          key: ${{ runner.os }}-gui-e2e-spm-${{ hashFiles('Package.resolved', 'Notetakr.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
+      - name: Resolve package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project Notetakr.xcodeproj \
+            -scheme NoteTakr
+
+      # Hosted runners can validate deterministic app UI and mock-recorder state only.
+      # Real microphone, ScreenCaptureKit, TCC prompts, and YouTube audio require a
+      # pre-authorized self-hosted physical Mac.
+      - name: Run GUI E2E
+        run: |
+          set -o pipefail
+          RESULT_BUNDLE="$RUNNER_TEMP/NoteTakr-GUI-E2E.xcresult"
+          rm -rf "$RESULT_BUNDLE"
+          xcodebuild test \
+            -project Notetakr.xcodeproj \
+            -scheme NoteTakr \
+            -destination 'platform=macOS' \
+            -only-testing:NoteTakrUITests \
+            -parallel-testing-enabled NO \
+            -resultBundlePath "$RESULT_BUNDLE" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee "$RUNNER_TEMP/notetakr-gui-e2e.log"
+
+      - name: Capture desktop after failure
+        if: failure()
+        run: screencapture -x "$RUNNER_TEMP/notetakr-gui-e2e-failure.png" || true
+
+      - name: Upload GUI E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notetakr-gui-e2e-diagnostics
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/NoteTakr-GUI-E2E.xcresult
+            ${{ runner.temp }}/notetakr-gui-e2e.log
+            ${{ runner.temp }}/notetakr-gui-e2e-failure.png

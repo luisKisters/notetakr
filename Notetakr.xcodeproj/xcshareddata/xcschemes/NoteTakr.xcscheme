@@ -28,6 +28,20 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "AAFADE00000000000000A010"
+               BuildableName = "NoteTakrUITests.xctest"
+               BlueprintName = "NoteTakrUITests"
+               ReferencedContainer = "container:Notetakr.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "AAFADE000000000000000410"
                BuildableName = "NoteTakrTests.xctest"
                BlueprintName = "NoteTakrTests"
@@ -49,6 +63,16 @@
                BlueprintIdentifier = "AAFADE000000000000000410"
                BuildableName = "NoteTakrTests.xctest"
                BlueprintName = "NoteTakrTests"
+               ReferencedContainer = "container:Notetakr.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "AAFADE00000000000000A010"
+               BuildableName = "NoteTakrUITests.xctest"
+               BlueprintName = "NoteTakrUITests"
                ReferencedContainer = "container:Notetakr.xcodeproj">
             </BuildableReference>
          </TestableReference>
