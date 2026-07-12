@@ -186,9 +186,7 @@ final class NoteTakrUITests: XCTestCase {
     private func togglePanelFromTestProcess() {
         DistributedNotificationCenter.default().post(
             name: Notification.Name("com.notetakr.e2e.togglePanel"),
-            object: nil,
-            userInfo: nil,
-            deliverImmediately: true
+            object: nil
         )
     }
 }
