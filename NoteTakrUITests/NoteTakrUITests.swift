@@ -108,15 +108,20 @@ final class NoteTakrUITests: XCTestCase {
         XCTAssertTrue(titleField.waitForExistence(timeout: 5))
         XCTAssertEqual(titleField.value as? String, "Selected older meeting")
 
-        let visibleWindow = app.windows.firstMatch
-        XCTAssertTrue(visibleWindow.exists)
+        let visibleMeeting = element("meetingTitleField")
+        XCTAssertTrue(visibleMeeting.exists)
         togglePanelFromTestProcess()
-        XCTAssertTrue(visibleWindow.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(
+            visibleMeeting.waitForNonExistence(timeout: 5),
+            "Hiding the panel should remove the selected meeting editor from accessibility."
+        )
 
         togglePanelFromTestProcess()
-        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))
         let restoredTitle = element("meetingTitleField")
-        XCTAssertTrue(restoredTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            restoredTitle.waitForExistence(timeout: 5),
+            "Reopening the panel should restore the selected meeting editor."
+        )
         XCTAssertEqual(restoredTitle.value as? String, "Selected older meeting")
     }
 
@@ -133,7 +138,19 @@ final class NoteTakrUITests: XCTestCase {
         app.launchEnvironment["NOTETAKR_E2E_ENABLE_PANEL_TOGGLE_CONTROL"] =
             enablePanelToggleControl ? "1" : "0"
         app.launch()
-        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
+
+        let launchAnchor: XCUIElement
+        if openSettings {
+            launchAnchor = element("settingsTab_permissions")
+        } else if openSwitcher {
+            launchAnchor = element("switcherOverlay")
+        } else {
+            launchAnchor = element("meetingTitleField")
+        }
+        XCTAssertTrue(
+            launchAnchor.waitForExistence(timeout: 10),
+            "The requested NoteTakr screen should become accessible after launch."
+        )
     }
 
     private func element(_ identifier: String) -> XCUIElement {
