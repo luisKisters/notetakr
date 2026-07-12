@@ -224,7 +224,11 @@ final class NotePanelController {
     }
 
     func show() {
-        show(loadCurrentNote: true)
+        // Showing an existing panel is a visibility operation, not navigation.
+        // Only select the most recent note when the controller has not loaded one yet
+        // (normally the first launch). Re-loading on every show made the global panel
+        // shortcut silently switch away from the meeting the user had open.
+        show(loadCurrentNote: bridge.viewModel.noteID == nil)
     }
 
     func showLoadedNote() {

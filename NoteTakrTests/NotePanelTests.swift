@@ -21,6 +21,39 @@ final class NotePanelTests: XCTestCase {
         XCTAssertTrue(panel.canBecomeKey)
     }
 
+    func testShowingHiddenPanelPreservesLoadedMeeting() throws {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = NoteStore(root: dir)
+        let selected = try store.create(title: "Selected", date: Date(timeIntervalSince1970: 100))
+        let mostRecent = try store.create(title: "Most Recent", date: Date(timeIntervalSince1970: 200))
+        let controller = NotePanelController(notesRoot: dir)
+        let panel = try XCTUnwrap(controller.panel)
+        controller.loadNote(id: selected.id)
+
+        panel.orderOut(nil)
+        controller.show()
+
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertEqual(controller.bridge.viewModel.noteID, selected.id)
+        XCTAssertEqual(controller.frontmatterBridge.noteID, selected.id)
+        XCTAssertNotEqual(controller.bridge.viewModel.noteID, mostRecent.id)
+    }
+
+    func testFirstShowLoadsMostRecentMeeting() throws {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = NoteStore(root: dir)
+        _ = try store.create(title: "Older", date: Date(timeIntervalSince1970: 100))
+        let mostRecent = try store.create(title: "Most Recent", date: Date(timeIntervalSince1970: 200))
+        let controller = NotePanelController(notesRoot: dir)
+
+        controller.show()
+
+        XCTAssertEqual(controller.bridge.viewModel.noteID, mostRecent.id)
+        XCTAssertEqual(controller.frontmatterBridge.noteID, mostRecent.id)
+    }
+
     func testBridgeForwardsEditsToViewModel() throws {
         let spy = SpyNoteStore()
         let note = MeetingNote(id: "abc-1234", title: "Test", date: Date())
