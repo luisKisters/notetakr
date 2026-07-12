@@ -35,6 +35,12 @@ public final class RecordingManager: @unchecked Sendable {
             throw RecordingManagerError.alreadyRecording
         }
         var session = input
+        // In-person meetings are microphone-only. Normalize the stored session as
+        // well as the options sent to the recorder so no later pipeline can revive
+        // a stale desktop-audio stream from contradictory metadata.
+        let options = session.audioRecordingOptions
+        session.microphoneEnabled = options.microphoneEnabled
+        session.systemAudioEnabled = options.systemAudioEnabled
         session.status = .recording
         session.audioFilePaths = []
         session.audioSourceStatuses = []
@@ -43,7 +49,6 @@ public final class RecordingManager: @unchecked Sendable {
         try store.save(session)
         let dir = store.sessionURL(for: session)
         do {
-            let options = session.audioRecordingOptions
             if !options.microphoneEnabled && !options.systemAudioEnabled {
                 throw AudioRecorderError.recordingFailed("No audio sources are enabled")
             }

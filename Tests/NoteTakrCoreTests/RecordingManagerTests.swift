@@ -128,6 +128,11 @@ final class RecordingManagerTests: XCTestCase {
         )
 
         _ = try await manager.startRecording(session: input)
+        XCTAssertEqual(
+            recorder.lastStartOptions,
+            AudioRecordingOptions(microphoneEnabled: true, systemAudioEnabled: false)
+        )
+        XCTAssertEqual(manager.activeSession?.systemAudioEnabled, false)
         let stopped = try await manager.stopRecording()
 
         XCTAssertEqual(stopped.audioFilePaths.count, 1)
@@ -136,6 +141,7 @@ final class RecordingManagerTests: XCTestCase {
             stopped.audioSourceStatuses.first { $0.source == .systemAudio }?.missingReason,
             "System audio disabled"
         )
+        XCTAssertFalse(stopped.systemAudioEnabled)
     }
 
     func testStopRecordingWithMicDisabledCapturesOnlySystemAudio() async throws {

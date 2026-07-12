@@ -10,6 +10,7 @@ public final class MockAudioRecorder: ConfigurableAudioRecorder, AudioCaptureRep
     public var mockMissingReasons: [String: String] = [:]
     public private(set) var startCallCount: Int = 0
     public private(set) var stopCallCount: Int = 0
+    public private(set) var lastStartOptions: AudioRecordingOptions?
 
     // AudioCaptureReporter
     public var lastMissingReasons: [String: String] { mockMissingReasons }
@@ -25,6 +26,7 @@ public final class MockAudioRecorder: ConfigurableAudioRecorder, AudioCaptureRep
 
     public func startRecording(into directory: URL, options: AudioRecordingOptions) async throws {
         startCallCount += 1
+        lastStartOptions = options
         if shouldFailOnStart {
             throw AudioRecorderError.recordingFailed("mock start failure")
         }

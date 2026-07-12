@@ -118,80 +118,65 @@ final class AppModel: ObservableObject {
 
     // MARK: - Recording
 
-    /// Microphone authorization, requesting it on first use. Returns true only when
-    /// recording can actually capture audio — the gate that prevents "records nothing".
-    func ensureMicrophonePermission() async -> Bool {
+    /// Read-only permission preflight. Recording start never triggers an OS prompt;
+    /// users grant access deliberately from NoteTakr's Permissions settings.
+    private func validateRequiredAudioPermissions(for options: AudioRecordingOptions) -> Bool {
         #if DEBUG
         if Self.usesE2EMockRecorder {
             return true
         }
         #endif
 
-        let status = AVCaptureDevice.authorizationStatus(for: .audio)
-        NSLog("NoteTakr microphone authorization status before recording: \(Self.microphoneStatusDescription(status))")
-        switch status {
-        case .authorized:
+        let microphoneStatus: PermissionStatus
+        if options.microphoneEnabled {
+            microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                ? .granted
+                : .denied
+        } else {
+            microphoneStatus = .granted
+        }
+
+        let systemAudioStatus: PermissionStatus
+        if options.systemAudioEnabled {
+            systemAudioStatus = CGPreflightScreenCaptureAccess() ? .granted : .denied
+        } else {
+            // Mic-only/in-person recordings must not ask for screen capture access.
+            systemAudioStatus = .granted
+        }
+
+        switch AudioRecordingPermissionGate.failure(
+            for: options,
+            microphoneStatus: microphoneStatus,
+            systemAudioStatus: systemAudioStatus
+        ) {
+        case .microphone:
+            recordingError = "Microphone access is required to record. Turn it on for "
+                + "NoteTakr in System Settings → Privacy & Security → Microphone."
+            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted")
+            return false
+        case .systemAudio:
+            recordingError = "Screen & System Audio Recording access is required for online meetings. "
+                + "Turn it on for NoteTakr in System Settings → Privacy & Security, then restart NoteTakr. "
+                + "Or mark this as an in-person meeting to record microphone audio only."
+            FluidAudioAdapter.log.error("recording blocked: screen/system audio permission not granted")
+            return false
+        case nil:
             return true
-        case .notDetermined:
-            // Shows the system prompt and awaits the user's choice.
-            let granted = await requestMicrophoneAccessWithTimeout()
-            NSLog("NoteTakr microphone permission request completed: \(granted)")
-            return granted
-        case .denied, .restricted:
-            return false
-        @unknown default:
-            return false
         }
-    }
-
-    private func requestMicrophoneAccessWithTimeout() async -> Bool {
-        await withCheckedContinuation { continuation in
-            let gate = MicrophonePermissionGate(continuation)
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                gate.resume(returning: granted)
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                gate.resume(returning: false)
-            }
-        }
-    }
-
-    private static func microphoneStatusDescription(_ status: AVAuthorizationStatus) -> String {
-        switch status {
-        case .authorized: return "authorized"
-        case .notDetermined: return "notDetermined"
-        case .denied: return "denied"
-        case .restricted: return "restricted"
-        @unknown default: return "unknown"
-        }
-    }
-
-    private func resolveMicrophoneAvailability(for options: inout AudioRecordingOptions) async -> Bool {
-        guard options.microphoneEnabled else { return true }
-        guard !(await ensureMicrophonePermission()) else { return true }
-        guard options.systemAudioEnabled else { return false }
-        options.microphoneEnabled = false
-        NSLog("NoteTakr microphone permission missing; continuing with system audio only")
-        FluidAudioAdapter.log.error("microphone permission missing; continuing with system audio only")
-        return true
     }
 
     func startRecording(title: String? = nil) async {
         guard !recordingManager.isRecording else { return }
         recordingError = nil
         let inPerson = appSettings.inPersonByDefault
-        var options = audioOptions(inPerson: inPerson)
+        let options = audioOptions(inPerson: inPerson)
 
         guard options.microphoneEnabled || options.systemAudioEnabled else {
             recordingError = "Turn on at least one audio source before recording."
             return
         }
 
-        if options.microphoneEnabled,
-           !(await resolveMicrophoneAvailability(for: &options)) {
-            recordingError = "Microphone access is required to record. Turn it on for "
-                + "NoteTakr in System Settings → Privacy & Security → Microphone."
-            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted and no fallback source")
+        guard validateRequiredAudioPermissions(for: options) else {
             return  // isRecording stays false → caller resets the pill + shows the alert
         }
 
@@ -226,7 +211,7 @@ final class AppModel: ObservableObject {
         guard !recordingManager.isRecording else { return true }
         recordingError = nil
         let inPerson = effectiveInPerson(for: note)
-        var options = audioOptions(inPerson: inPerson)
+        let options = audioOptions(inPerson: inPerson)
 
         guard options.microphoneEnabled || options.systemAudioEnabled else {
             recordingError = "Turn on at least one audio source before recording."
@@ -234,12 +219,8 @@ final class AppModel: ObservableObject {
             return false
         }
 
-        if options.microphoneEnabled,
-           !(await resolveMicrophoneAvailability(for: &options)) {
-            recordingError = "Microphone access is required to record. Turn it on for "
-                + "NoteTakr in System Settings → Privacy & Security → Microphone."
-            FluidAudioAdapter.log.error("recording blocked: microphone permission not granted and no fallback source")
-            NSLog("NoteTakr recording start blocked: microphone permission not granted and no fallback source")
+        guard validateRequiredAudioPermissions(for: options) else {
+            NSLog("NoteTakr recording start blocked: required audio permission missing")
             return false
         }
 
@@ -622,22 +603,5 @@ final class AppModel: ObservableObject {
         } catch {
             calendarError = "Calendar unavailable"
         }
-    }
-}
-
-private final class MicrophonePermissionGate: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Bool, Never>?
-
-    init(_ continuation: CheckedContinuation<Bool, Never>) {
-        self.continuation = continuation
-    }
-
-    func resume(returning value: Bool) {
-        lock.lock()
-        let continuation = continuation
-        self.continuation = nil
-        lock.unlock()
-        continuation?.resume(returning: value)
     }
 }

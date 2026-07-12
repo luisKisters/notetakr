@@ -1572,7 +1572,9 @@ private struct InPersonValue: View {
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showExplainer, arrowEdge: .leading) {
-                Text("In-person meetings are mic-only — NoteTakr skips system-audio capture.")
+                Text(bridge.isRecording
+                     ? "Stop the recording before changing audio sources."
+                     : "In-person meetings are mic-only — NoteTakr skips system-audio capture.")
                     .font(.system(size: 11.5))
                     .padding(10)
                     .frame(maxWidth: 220)
@@ -1585,6 +1587,7 @@ private struct InPersonValue: View {
             ))
             .toggleStyle(ThemedToggleStyle(theme: theme))
             .labelsHidden()
+            .disabled(bridge.isRecording)
         }
     }
 }

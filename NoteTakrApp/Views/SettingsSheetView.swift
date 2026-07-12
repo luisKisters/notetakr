@@ -225,7 +225,9 @@ struct SettingsSheetView: View {
                         Image(systemName: "person.fill").iconStyle(color: textTertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
-                            Text("Mic only — skips system audio")
+                            Text(viewModel.frontmatterBridge.isRecording
+                                 ? "Stop recording to change audio sources"
+                                 : "Mic only — skips system audio")
                                 .font(.system(size: 11)).foregroundColor(textTertiary)
                         }
                         Spacer()
@@ -234,6 +236,7 @@ struct SettingsSheetView: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
+                .disabled(viewModel.frontmatterBridge.isRecording)
             }
 
             sectionLabel("Calendar")

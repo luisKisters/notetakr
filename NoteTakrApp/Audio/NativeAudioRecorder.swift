@@ -33,6 +33,10 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
             throw AudioRecorderError.recordingFailed(
                 "Microphone permission has not been granted")
         }
+        if options.systemAudioEnabled, !CGPreflightScreenCaptureAccess() {
+            throw AudioRecorderError.recordingFailed(
+                "Screen & System Audio Recording permission has not been granted")
+        }
 
         _lastMissingReasons = [:]
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -67,11 +71,10 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
             _lastMissingReasons[AudioSourceType.microphone.rawValue] = "Microphone disabled"
         }
 
-        // System-audio via ScreenCaptureKit; requires Screen & System Audio Recording permission.
-        // Gracefully skipped when permission is absent or hardware is unavailable.
+        // System-audio via ScreenCaptureKit; required for online meetings when enabled.
         if !options.systemAudioEnabled {
             _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "System audio disabled"
-        } else if Self.hasScreenCaptureAccess() {
+        } else {
             let capturer = SystemAudioCapturer()
             do {
                 try await capturer.startCapture(to: sysURL)
@@ -81,10 +84,13 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
                 _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = reason
                 NSLog("NoteTakr system audio capture failed to start: \(error.localizedDescription)")
                 sysAudioCapturer = nil
+                micRecorder?.stop()
+                micRecorder = nil
+                currentOptions = .default
+                capturedMicURL = nil
+                capturedSysURL = nil
+                throw AudioRecorderError.recordingFailed(reason)
             }
-        } else {
-            _lastMissingReasons[AudioSourceType.systemAudio.rawValue] =
-                "Screen & System Audio Recording permission not granted"
         }
 
         guard micRecorder != nil || sysAudioCapturer != nil else {
@@ -156,11 +162,5 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
         }
     }
 
-    private static func hasScreenCaptureAccess() -> Bool {
-        if CGPreflightScreenCaptureAccess() {
-            return true
-        }
-        return CGRequestScreenCaptureAccess()
-    }
 }
 #endif

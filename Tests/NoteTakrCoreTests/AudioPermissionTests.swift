@@ -79,4 +79,37 @@ final class AudioPermissionTests: XCTestCase {
             XCTAssertEqual(sessions.first?.status, .failed)
         }
     }
+
+    func testPermissionGateRequiresEveryEnabledSource() {
+        let both = AudioRecordingOptions(microphoneEnabled: true, systemAudioEnabled: true)
+
+        XCTAssertEqual(
+            AudioRecordingPermissionGate.failure(
+                for: both,
+                microphoneStatus: .denied,
+                systemAudioStatus: .granted
+            ),
+            .microphone
+        )
+        XCTAssertEqual(
+            AudioRecordingPermissionGate.failure(
+                for: both,
+                microphoneStatus: .granted,
+                systemAudioStatus: .notDetermined
+            ),
+            .systemAudio
+        )
+    }
+
+    func testPermissionGateDoesNotRequireSystemAudioForMicOnlyRecording() {
+        let micOnly = AudioRecordingOptions(microphoneEnabled: true, systemAudioEnabled: false)
+
+        XCTAssertNil(
+            AudioRecordingPermissionGate.failure(
+                for: micOnly,
+                microphoneStatus: .granted,
+                systemAudioStatus: .denied
+            )
+        )
+    }
 }

@@ -37,6 +37,20 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         XCTAssertEqual(saved.inPerson, false)
     }
 
+    func testInPersonCannotChangeDuringActiveRecording() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(id: "fp-recording", title: "Live", date: fixedDate(), inPerson: false)
+        spy.notes[note.id] = note
+        let bridge = FrontmatterPresenterBridge(store: spy)
+        bridge.load(note: note)
+
+        bridge.setRecordingActive(true)
+        bridge.setInPerson(true)
+
+        XCTAssertTrue(bridge.isRecording)
+        XCTAssertEqual(try XCTUnwrap(spy.notes[note.id]).inPerson, false)
+    }
+
     // MARK: - Chips view model state matches Kit presenter
 
     func testChipsMatchKitPresenterForFullNote() throws {

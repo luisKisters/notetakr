@@ -138,6 +138,7 @@ final class NotePanelController {
         }
 
         loadNote(id: sessionID)
+        frontmatterBridge.setRecordingActive(true)
         refreshActiveRecordingSnapshot()
         if switcherBridge.isVisible {
             switcherBridge.refresh()
@@ -208,6 +209,7 @@ final class NotePanelController {
         stopPillTickTimer()
         elapsedTimer?.invalidate()
         elapsedTimer = nil
+        frontmatterBridge.setRecordingActive(false)
         switcherBridge.setActiveRecordingNoteID(nil)
         recordingBridge?.stopRecording()
         recordingBridge = nil
@@ -568,8 +570,12 @@ final class NotePanelController {
             alert.addButton(withTitle: "Open Privacy Settings")
         }
         let response = alert.runModal()
+        let privacyPane = message.localizedCaseInsensitiveContains("screen")
+            || message.localizedCaseInsensitiveContains("system audio")
+            ? "Privacy_ScreenCapture"
+            : "Privacy_Microphone"
         if response == .alertSecondButtonReturn,
-           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(privacyPane)") {
             NSWorkspace.shared.open(url)
         }
     }
