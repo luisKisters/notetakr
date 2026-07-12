@@ -126,6 +126,19 @@ public final class RecordPillStateMachine {
         transition(to: .recording(elapsed: 0))
     }
 
+    /// Mirrors a recording that was started outside the pill, such as a menu-bar
+    /// command or global shortcut. This keeps the pill honest without firing
+    /// `onStarted` and accidentally starting a second backing recorder.
+    public func reflectExternalRecordingStarted(elapsed: Int = 0) {
+        isStartPending = false
+        switch state {
+        case .idle, .done, .doneTranscript:
+            transition(to: .recording(elapsed: max(0, elapsed)))
+        case .recording, .paused, .transcribing, .summarizing:
+            break
+        }
+    }
+
     /// Advance the elapsed counter by one second. No-op unless `.recording`.
     public func tick() {
         guard case .recording(let elapsed) = state else { return }

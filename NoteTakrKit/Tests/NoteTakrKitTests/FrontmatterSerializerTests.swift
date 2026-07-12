@@ -226,6 +226,43 @@ final class FrontmatterSerializerTests: XCTestCase {
         XCTAssertEqual(parsed.participants[1].email, "bob@test.com")
     }
 
+    func testParticipantObjectBlockStyleWithCRM() {
+        let fileText = """
+        ---
+        id: P3
+        title: Meeting
+        date: 2026-06-10T10:00:00+02:00
+        participants:
+          - name: Sarah Chen
+            email: sarah@acme.com
+            crm: local:person/sarah
+          - name: Tom Müller
+        ---
+        """
+        let parsed = FrontmatterSerializer.parse(fileText: fileText)
+        XCTAssertEqual(parsed.participants.count, 2)
+        XCTAssertEqual(parsed.participants[0], Participant(name: "Sarah Chen", email: "sarah@acme.com", crm: "local:person/sarah"))
+        XCTAssertEqual(parsed.participants[1], Participant(name: "Tom Müller"))
+    }
+
+    func testParticipantCRMFieldRoundTrips() {
+        let note = MeetingNote(
+            id: "P4",
+            title: "CRM Meeting",
+            date: makeDate(2026, 6, 10, 10, 0),
+            participants: [
+                Participant(name: "Sarah Chen", email: "sarah@acme.com", crm: "local:person/sarah"),
+                Participant(name: "Tom Müller")
+            ]
+        )
+
+        let rendered = FrontmatterSerializer.render(note: note)
+        let parsed = FrontmatterSerializer.parse(fileText: rendered)
+
+        XCTAssertTrue(rendered.contains("crm: \"local:person/sarah\""))
+        XCTAssertEqual(parsed, note)
+    }
+
     // MARK: - Location values
 
     func testAllLocationValues() {

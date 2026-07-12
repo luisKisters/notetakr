@@ -351,7 +351,7 @@ final class AppModel: ObservableObject {
         session.linkedEventID = note.calendarEvent
         session.linkedEventTitle = note.calendarEvent == nil ? nil : note.title
         session.participants = note.participants.map {
-            NoteTakrCore.Participant(name: $0.name, email: $0.email)
+            NoteTakrCore.Participant(name: $0.name, email: $0.email, crm: $0.crm)
         }
         let inPerson = effectiveInPerson(for: note)
         let options = options ?? audioOptions(inPerson: inPerson)

@@ -3,10 +3,12 @@ import Foundation
 public struct Participant: Equatable, Hashable, Codable {
     public var name: String
     public var email: String?
+    public var crm: String?
 
-    public init(name: String, email: String? = nil) {
+    public init(name: String, email: String? = nil, crm: String? = nil) {
         self.name = name
         self.email = email
+        self.crm = crm
     }
 
     public var displayName: String {

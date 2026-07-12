@@ -414,7 +414,7 @@ private struct EventPickerMenu: View {
         bridge.linkCalendarEvent(
             id: event.id,
             title: event.title,
-            attendees: event.participants.map { (name: $0.name, email: $0.email) },
+            attendees: event.participants,
             startDate: event.start,
             endDate: event.end,
             locationText: event.locationText,
@@ -853,7 +853,7 @@ private struct DatePickerPopover: View {
             if hasEnd && selectedEnd < selectedDate {
                 Text("End must be after start")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.red.opacity(0.85))
+                    .foregroundStyle(theme.accent.swiftUIColor.opacity(0.85))
                     .padding(.horizontal, 8)
             }
 
@@ -1096,6 +1096,12 @@ private struct PeopleValue: View {
                     name: $newPersonName,
                     email: $newPersonEmail,
                     theme: theme,
+                    suggestions: { query in
+                        bridge.participantSuggestions(
+                            matching: query,
+                            excluding: participants
+                        )
+                    },
                     cancel: {
                         newPersonName = ""
                         newPersonEmail = ""
@@ -1104,11 +1110,26 @@ private struct PeopleValue: View {
                     add: {
                         commitAdd()
                         showAddPopover = false
+                    },
+                    selectSuggestion: { entry in
+                        bridge.addParticipant(entry.participant)
+                        newPersonName = ""
+                        newPersonEmail = ""
+                        showAddPopover = false
                     }
                 )
             }
         }
         .frame(minWidth: 116, alignment: .trailing)
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["NOTETAKR_E2E_OPEN_PEOPLE_PICKER"] == "1" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showAddPopover = true
+                }
+            }
+            #endif
+        }
     }
 
     @ViewBuilder
@@ -1144,6 +1165,7 @@ private struct PeopleValue: View {
         ) {
             ParticipantMenu(
                 participant: participant,
+                personEntry: bridge.personEntry(for: participant),
                 bridge: bridge,
                 theme: theme,
                 dismiss: { menuParticipant = nil }
@@ -1181,8 +1203,10 @@ private struct AddParticipantPopover: View {
     @Binding var name: String
     @Binding var email: String
     let theme: ThemeColors
+    let suggestions: (String) -> [PersonIndexEntry]
     let cancel: () -> Void
     let add: () -> Void
+    let selectSuggestion: (PersonIndexEntry) -> Void
 
     @FocusState private var focusedField: Field?
 
@@ -1194,6 +1218,16 @@ private struct AddParticipantPopover: View {
     private var canAdd: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var suggestionQuery: String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty { return trimmedName }
+        return email.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var visibleSuggestions: [PersonIndexEntry] {
+        suggestions(suggestionQuery)
     }
 
     var body: some View {
@@ -1210,6 +1244,25 @@ private struct AddParticipantPopover: View {
             VStack(spacing: 8) {
                 personTextField("Name", text: $name, focus: .name)
                 personTextField("Email", text: $email, focus: .email)
+            }
+
+            if !visibleSuggestions.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(suggestionQuery.isEmpty ? "Recent people" : "Suggestions")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
+
+                    VStack(spacing: 3) {
+                        ForEach(visibleSuggestions) { entry in
+                            Button {
+                                selectSuggestion(entry)
+                            } label: {
+                                PersonSuggestionRow(entry: entry, theme: theme)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
 
             HStack(spacing: 8) {
@@ -1236,7 +1289,7 @@ private struct AddParticipantPopover: View {
                 .disabled(!canAdd)
             }
         }
-        .frame(width: 240)
+        .frame(width: 286)
         .padding(12)
         .background(theme.panelFill.swiftUIColor)
         .onAppear { focusedField = .name }
@@ -1257,8 +1310,68 @@ private struct AddParticipantPopover: View {
     }
 }
 
+private struct PersonSuggestionRow: View {
+    let entry: PersonIndexEntry
+    let theme: ThemeColors
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(initials(for: entry.displayName))
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(theme.secondaryText.swiftUIColor)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(theme.avatarFill.swiftUIColor))
+                .overlay(Circle().stroke(theme.hairline.swiftUIColor.opacity(0.9), lineWidth: 1))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.displayName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(theme.primaryText.swiftUIColor)
+                    .lineLimit(1)
+                Text(detailText)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer(minLength: 6)
+
+            Image(systemName: "plus")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.tertiaryText.swiftUIColor)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .background(RoundedRectangle(cornerRadius: 7).fill(theme.hoverFill.swiftUIColor))
+    }
+
+    private var detailText: String {
+        var pieces: [String] = []
+        if entry.noteCount > 0 {
+            pieces.append(entry.noteCount == 1 ? "1 past note" : "\(entry.noteCount) past notes")
+        }
+        if entry.calendarEventCount > 0 {
+            pieces.append(entry.calendarEventCount == 1 ? "calendar attendee" : "\(entry.calendarEventCount) calendar events")
+        }
+        if let email = entry.participant.email, !email.isEmpty {
+            pieces.append(email)
+        }
+        return pieces.isEmpty ? "Local person" : pieces.joined(separator: " · ")
+    }
+
+    private func initials(for name: String) -> String {
+        let initials = name.split(separator: " ").prefix(2)
+            .compactMap { $0.first.map { String($0).uppercased() } }
+            .joined()
+        return initials.isEmpty ? "?" : initials
+    }
+}
+
 private struct ParticipantMenu: View {
     let participant: Participant
+    let personEntry: PersonIndexEntry?
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let theme: ThemeColors
     let dismiss: () -> Void
@@ -1291,6 +1404,31 @@ private struct ParticipantMenu: View {
                     .font(.system(size: 11))
                     .foregroundStyle(theme.tertiaryText.swiftUIColor)
                     .labelStyle(.titleAndIcon)
+            }
+
+            if let personEntry {
+                VStack(alignment: .leading, spacing: 4) {
+                    if personEntry.noteCount > 0 {
+                        Label(
+                            personEntry.noteCount == 1 ? "1 past note" : "\(personEntry.noteCount) past notes",
+                            systemImage: "clock.arrow.circlepath"
+                        )
+                    }
+                    if personEntry.calendarEventCount > 0 {
+                        Label(
+                            personEntry.calendarEventCount == 1 ? "Seen in calendar" : "\(personEntry.calendarEventCount) calendar events",
+                            systemImage: "calendar"
+                        )
+                    }
+                    if let crm = participant.crm, !crm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Label(crm, systemImage: "link")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                .labelStyle(.titleAndIcon)
             }
 
             Divider().overlay(theme.hairline.swiftUIColor)

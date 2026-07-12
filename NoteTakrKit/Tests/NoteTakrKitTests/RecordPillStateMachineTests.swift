@@ -57,6 +57,28 @@ final class RecordPillStateMachineTests: XCTestCase {
         XCTAssertFalse(m.isStartPending)
     }
 
+    func testReflectExternalRecordingStartedEntersRecordingWithoutCallback() {
+        let m = RecordPillStateMachine()
+        var startCount = 0
+        m.onStarted = { startCount += 1 }
+
+        m.reflectExternalRecordingStarted()
+
+        XCTAssertEqual(m.state, .recording(elapsed: 0))
+        XCTAssertEqual(startCount, 0)
+    }
+
+    func testReflectExternalRecordingStartedClearsPendingStart() {
+        let m = RecordPillStateMachine()
+        m.onStarted = {}
+        m.requestStart()
+
+        m.reflectExternalRecordingStarted()
+
+        XCTAssertEqual(m.state, .recording(elapsed: 0))
+        XCTAssertFalse(m.isStartPending)
+    }
+
     func testResetClearsPendingStart() {
         let m = RecordPillStateMachine()
         m.onStarted = {}

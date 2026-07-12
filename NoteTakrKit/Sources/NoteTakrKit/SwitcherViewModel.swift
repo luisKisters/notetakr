@@ -187,7 +187,7 @@ public final class SwitcherViewModel {
         SwitcherCommand(
             id: .openSettings,
             title: "Open Settings\u{2026}",
-            subtitle: "Preferences \u{B7} vocabulary \u{B7} updates",
+            subtitle: "Preferences \u{B7} vocabulary \u{B7} permissions",
             shortcut: "\u{2318},"
         ),
         SwitcherCommand(
@@ -200,7 +200,7 @@ public final class SwitcherViewModel {
 
     /// Keywords associated with each command for search matching.
     private static let commandKeywords: [SwitcherCommand.CommandID: [String]] = [
-        .openSettings: ["settings", "preferences", "vocabulary", "updates"],
+        .openSettings: ["settings", "preferences", "vocabulary", "permissions"],
         .newNote:       ["new", "create", "note"],
     ]
 

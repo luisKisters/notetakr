@@ -33,7 +33,7 @@ public final class SummarizationService: @unchecked Sendable {
             : session.title
 
         let kitParticipants = session.participants.map {
-            NoteTakrKit.Participant(name: $0.name, email: $0.email)
+            NoteTakrKit.Participant(name: $0.name, email: $0.email, crm: $0.crm)
         }
 
         let segments = session.transcriptSegments.map {

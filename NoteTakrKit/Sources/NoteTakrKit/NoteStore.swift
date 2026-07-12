@@ -150,6 +150,7 @@ public final class NoteStore: NoteStoring, NoteDeleting {
         struct LegacyParticipant: Codable {
             let name: String
             let email: String?
+            let crm: String?
         }
     }
 
@@ -162,7 +163,7 @@ public final class NoteStore: NoteStoring, NoteDeleting {
               let date = meta.date else { return nil }
         let id = meta.id?.uuidString ?? UUID().uuidString
         let participants = (meta.participants ?? []).map {
-            Participant(name: $0.name, email: $0.email)
+            Participant(name: $0.name, email: $0.email, crm: $0.crm)
         }
         return MeetingNote(
             id: id,

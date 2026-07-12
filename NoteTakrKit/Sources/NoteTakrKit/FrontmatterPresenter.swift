@@ -142,8 +142,9 @@ public final class FrontmatterPresenter {
     }
 
     public func addParticipant(_ participant: Participant) throws {
-        guard !note.participants.contains(participant) else { return }
-        note.participants.append(participant)
+        let normalized = Self.normalizedParticipant(participant)
+        guard !note.participants.contains(where: { ParticipantIdentity.matches($0, normalized) }) else { return }
+        note.participants.append(normalized)
         try store.save(note)
         onChange?()
     }
@@ -248,18 +249,21 @@ public final class FrontmatterPresenter {
     }
 
     private static func normalizedParticipants(_ participants: [Participant]) -> [Participant] {
-        var seen = Set<String>()
         var result: [Participant] = []
 
         for participant in participants {
-            let email = trimmedNonEmpty(participant.email)
-            let name = Participant.displayName(name: participant.name, email: email)
-            let key = (email ?? name).lowercased()
-            guard !key.isEmpty, !seen.contains(key) else { continue }
-            seen.insert(key)
-            result.append(Participant(name: name, email: email))
+            let normalized = normalizedParticipant(participant)
+            guard !result.contains(where: { ParticipantIdentity.matches($0, normalized) }) else { continue }
+            result.append(normalized)
         }
 
         return result
+    }
+
+    private static func normalizedParticipant(_ participant: Participant) -> Participant {
+        let email = trimmedNonEmpty(participant.email)
+        let crm = trimmedNonEmpty(participant.crm)
+        let name = Participant.displayName(name: trimmedNonEmpty(participant.name), email: email)
+        return Participant(name: name, email: email, crm: crm)
     }
 }

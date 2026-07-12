@@ -53,8 +53,9 @@ public final class NoteEditorViewModel {
 
     public func flush() throws {
         scheduler.cancel(id: Self.saveKey)
-        guard isDirty, let note = currentNote else { return }
+        guard isDirty, let note = try noteForSavingEditorEdits() else { return }
         try store.save(note)
+        currentNote = note
         isDirty = false
     }
 
@@ -62,9 +63,19 @@ public final class NoteEditorViewModel {
 
     private func scheduleSave() {
         scheduler.schedule(id: Self.saveKey, delay: 1.0) { [weak self] in
-            guard let self, self.isDirty, let note = self.currentNote else { return }
-            try? self.store.save(note)
+            guard let self, self.isDirty else { return }
+            guard let note = try? self.noteForSavingEditorEdits() else { return }
+            guard (try? self.store.save(note)) != nil else { return }
+            self.currentNote = note
             self.isDirty = false
         }
+    }
+
+    private func noteForSavingEditorEdits() throws -> MeetingNote? {
+        guard let currentNote else { return nil }
+        var latest = (try store.load(id: currentNote.id)) ?? currentNote
+        latest.title = currentNote.title
+        latest.body = currentNote.body
+        return latest
     }
 }

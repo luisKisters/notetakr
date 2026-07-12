@@ -26,6 +26,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertFalse(store.inPersonByDefault)
         XCTAssertEqual(store.appearance, .glass)
         XCTAssertEqual(store.hotkey.displayString, "⌃⌥⌘N")
+        XCTAssertEqual(store.recordingHotkey.displayString, "⌃⌥⌘R")
         XCTAssertFalse(store.launchAtLogin)
         XCTAssertNil(store.notesFolderPath)
     }
@@ -40,6 +41,7 @@ final class AppSettingsStoreTests: XCTestCase {
         store.inPersonByDefault = true
         store.appearance = .dark
         store.hotkey = try HotkeyCombo.parse("⌃⌥⌘P")
+        store.recordingHotkey = try HotkeyCombo.parse("⌃⌥⌘R")
         store.launchAtLogin = true
         store.notesFolderPath = "/Users/me/Notes"
 
@@ -49,6 +51,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertTrue(store2.inPersonByDefault)
         XCTAssertEqual(store2.appearance, .dark)
         XCTAssertEqual(store2.hotkey.displayString, "⌃⌥⌘P")
+        XCTAssertEqual(store2.recordingHotkey.displayString, "⌃⌥⌘R")
         XCTAssertTrue(store2.launchAtLogin)
         XCTAssertEqual(store2.notesFolderPath, "/Users/me/Notes")
     }

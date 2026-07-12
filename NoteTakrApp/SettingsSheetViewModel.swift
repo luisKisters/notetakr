@@ -8,7 +8,7 @@ enum SettingsTab: CaseIterable, Equatable {
     case general
     case recording
     case vocabulary
-    case updates
+    case permissions
 }
 
 // MARK: - ViewModel
@@ -17,15 +17,25 @@ enum SettingsTab: CaseIterable, Equatable {
 /// FrontmatterPresenterBridge and General mutations to AppSettingsStore.
 @MainActor
 final class SettingsSheetViewModel: ObservableObject {
+    enum HotkeyRegistrationRole: CaseIterable, Hashable {
+        case showNote
+        case recording
+    }
+
     @Published var selectedTab: SettingsTab = .thisMeeting
     @Published var isVisible: Bool = false
     @Published var currentAppearance: Appearance
+    @Published private(set) var hotkeyConflictMessage: String?
+    @Published private(set) var hotkeyRegistrationMessages: [String] = []
 
     let frontmatterBridge: FrontmatterPresenterBridge
     let appSettings: AppSettingsStore
+    private var hotkeyRegistrationMessagesByRole: [HotkeyRegistrationRole: String] = [:]
 
     /// Called when the user records a new hotkey so the coordinator can re-register.
     var onHotkeyChange: ((HotkeyCombo) -> Void)?
+    /// Called when the user records a new recording hotkey so the coordinator can re-register.
+    var onRecordingHotkeyChange: ((HotkeyCombo) -> Void)?
     /// Called when the user toggles auto-check-for-updates so the live updater can be updated.
     var onAutoCheckForUpdatesChange: ((Bool) -> Void)?
     /// Called when the user toggles auto-download-updates so the live updater can be updated.
@@ -95,9 +105,39 @@ final class SettingsSheetViewModel: ObservableObject {
         currentAppearance = appearance
     }
 
-    func setHotkey(_ combo: HotkeyCombo) {
+    @discardableResult
+    func setHotkey(_ combo: HotkeyCombo) -> Bool {
+        guard combo != appSettings.recordingHotkey else {
+            hotkeyConflictMessage = Self.hotkeyConflictText
+            return false
+        }
         appSettings.hotkey = combo
+        hotkeyConflictMessage = nil
         onHotkeyChange?(combo)
+        return true
+    }
+
+    @discardableResult
+    func setRecordingHotkey(_ combo: HotkeyCombo) -> Bool {
+        guard combo != appSettings.hotkey else {
+            hotkeyConflictMessage = Self.hotkeyConflictText
+            return false
+        }
+        appSettings.recordingHotkey = combo
+        hotkeyConflictMessage = nil
+        onRecordingHotkeyChange?(combo)
+        return true
+    }
+
+    func setHotkeyRegistrationMessage(_ message: String?, for role: HotkeyRegistrationRole) {
+        if let message {
+            hotkeyRegistrationMessagesByRole[role] = message
+        } else {
+            hotkeyRegistrationMessagesByRole.removeValue(forKey: role)
+        }
+        hotkeyRegistrationMessages = HotkeyRegistrationRole.allCases.compactMap {
+            hotkeyRegistrationMessagesByRole[$0]
+        }
     }
 
     func setYourName(_ name: String) {
@@ -131,4 +171,7 @@ final class SettingsSheetViewModel: ObservableObject {
     func close() {
         isVisible = false
     }
+
+    private static let hotkeyConflictText =
+        "Choose different shortcuts for showing the note and starting recording."
 }

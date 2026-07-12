@@ -10,6 +10,7 @@ struct EditorView: View {
     let recordPillMachine: RecordPillStateMachine
     let onRenameSpeaker: ((String, String, String) -> Void)?
     @State private var pillState: RecordPillState = .idle
+    @State private var isWindowHovered = false
 
     private var themeColors: ThemeColors {
         Theme.colors(for: settingsBridge.currentAppearance)
@@ -42,8 +43,9 @@ struct EditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 0) {
-                // Window chrome: traffic lights left, gear right (always visible per mockup)
+                // Window chrome: dimmed traffic lights left, hover-only gear right.
                 WindowChromeView(
+                    isWindowHovered: isWindowHovered,
                     settingsIsVisible: settingsBridge.isVisible,
                     onGearTap: {
                         withAnimation(.easeInOut(duration: 0.22)) {
@@ -96,6 +98,7 @@ struct EditorView: View {
 
                 footerTabs
             }
+            .ignoresSafeArea(.container, edges: .top)
         }
         // ⌘K — toggle switcher
         .background(
@@ -115,6 +118,7 @@ struct EditorView: View {
             .keyboardShortcut(",", modifiers: .command)
             .hidden()
         )
+        .onHover { isWindowHovered = $0 }
     }
 
     private var panelBackground: some View {
@@ -184,7 +188,7 @@ struct EditorView: View {
                 .frame(height: 1)
 
             HStack(spacing: 34) {
-                tabButton("Notes", tab: .privateNotes)
+                tabButton("Private Notes", tab: .privateNotes)
                 tabButton("Summary", tab: .summary)
                 tabButton("Transcript", tab: .transcript)
             }

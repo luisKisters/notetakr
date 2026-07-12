@@ -26,7 +26,12 @@ public enum FrontmatterSerializer {
         if let cal = note.calendarEvent {
             lines.append("calendar_event: \(cal)")
         }
-        if !note.participants.isEmpty {
+        if note.participants.contains(where: { trimmedNonEmpty($0.crm) != nil }) {
+            lines.append("participants:")
+            for participant in note.participants {
+                lines.append(contentsOf: renderParticipantBlockItem(participant))
+            }
+        } else if !note.participants.isEmpty {
             let parts = note.participants.map { renderParticipant($0) }.joined(separator: ", ")
             lines.append("participants: [\(parts)]")
         }
@@ -120,6 +125,15 @@ public enum FrontmatterSerializer {
                 let valuePart = String(trimmed[trimmed.index(after: colonIdx)...])
                     .trimmingCharacters(in: .whitespaces)
 
+                if valuePart.isEmpty, key == "participants" {
+                    let parsed = parseParticipantBlock(lines: lines, start: i + 1)
+                    if !parsed.participants.isEmpty {
+                        participants = parsed.participants
+                        i = parsed.nextIndex
+                        continue
+                    }
+                }
+
                 // Peek ahead: block sequence?
                 if valuePart.isEmpty {
                     var blockItems: [String] = []
@@ -138,8 +152,6 @@ public enum FrontmatterSerializer {
                     if !blockItems.isEmpty {
                         i = j
                         switch key {
-                        case "participants":
-                            participants = blockItems.map { parseParticipant($0) }
                         case "vocabulary":
                             vocabulary = blockItems.map { unquote($0) }
                         default:
@@ -259,6 +271,9 @@ public enum FrontmatterSerializer {
 
     private static func parseParticipant(_ s: String) -> Participant {
         let t = unquote(s)
+        if t.hasPrefix("{"), t.hasSuffix("}") {
+            return parseParticipantMapping(String(t.dropFirst().dropLast()))
+        }
         // Match "Name <email>"
         if t.hasSuffix(">"), let ltIdx = t.lastIndex(of: "<") {
             let name = String(t[t.startIndex..<ltIdx]).trimmingCharacters(in: .whitespaces)
@@ -274,6 +289,89 @@ public enum FrontmatterSerializer {
             return quoteIfNeeded("\(p.name) <\(email)>")
         }
         return quoteIfNeeded(p.name)
+    }
+
+    private static func parseParticipantBlock(lines: [String], start: Int) -> (participants: [Participant], nextIndex: Int) {
+        var participants: [Participant] = []
+        var i = start
+
+        while i < lines.count {
+            let rawLine = lines[i]
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                i += 1
+                continue
+            }
+            guard trimmed.hasPrefix("- ") else { break }
+
+            let item = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            if let field = participantField(from: item) {
+                var fields = [field.key: field.value]
+                i += 1
+
+                while i < lines.count {
+                    let nestedRawLine = lines[i]
+                    let nestedTrimmed = nestedRawLine.trimmingCharacters(in: .whitespaces)
+                    if nestedTrimmed.isEmpty {
+                        i += 1
+                        continue
+                    }
+                    if nestedTrimmed.hasPrefix("- ") { break }
+                    guard nestedRawLine.first?.isWhitespace == true else { break }
+
+                    if let nestedField = participantField(from: nestedTrimmed) {
+                        fields[nestedField.key] = nestedField.value
+                    }
+                    i += 1
+                }
+
+                participants.append(participant(fromFields: fields))
+            } else {
+                participants.append(parseParticipant(item))
+                i += 1
+            }
+        }
+
+        return (participants, i)
+    }
+
+    private static func parseParticipantMapping(_ mapping: String) -> Participant {
+        var fields: [String: String] = [:]
+        for item in splitFlowList(mapping) {
+            if let field = participantField(from: item) {
+                fields[field.key] = field.value
+            }
+        }
+        return participant(fromFields: fields)
+    }
+
+    private static func participantField(from item: String) -> (key: String, value: String)? {
+        let trimmed = item.trimmingCharacters(in: .whitespaces)
+        guard let colonIdx = firstColon(in: trimmed) else { return nil }
+        let key = String(trimmed[trimmed.startIndex..<colonIdx])
+            .trimmingCharacters(in: .whitespaces)
+        guard ["name", "email", "crm"].contains(key) else { return nil }
+        let value = String(trimmed[trimmed.index(after: colonIdx)...])
+            .trimmingCharacters(in: .whitespaces)
+        return (key, unquote(value))
+    }
+
+    private static func participant(fromFields fields: [String: String]) -> Participant {
+        let email = trimmedNonEmpty(fields["email"])
+        let crm = trimmedNonEmpty(fields["crm"])
+        let name = Participant.displayName(name: trimmedNonEmpty(fields["name"]), email: email)
+        return Participant(name: name, email: email, crm: crm)
+    }
+
+    private static func renderParticipantBlockItem(_ participant: Participant) -> [String] {
+        var lines = ["  - name: \(quoteIfNeeded(participant.name))"]
+        if let email = trimmedNonEmpty(participant.email) {
+            lines.append("    email: \(quoteIfNeeded(email))")
+        }
+        if let crm = trimmedNonEmpty(participant.crm) {
+            lines.append("    crm: \(quoteIfNeeded(crm))")
+        }
+        return lines
     }
 
     private static func parseLocation(_ s: String) -> Location? {
@@ -330,5 +428,10 @@ public enum FrontmatterSerializer {
             return "\"\(escaped)\""
         }
         return s
+    }
+
+    private static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
     }
 }

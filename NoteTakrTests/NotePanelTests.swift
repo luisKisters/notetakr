@@ -114,6 +114,20 @@ final class NotePanelTests: XCTestCase {
         XCTAssertNotNil(try store.load(id: replacementID))
     }
 
+    func testExternalRecordingStartUpdatesRecordPillState() throws {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = NoteStore(root: dir)
+        let note = try store.create(title: "External Recording", date: Date())
+        let controller = NotePanelController(notesRoot: dir)
+
+        controller.recordingStarted(sessionID: note.id)
+
+        XCTAssertEqual(controller.recordPillMachine.state, .recording(elapsed: 0))
+        XCTAssertEqual(controller.frontmatterBridge.noteID, note.id)
+        XCTAssertNotNil(controller.frontmatterBridge.presenter?.recordingStartedAt)
+    }
+
     // MARK: - Helpers
 
     private func makeTempDir() -> URL {

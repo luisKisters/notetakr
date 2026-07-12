@@ -31,13 +31,13 @@ final class ThemeTests: XCTestCase {
 
     func testDarkBackground() {
         let bg = Theme.dark.background
-        XCTAssertEqual(bg, RGBA(red: 13, green: 13, blue: 15))    // #0D0D0F
+        XCTAssertEqual(bg, RGBA(red: 21, green: 20, blue: 23))    // #151417
         XCTAssertEqual(bg.a, 1.0)
     }
 
     func testLightBackground() {
         let bg = Theme.light.background
-        XCTAssertEqual(bg, RGBA(red: 247, green: 247, blue: 248)) // #F7F7F8
+        XCTAssertEqual(bg, RGBA(red: 250, green: 248, blue: 244)) // #FAF8F4
         XCTAssertEqual(bg.a, 1.0)
     }
 
@@ -203,18 +203,18 @@ final class ThemeTests: XCTestCase {
 
     func testLightPrimaryTextBaseIsNeutral() {
         let txt = Theme.light.primaryText
-        // #161618 = (22, 22, 24)
-        XCTAssertEqual(txt.r, 22.0 / 255.0, accuracy: 1e-6)
-        XCTAssertEqual(txt.g, 22.0 / 255.0, accuracy: 1e-6)
-        XCTAssertEqual(txt.b, 24.0 / 255.0, accuracy: 1e-6)
+        // #1E1B24 = (30, 27, 36), the warm-paper ink from the final mockup.
+        XCTAssertEqual(txt.r, 30.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(txt.g, 27.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(txt.b, 36.0 / 255.0, accuracy: 1e-6)
         XCTAssertEqual(txt.a, 0.92, accuracy: 1e-9)
     }
 
     func testLightSecondaryAndTertiaryTextShareNeutralBase() {
         let sec = Theme.light.secondaryText
         let ter = Theme.light.tertiaryText
-        XCTAssertEqual(sec.r, 22.0 / 255.0, accuracy: 1e-6)
-        XCTAssertEqual(ter.r, 22.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(sec.r, 30.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(ter.r, 30.0 / 255.0, accuracy: 1e-6)
     }
 
     func testLightHoverFillIsNeutralBlack() {
@@ -225,12 +225,13 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(hover.a, 0.05, accuracy: 1e-9)
     }
 
-    func testDarkBackgroundIsNeutralNotPurpleTinted() {
+    func testDarkBackgroundIsPurpleTinted() {
         let bg = Theme.dark.background
-        // #0D0D0F: r=g=13, b=15 — equal R/G channels confirm no purple tint
-        XCTAssertEqual(bg.r, 13.0 / 255.0, accuracy: 1e-6)
-        XCTAssertEqual(bg.g, 13.0 / 255.0, accuracy: 1e-6)
-        XCTAssertEqual(bg.b, 15.0 / 255.0, accuracy: 1e-6)
+        // #151417: faintly purple-tinted near-black per the locked spec.
+        XCTAssertEqual(bg.r, 21.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(bg.g, 20.0 / 255.0, accuracy: 1e-6)
+        XCTAssertEqual(bg.b, 23.0 / 255.0, accuracy: 1e-6)
+        XCTAssertGreaterThan(bg.b, bg.g)
     }
 
     func testAccentIsPurpleInAllThemes() {

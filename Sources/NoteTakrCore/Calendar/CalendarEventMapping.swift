@@ -9,7 +9,7 @@ public extension CalendarEvent {
             title: title,
             start: startDate,
             end: endDate,
-            participants: attendees.map { NoteTakrKit.Participant(name: $0.name, email: $0.email) },
+            participants: attendees.map { NoteTakrKit.Participant(name: $0.name, email: $0.email, crm: $0.crm) },
             locationText: location,
             meetingLink: url?.absoluteString
         )

@@ -152,6 +152,108 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         XCTAssertNil(saved.calendarEvent)
     }
 
+    func testLinkCalendarEventPreservesParticipantCRM() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(id: "fp-8b", title: "Unlinked", date: fixedDate())
+        spy.notes["fp-8b"] = note
+
+        let bridge = FrontmatterPresenterBridge(store: spy)
+        bridge.load(note: note)
+
+        bridge.linkCalendarEvent(
+            id: "event-rich",
+            title: "Rich Event",
+            attendees: [
+                Participant(name: "Carol CRM", email: "carol@example.com", crm: "local:person/carol")
+            ],
+            startDate: fixedDate()
+        )
+
+        let saved = try XCTUnwrap(spy.notes["fp-8b"])
+        XCTAssertEqual(saved.participants, [
+            Participant(name: "Carol CRM", email: "carol@example.com", crm: "local:person/carol")
+        ])
+    }
+
+    // MARK: - People suggestions
+
+    func testParticipantSuggestionsUseLocalNotesAndCalendarEvents() throws {
+        let spy = SpyPresenterStore()
+        let current = MeetingNote(id: "fp-9", title: "Current", date: fixedDate())
+        let past = MeetingNote(
+            id: "fp-past",
+            title: "Past",
+            date: fixedDate().addingTimeInterval(-86_400),
+            participants: [Participant(name: "Alice Local", email: "alice@example.com")]
+        )
+        spy.notes["fp-9"] = current
+        spy.notes["fp-past"] = past
+
+        let bridge = FrontmatterPresenterBridge(store: spy)
+        bridge.load(note: current)
+        bridge.availableEvents = [
+            UpcomingEvent(
+                id: "cal-1",
+                title: "Calendar",
+                start: fixedDate().addingTimeInterval(3_600),
+                participants: [
+                    Participant(name: "Alice Local", email: "alice@example.com"),
+                    Participant(name: "Bob Calendar", email: "bob@example.com")
+                ]
+            )
+        ]
+        bridge.rebuildPeopleIndex(notes: [current, past])
+
+        let suggestions = bridge.participantSuggestions(matching: "", excluding: [])
+
+        XCTAssertEqual(suggestions.map(\.displayName), ["Alice Local", "Bob Calendar"])
+        XCTAssertEqual(suggestions.first?.noteCount, 1)
+        XCTAssertEqual(suggestions.first?.calendarEventCount, 1)
+    }
+
+    func testParticipantSuggestionsExcludeCurrentNoteHistory() throws {
+        let spy = SpyPresenterStore()
+        let current = MeetingNote(
+            id: "fp-9b",
+            title: "Current",
+            date: fixedDate(),
+            participants: [Participant(name: "Current Only", email: "current@example.com")]
+        )
+        let past = MeetingNote(
+            id: "fp-past-2",
+            title: "Past",
+            date: fixedDate().addingTimeInterval(-86_400),
+            participants: [Participant(name: "Alice Local", email: "alice@example.com")]
+        )
+        spy.notes["fp-9b"] = current
+        spy.notes["fp-past-2"] = past
+
+        let bridge = FrontmatterPresenterBridge(store: spy)
+        bridge.load(note: current)
+        bridge.rebuildPeopleIndex(notes: [current, past])
+
+        let suggestions = bridge.participantSuggestions(matching: "", excluding: [])
+
+        XCTAssertEqual(suggestions.map(\.displayName), ["Alice Local"])
+        XCTAssertNil(bridge.personEntry(for: Participant(name: "Current Only", email: "current@example.com")))
+    }
+
+    func testAddingSuggestedParticipantPersistsCRM() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(id: "fp-10", title: "Current", date: fixedDate())
+        spy.notes["fp-10"] = note
+
+        let bridge = FrontmatterPresenterBridge(store: spy)
+        bridge.load(note: note)
+
+        bridge.addParticipant(Participant(name: "Sarah Chen", email: "sarah@acme.com", crm: "local:person/sarah"))
+
+        let saved = try XCTUnwrap(spy.notes["fp-10"])
+        XCTAssertEqual(saved.participants, [
+            Participant(name: "Sarah Chen", email: "sarah@acme.com", crm: "local:person/sarah")
+        ])
+    }
+
     // MARK: - Helpers
 
     private func fixedDate() -> Date {

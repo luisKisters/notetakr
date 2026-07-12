@@ -52,6 +52,43 @@ final class NoteEditorViewModelTests: XCTestCase {
         XCTAssertEqual(spy.lastSaved?.title, "New Title")
     }
 
+    func testDebouncedBodySavePreservesLatestFrontmatterChanges() throws {
+        let (vm, spy, scheduler) = makeVM(id: "n1", title: "T", body: "")
+
+        try vm.load(noteID: "n1")
+        vm.setBody("Edited body")
+
+        var latest = try XCTUnwrap(spy.load(id: "n1"))
+        latest.participants = [Participant(name: "Ada Lovelace", email: "ada@example.test")]
+        spy.add(latest)
+
+        scheduler.fireAll()
+
+        XCTAssertEqual(spy.saveCallCount, 1)
+        XCTAssertEqual(spy.lastSaved?.body, "Edited body")
+        XCTAssertEqual(spy.lastSaved?.participants, [
+            Participant(name: "Ada Lovelace", email: "ada@example.test")
+        ])
+    }
+
+    func testFlushPreservesLatestFrontmatterChanges() throws {
+        let (vm, spy, scheduler) = makeVM(id: "n1", title: "Old Title", body: "")
+
+        try vm.load(noteID: "n1")
+        vm.setTitle("New Title")
+
+        var latest = try XCTUnwrap(spy.load(id: "n1"))
+        latest.participants = [Participant(name: "Ada Lovelace")]
+        spy.add(latest)
+
+        try vm.flush()
+
+        XCTAssertFalse(scheduler.hasPending)
+        XCTAssertEqual(spy.saveCallCount, 1)
+        XCTAssertEqual(spy.lastSaved?.title, "New Title")
+        XCTAssertEqual(spy.lastSaved?.participants, [Participant(name: "Ada Lovelace")])
+    }
+
     // MARK: - Loading a new note flushes the previous one
 
     func testLoadNewNoteFlushesOldOne() throws {

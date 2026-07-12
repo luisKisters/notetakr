@@ -53,13 +53,15 @@ final class CarbonHotkeyRegistrar: HotkeyRegistering {
 
     // MARK: - HotkeyRegistering
 
-    func register(combo: HotkeyCombo, action: @escaping () -> Void) {
-        guard let keyCode = virtualKeyCode(for: combo.key) else { return }
+    func register(combo: HotkeyCombo, action: @escaping () -> Void) -> Bool {
+        guard let keyCode = virtualKeyCode(for: combo.key) else {
+            unregister()
+            return false
+        }
         unregister()
-        currentAction = action
 
-        var keyID = EventHotKeyID(signature: OSType(0x4E544B52), id: hotkeyID) // 'NTKR'
-        RegisterEventHotKey(
+        let keyID = EventHotKeyID(signature: OSType(0x4E544B52), id: hotkeyID) // 'NTKR'
+        let status = RegisterEventHotKey(
             keyCode,
             carbonModifiers(from: combo.modifiers),
             keyID,
@@ -67,6 +69,20 @@ final class CarbonHotkeyRegistrar: HotkeyRegistering {
             0,
             &hotKeyRef
         )
+        guard status == noErr, hotKeyRef != nil else {
+            currentAction = nil
+            hotKeyRef = nil
+            #if DEBUG
+            NSLog("NoteTakr global hotkey registration failed: id=\(hotkeyID) combo=\(combo.displayString) status=\(status)")
+            #endif
+            return false
+        }
+
+        currentAction = action
+        #if DEBUG
+        NSLog("NoteTakr global hotkey registered: id=\(hotkeyID) combo=\(combo.displayString)")
+        #endif
+        return true
     }
 
     func unregister() {

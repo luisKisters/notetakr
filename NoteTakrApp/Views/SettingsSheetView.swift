@@ -6,7 +6,7 @@ import NoteTakrKit
 // MARK: - Language options
 
 private let languageOptions: [(value: String, label: String)] = [
-    ("auto", "Auto-detect (recommended)"),
+    ("auto", "Auto-detect"),
     ("en", "English"),
     ("de", "German"),
     ("fr", "French"),
@@ -108,7 +108,7 @@ struct SettingsSheetView: View {
             tabButton(.general,     icon: "gearshape",               label: "General")
             tabButton(.recording,   icon: "waveform",                 label: "Recording")
             tabButton(.vocabulary,  icon: "book.closed",              label: "Vocabulary")
-            tabButton(.updates,     icon: "arrow.down.circle",        label: "Updates")
+            tabButton(.permissions, icon: "checkmark.shield",         label: "Permissions")
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 9)
@@ -164,7 +164,7 @@ struct SettingsSheetView: View {
                 case .general:      generalContent
                 case .recording:    recordingContent
                 case .vocabulary:   vocabularyContent
-                case .updates:      updatesContent
+                case .permissions:  permissionsContent
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -354,10 +354,10 @@ struct SettingsSheetView: View {
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 11))
-                            .foregroundColor(Color.orange.opacity(0.78))
+                            .foregroundColor(accent.opacity(0.82))
                         Text(EffectiveMeetingSettings.languageWarningText)
                             .font(.system(size: 11))
-                            .foregroundColor(Color.orange.opacity(0.78))
+                            .foregroundColor(accent.opacity(0.82))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.leading, 25)
@@ -439,13 +439,39 @@ struct SettingsSheetView: View {
             settingsRow {
                 Image(systemName: "keyboard")
                     .iconStyle(color: textTertiary)
-                Text("Global hotkey").font(.system(size: 13)).foregroundColor(textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show note hotkey").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Toggle the floating note panel")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
                 Spacer()
                 HotkeyRecorderView(
                     combo: viewModel.appSettings.hotkey,
                     onComboChange: { viewModel.setHotkey($0) }
                 )
                 .frame(width: 110, height: 26)
+                .accessibilityIdentifier("showNoteHotkeyRecorder")
+            }
+
+            settingsRow {
+                Image(systemName: "record.circle")
+                    .iconStyle(color: textTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Start recording hotkey").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text("Begin capture without opening the panel")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                }
+                Spacer()
+                HotkeyRecorderView(
+                    combo: viewModel.appSettings.recordingHotkey,
+                    onComboChange: { viewModel.setRecordingHotkey($0) }
+                )
+                .frame(width: 110, height: 26)
+                .accessibilityIdentifier("startRecordingHotkeyRecorder")
+            }
+
+            ForEach(hotkeyWarnings, id: \.self) { warning in
+                hotkeyWarningRow(warning)
             }
 
             settingsRow {
@@ -504,7 +530,7 @@ struct SettingsSheetView: View {
                         .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
             }
 
-            permissionsSection
+            updatesSettingsSection
         }
     }
 
@@ -527,7 +553,7 @@ struct SettingsSheetView: View {
                     Label("Set", systemImage: "checkmark.seal.fill")
                         .labelStyle(.titleAndIcon)
                         .font(.system(size: 11))
-                        .foregroundColor(.green)
+                        .foregroundColor(accent)
                 } else if summarization.apiKeyStatusChecked {
                     Text("Not set")
                         .font(.system(size: 10, weight: .semibold))
@@ -686,7 +712,7 @@ struct SettingsSheetView: View {
             ForEach(vocab.entries) { entry in
                 HStack(spacing: 10) {
                     Image(systemName: entry.isEnabled ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(entry.isEnabled ? .green : textTertiary)
+                        .foregroundColor(entry.isEnabled ? accent : textTertiary)
                         .onTapGesture { vocab.toggle(entry) }
                     Text(entry.phrase)
                         .font(.system(size: 13))
@@ -740,7 +766,7 @@ struct SettingsSheetView: View {
     @State private var updateCheckStatus: String = "Check for the latest release"
     @State private var isCheckingForUpdates: Bool = false
 
-    private var updatesContent: some View {
+    private var updatesSettingsSection: some View {
         Group {
             sectionLabel("Software update")
 
@@ -856,7 +882,7 @@ struct SettingsSheetView: View {
 
     // MARK: - Permissions content
 
-    private var permissionsSection: some View {
+    private var permissionsContent: some View {
         Group {
             sectionLabel("Permissions")
 
@@ -925,14 +951,6 @@ struct SettingsSheetView: View {
         .accessibilityIdentifier("permissionRow_System Audio")
     }
 
-    private func statusColor(_ status: PermissionStatus) -> Color {
-        switch status {
-        case .granted: return .green
-        case .denied: return .red
-        case .notDetermined: return .orange
-        }
-    }
-
     // MARK: - Footer
 
     private var footerBar: some View {
@@ -975,6 +993,24 @@ struct SettingsSheetView: View {
         SettingsRowView(hairline: hairline, hoverFill: theme.hoverFill.swiftUIColor) {
             content()
         }
+    }
+
+    private var hotkeyWarnings: [String] {
+        [viewModel.hotkeyConflictMessage].compactMap { $0 } + viewModel.hotkeyRegistrationMessages
+    }
+
+    private func hotkeyWarningRow(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11))
+                .foregroundColor(accent.opacity(0.82))
+            Text(message)
+                .font(.system(size: 11))
+                .foregroundColor(accent.opacity(0.82))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.leading, 25)
+        .padding(.bottom, 4)
     }
 
     private func sectionLabel(_ text: String) -> some View {
@@ -1068,7 +1104,7 @@ private extension SettingsTab {
         case .general: return "general"
         case .recording: return "recording"
         case .vocabulary: return "vocabulary"
-        case .updates: return "updates"
+        case .permissions: return "permissions"
         }
     }
 }
@@ -1151,7 +1187,7 @@ private struct PermissionRowButton: View {
     private var statusColor: Color {
         switch status {
         case .granted: return .green
-        case .denied: return .red
+        case .denied: return .orange
         case .notDetermined: return .orange
         }
     }

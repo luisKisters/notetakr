@@ -571,6 +571,27 @@ final class FrontmatterPresenterTests: XCTestCase {
         XCTAssertEqual(count, 1, "onChange must not fire for a duplicate participant")
     }
 
+    func testAddParticipant_duplicateEmailDoesNotCreateSecondChip() throws {
+        let (presenter, store) = try makeTempPresenter(note: baseNote())
+
+        try presenter.addParticipant(Participant(name: "Alice", email: "alice@example.com"))
+        try presenter.addParticipant(Participant(name: "Alice A.", email: "alice@example.com"))
+
+        let saved = try XCTUnwrap(try store.load(id: "test-id"))
+        XCTAssertEqual(saved.participants, [Participant(name: "Alice", email: "alice@example.com")])
+    }
+
+    func testAddParticipant_preservesCRMField() throws {
+        let (presenter, store) = try makeTempPresenter(note: baseNote())
+
+        try presenter.addParticipant(Participant(name: "Sarah Chen", email: "sarah@acme.com", crm: "local:person/sarah"))
+
+        let saved = try XCTUnwrap(try store.load(id: "test-id"))
+        XCTAssertEqual(saved.participants, [
+            Participant(name: "Sarah Chen", email: "sarah@acme.com", crm: "local:person/sarah")
+        ])
+    }
+
     func testNoteReflectsInMemoryMutations() throws {
         let (presenter, _) = try makeTempPresenter(note: baseNote())
         try presenter.setInPerson(true)

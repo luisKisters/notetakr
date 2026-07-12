@@ -191,9 +191,12 @@ final class HotkeyComboTests: XCTestCase {
 
         let store = AppSettingsStore(root: dir)
         store.hotkey = try HotkeyCombo.parse("⌃⌥⌘N")
+        store.recordingHotkey = try HotkeyCombo.parse("⌃⌥⌘R")
         XCTAssertEqual(store.hotkey.displayString, "⌃⌥⌘N")
+        XCTAssertEqual(store.recordingHotkey.displayString, "⌃⌥⌘R")
 
         let store2 = AppSettingsStore(root: dir)
         XCTAssertEqual(store2.hotkey, try HotkeyCombo.parse("⌃⌥⌘N"))
+        XCTAssertEqual(store2.recordingHotkey, try HotkeyCombo.parse("⌃⌥⌘R"))
     }
 }

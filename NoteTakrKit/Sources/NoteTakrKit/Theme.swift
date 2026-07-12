@@ -116,9 +116,9 @@ public enum Theme {
         trafficLightDot: RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.18)
     )
 
-    /// Dark: solid neutral near-black (#0D0D0F).
+    /// Dark: solid purple-tinted near-black (#151417).
     public static let dark = ThemeColors(
-        background:      RGBA(red: 13, green: 13, blue: 15),         // #0D0D0F
+        background:      RGBA(red: 21, green: 20, blue: 23),         // #151417
         elevatedFill:    RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.05),
         primaryText:     RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.92),
         secondaryText:   RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.60),
@@ -138,17 +138,17 @@ public enum Theme {
         kbdBackground:   RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.10),
         kbdBorder:       RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.18),
         avatarFill:      RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.10),
-        avatarRing:      RGBA(red: 13, green: 13, blue: 15),          // matches background
+        avatarRing:      RGBA(red: 21, green: 20, blue: 23),          // matches background
         trafficLightDot: RGBA(r: 1.0, g: 1.0, b: 1.0, a: 0.18)
     )
 
-    /// Light: clean near-white (#F7F7F8).
+    /// Light: warm paper (#FAF8F4).
     public static let light = ThemeColors(
-        background:      RGBA(red: 247, green: 247, blue: 248),      // #F7F7F8
+        background:      RGBA(red: 250, green: 248, blue: 244),      // #FAF8F4
         elevatedFill:    RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.04),
-        primaryText:     RGBA(red: 22, green: 22, blue: 24, alpha: 0.92),   // #161618
-        secondaryText:   RGBA(red: 22, green: 22, blue: 24, alpha: 0.56),   // #161618
-        tertiaryText:    RGBA(red: 22, green: 22, blue: 24, alpha: 0.40),   // #161618
+        primaryText:     RGBA(red: 30, green: 27, blue: 36, alpha: 0.92),   // #1E1B24
+        secondaryText:   RGBA(red: 30, green: 27, blue: 36, alpha: 0.56),   // #1E1B24
+        tertiaryText:    RGBA(red: 30, green: 27, blue: 36, alpha: 0.40),   // #1E1B24
         hairline:        RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.10),
         hoverFill:       RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.05),
         accent:          RGBA(red: 139, green:  92, blue: 246),      // #8B5CF6
@@ -164,7 +164,7 @@ public enum Theme {
         kbdBackground:   RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.06),
         kbdBorder:       RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.14),
         avatarFill:      RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.07),
-        avatarRing:      RGBA(red: 247, green: 247, blue: 248),       // matches background
+        avatarRing:      RGBA(red: 250, green: 248, blue: 244),       // matches background
         trafficLightDot: RGBA(r: 0.0, g: 0.0, b: 0.0, a: 0.14)
     )
 

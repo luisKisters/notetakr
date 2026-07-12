@@ -51,7 +51,7 @@ struct SwitcherOverlayView: View {
                 .foregroundColor(paletteColors.tertiaryText.swiftUIColor)
                 .frame(width: 18)
 
-            TextField("Search...", text: $bridge.searchQuery)
+            TextField("Search meetings…", text: $bridge.searchQuery)
                 .textFieldStyle(.plain)
                 .font(.system(size: 14))
                 .foregroundColor(paletteColors.primaryText.swiftUIColor)
@@ -60,7 +60,7 @@ struct SwitcherOverlayView: View {
                 .onKeyPress(.downArrow) { bridge.moveDown(); return .handled }
                 .accessibilityIdentifier("switcherSearchField")
 
-            kbdBadge("esc")
+            kbdBadge("⌘K")
         }
         .frame(height: 42)
         .padding(.horizontal, 13)
@@ -249,104 +249,131 @@ struct SwitcherOverlayView: View {
         isHovering: Bool,
         showDelete: Bool
     ) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
+            timelineMarker(for: item)
             iconView(for: item)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(itemTitle(item))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(paletteColors.primaryText.swiftUIColor)
-                        .lineLimit(1)
+            Text(itemTitle(item))
+                .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
+                .foregroundColor(titleColor(for: item))
+                .lineLimit(1)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
-                    statusPill(for: item)
-                }
-
-                Text(itemSubtitle(item))
-                    .font(.system(size: 11.5))
-                    .foregroundColor(paletteColors.secondaryText.swiftUIColor)
-                    .monospacedDigit()
-                    .lineLimit(1)
+            if showsRecordingDot(item) {
+                Circle()
+                    .fill(paletteColors.destructive.swiftUIColor)
+                    .frame(width: 5, height: 5)
+                    .shadow(color: paletteColors.destructive.swiftUIColor.opacity(0.7), radius: 4)
             }
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
-            rowActions(item: item, showDelete: showDelete)
-        }
-        .padding(.leading, 11)
-        .padding(.trailing, 10)
-        .frame(minHeight: 54)
-        .background(cardBackground(isSelected: isSelected, isHovering: isHovering, item: item))
-        .clipShape(RoundedRectangle(cornerRadius: 11))
-        .overlay(
-            RoundedRectangle(cornerRadius: 11)
-                .stroke(cardBorderColor(isSelected: isSelected, item: item), lineWidth: 1)
-        )
-        .animation(.easeOut(duration: 0.14), value: isSelected)
-        .animation(.easeOut(duration: 0.14), value: isHovering)
-    }
+            if item.dotState == .current {
+                Text("current")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .tracking(0.7)
+                    .foregroundColor(paletteColors.accent.swiftUIColor.opacity(0.86))
+                    .textCase(.uppercase)
+            }
 
-    private func iconView(for item: SwitcherItem) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(iconBackground(for: item))
-                .frame(width: 28, height: 28)
-            Image(systemName: sfIconName(for: item))
-                .font(.system(size: 12.5, weight: .regular))
-                .foregroundColor(iconForeground(for: item))
-        }
-        .frame(width: 28, height: 28)
-    }
+            switch item.kind {
+            case .note, .event, .activeRecording:
+                Text(timeString(for: item))
+                    .font(.system(size: 11))
+                    .foregroundColor(paletteColors.tertiaryText.swiftUIColor)
+                    .monospacedDigit()
+                    .frame(minWidth: 38, alignment: .trailing)
+            case .command:
+                EmptyView()
+            }
 
-    @ViewBuilder
-    private func statusPill(for item: SwitcherItem) -> some View {
-        switch item.kind {
-        case .activeRecording:
-            Text("REC")
-                .font(.system(size: 9.5, weight: .bold))
-                .tracking(0.5)
-                .foregroundColor(paletteColors.destructive.swiftUIColor)
-                .padding(.horizontal, 6)
-                .frame(height: 18)
-                .background(paletteColors.destructive.swiftUIColor.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-                .overlay(RoundedRectangle(cornerRadius: 5)
-                    .stroke(paletteColors.destructive.swiftUIColor.opacity(0.42), lineWidth: 1))
-        case .event where item.dotState == .current:
-            Text("NOW")
-                .font(.system(size: 9.5, weight: .bold))
-                .tracking(0.5)
-                .foregroundColor(paletteColors.accent.swiftUIColor)
-                .padding(.horizontal, 6)
-                .frame(height: 18)
-                .background(paletteColors.accent.swiftUIColor.opacity(0.14))
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-                .overlay(RoundedRectangle(cornerRadius: 5)
-                    .stroke(paletteColors.accent.swiftUIColor.opacity(0.38), lineWidth: 1))
-        default:
-            EmptyView()
-        }
-    }
-
-    private func rowActions(item: SwitcherItem, showDelete: Bool) -> some View {
-        HStack(spacing: 6) {
-            if let id = noteID(for: item) {
+            switch item.kind {
+            case .event:
+                createHint
+            case .command:
+                kbdBadge(commandShortcut(item))
+            case .note:
                 ZStack {
-                    if showDelete {
+                    if showDelete, let id = noteID(for: item) {
                         deleteButton(noteID: id)
                     }
                 }
                 .frame(width: 26, height: 26)
-            }
-
-            switch item.kind {
-            case .event(_):
-                actionBadge(icon: "plus", text: "Create", accent: true)
-            case .note(_, _, _, _), .activeRecording(_):
-                actionBadge(icon: "arrow.up.right", text: "Open", accent: false)
-            case .command(_):
-                kbdBadge(commandShortcut(item))
+            case .activeRecording:
+                EmptyView()
             }
         }
+        .padding(.leading, 2)
+        .padding(.trailing, 10)
+        .frame(minHeight: 44)
+        .background(cardBackground(isSelected: isSelected, isHovering: isHovering, item: item))
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .overlay {
+            if isGhostRow(item) {
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(
+                        paletteColors.accent.swiftUIColor.opacity(isSelected ? 0.52 : 0.34),
+                        style: StrokeStyle(lineWidth: 1, dash: [5, 4])
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(cardBorderColor(isSelected: isSelected, item: item), lineWidth: 1)
+            }
+        }
+        .animation(.easeOut(duration: 0.14), value: isSelected)
+        .animation(.easeOut(duration: 0.14), value: isHovering)
+    }
+
+    private func timelineMarker(for item: SwitcherItem) -> some View {
+        ZStack {
+            if !isCommandRow(item) {
+                Rectangle()
+                    .fill(paletteColors.hairline.swiftUIColor)
+                    .frame(width: 1, height: 48)
+            }
+
+            nodeDot(for: item)
+        }
+        .frame(width: 20, height: 44)
+    }
+
+    @ViewBuilder
+    private func nodeDot(for item: SwitcherItem) -> some View {
+        if isCommandRow(item) {
+            Color.clear.frame(width: 7, height: 7)
+        } else {
+            switch item.dotState {
+            case .upcoming:
+                Circle()
+                    .stroke(paletteColors.accent.swiftUIColor, lineWidth: 1.5)
+                    .frame(width: 7, height: 7)
+            case .current:
+                Circle()
+                    .fill(paletteColors.accent.swiftUIColor)
+                    .frame(width: 6, height: 6)
+                    .shadow(color: paletteColors.accent.swiftUIColor.opacity(0.6), radius: 5)
+            case .past:
+                Circle()
+                    .fill(paletteColors.secondaryText.swiftUIColor)
+                    .frame(width: 4, height: 4)
+                    .opacity(0.3)
+            }
+        }
+    }
+
+    private func iconView(for item: SwitcherItem) -> some View {
+        Image(systemName: sfIconName(for: item))
+            .font(.system(size: 14, weight: .regular))
+            .foregroundColor(iconForeground(for: item))
+            .frame(width: 16, height: 16)
+    }
+
+    private var createHint: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "plus")
+                .font(.system(size: 9.5, weight: .semibold))
+            Text("Create note")
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundColor(paletteColors.accent.swiftUIColor.opacity(0.86))
     }
 
     private func deleteButton(noteID id: String) -> some View {
@@ -368,28 +395,14 @@ struct SwitcherOverlayView: View {
         .accessibilityIdentifier("switcherDeleteButton_\(id)")
     }
 
-    private func actionBadge(icon: String, text: String, accent: Bool) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-            Text(text)
-                .font(.system(size: 12, weight: .medium))
-        }
-        .foregroundColor(accent ? paletteColors.accent.swiftUIColor : paletteColors.primaryText.swiftUIColor)
-        .padding(.horizontal, 10)
-        .frame(height: 26)
-        .background(actionBackground(accent: accent))
-        .clipShape(RoundedRectangle(cornerRadius: 7))
-        .overlay(RoundedRectangle(cornerRadius: 7)
-            .stroke(actionBorder(accent: accent), lineWidth: 1))
-        .accessibilityIdentifier("switcher\(text)Action")
-    }
-
     // MARK: - Styling
 
     private func cardBackground(isSelected: Bool, isHovering: Bool, item: SwitcherItem) -> Color {
         if isSelected {
             return paletteColors.accent.swiftUIColor.opacity(0.16)
+        }
+        if isGhostRow(item) {
+            return paletteColors.accent.swiftUIColor.opacity(0.055)
         }
         if isHovering {
             return paletteColors.hoverFill.swiftUIColor
@@ -410,38 +423,54 @@ struct SwitcherOverlayView: View {
         return .clear
     }
 
-    private func iconBackground(for item: SwitcherItem) -> Color {
-        if case .activeRecording = item.kind {
-            return paletteColors.accent.swiftUIColor.opacity(0.16)
-        }
-        return paletteColors.elevatedFill.swiftUIColor
-    }
-
     private func iconForeground(for item: SwitcherItem) -> Color {
         if case .activeRecording = item.kind {
             return paletteColors.accent.swiftUIColor
         }
+        if isGhostRow(item) {
+            return paletteColors.accent.swiftUIColor.opacity(0.72)
+        }
+        if item.dotState == .current {
+            return paletteColors.primaryText.swiftUIColor
+        }
         return paletteColors.secondaryText.swiftUIColor
     }
 
-    private func actionBackground(accent: Bool) -> Color {
-        accent ? paletteColors.accent.swiftUIColor.opacity(0.14)
-               : paletteColors.fieldFill.swiftUIColor
+    private func titleColor(for item: SwitcherItem) -> Color {
+        if isGhostRow(item) {
+            return paletteColors.secondaryText.swiftUIColor
+        }
+        return paletteColors.primaryText.swiftUIColor
     }
 
-    private func actionBorder(accent: Bool) -> Color {
-        accent ? paletteColors.accent.swiftUIColor.opacity(0.42)
-               : paletteColors.fieldBorder.swiftUIColor
+    private func isGhostRow(_ item: SwitcherItem) -> Bool {
+        if case .event = item.kind { return true }
+        return false
+    }
+
+    private func isCommandRow(_ item: SwitcherItem) -> Bool {
+        if case .command = item.kind { return true }
+        return false
+    }
+
+    private func showsRecordingDot(_ item: SwitcherItem) -> Bool {
+        if case .activeRecording = item.kind { return true }
+        return item.isRecording
     }
 
     // MARK: - Footer hints
 
     private var hintsFooter: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 8) {
             hint(key: "↩", text: "Open")
-            hint(key: "↑", text: "")
-            hint(key: "↓", text: "Move")
-            hint(key: "⌘⌫", text: "Delete")
+            Text("·")
+                .font(.system(size: 11))
+                .foregroundColor(paletteColors.tertiaryText.swiftUIColor.opacity(0.65))
+            hint(key: "⌘N", text: "New")
+            Text("·")
+                .font(.system(size: 11))
+                .foregroundColor(paletteColors.tertiaryText.swiftUIColor.opacity(0.65))
+            hint(key: "esc", text: "")
         }
         .frame(maxWidth: .infinity)
         .frame(height: 34)
@@ -534,20 +563,6 @@ struct SwitcherOverlayView: View {
         case .activeRecording(let recording): return recording.title
         case .command(let cmd):               return cmd.title
         }
-    }
-
-    private func itemSubtitle(_ item: SwitcherItem) -> String {
-        switch item.kind {
-        case .note(_, _, _, _), .event(_), .activeRecording(_):
-            return timeString(for: item)
-        case .command:
-            return commandSubtitle(item)
-        }
-    }
-
-    private func commandSubtitle(_ item: SwitcherItem) -> String {
-        if case .command(let cmd) = item.kind { return cmd.subtitle }
-        return ""
     }
 
     private func commandShortcut(_ item: SwitcherItem) -> String {

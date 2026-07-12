@@ -18,22 +18,57 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let npc = NotePanelController(notesRoot: notesRoot, appModel: appModel)
         notePanelController = npc
 
-        let coordinator = PanelToggleCoordinator(registrar: CarbonHotkeyRegistrar())
+        let coordinator = PanelToggleCoordinator(
+            panelRegistrar: CarbonHotkeyRegistrar(hotkeyID: 1),
+            recordingRegistrar: CarbonHotkeyRegistrar(hotkeyID: 2)
+        )
         coordinator.getPanelVisible = { npc.panel?.isVisible ?? false }
         coordinator.showPanel = { npc.show() }
         coordinator.hidePanel = { npc.panel?.orderOut(nil) }
         coordinator.flushPendingSave = { try? npc.bridge.viewModel.flush() }
-        coordinator.updateHotkey(npc.settingsBridge.appSettings.hotkey)
+        coordinator.startRecording = {
+            Task { @MainActor in
+                await appModel.quickRecording()
+            }
+        }
+        coordinator.hotkeyRegistrationChanged = { [weak npc] purpose, combo, registered in
+            let role: SettingsSheetViewModel.HotkeyRegistrationRole
+            let label: String
+            switch purpose {
+            case .panelToggle:
+                role = .showNote
+                label = "Show note hotkey"
+            case .recordingStart:
+                role = .recording
+                label = "Start recording hotkey"
+            }
+            npc?.settingsBridge.setHotkeyRegistrationMessage(
+                registered ? nil : "\(label) \(combo.displayString) could not be registered. Choose a different shortcut.",
+                for: role
+            )
+        }
+        coordinator.updateHotkeys(
+            panelToggle: npc.settingsBridge.appSettings.hotkey,
+            recordingStart: npc.settingsBridge.appSettings.recordingHotkey
+        )
 
-        npc.settingsBridge.onHotkeyChange = { [weak coordinator] combo in
-            coordinator?.updateHotkey(combo)
+        npc.settingsBridge.onHotkeyChange = { [weak coordinator, weak npc] _ in
+            guard let settings = npc?.settingsBridge.appSettings else { return }
+            coordinator?.updateHotkeys(panelToggle: settings.hotkey, recordingStart: settings.recordingHotkey)
+        }
+        npc.settingsBridge.onRecordingHotkeyChange = { [weak coordinator, weak npc] _ in
+            guard let settings = npc?.settingsBridge.appSettings else { return }
+            coordinator?.updateHotkeys(panelToggle: settings.hotkey, recordingStart: settings.recordingHotkey)
         }
         panelCoordinator = coordinator
 
         // Wire recording lifecycle to the panel's RecordingNoteBridge
         appModel.onRecordingStarted = { [weak npc] sessionID in
+            let wasVisible = npc?.panel?.isVisible == true
             npc?.recordingStarted(sessionID: sessionID)
-            npc?.showLoadedNote()
+            if wasVisible {
+                npc?.showLoadedNote()
+            }
         }
         appModel.onRecordingStopped = { [weak npc] _ in
             npc?.recordingStopped()
@@ -53,12 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         npc.show()
 
         #if DEBUG
-        if ProcessInfo.processInfo.environment["NOTETAKR_E2E_SHOW_PANEL"] == "1" {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                npc.show()
-                NSApp.activate(ignoringOtherApps: true)
-            }
-        }
+        runE2ELaunchHooks(notePanelController: npc)
         #endif
 
         // Populate the calendar event picker on launch if access was already granted.
@@ -112,6 +142,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && !trimmed.hasPrefix("$(")
     }
+
+    #if DEBUG
+    private func runE2ELaunchHooks(notePanelController npc: NotePanelController) {
+        let env = ProcessInfo.processInfo.environment
+        let showPanel = env["NOTETAKR_E2E_SHOW_PANEL"] == "1"
+        let openSwitcher = env["NOTETAKR_E2E_OPEN_SWITCHER"] == "1"
+        let openSettings = env["NOTETAKR_E2E_OPEN_SETTINGS"] == "1"
+        guard showPanel || openSwitcher || openSettings else { return }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            npc.show()
+            if openSwitcher {
+                npc.settingsBridge.isVisible = false
+                npc.switcherBridge.show()
+            }
+            if openSettings {
+                npc.switcherBridge.dismiss()
+                npc.settingsBridge.isVisible = true
+            }
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+    #endif
 }
 
 // MARK: - Notification names

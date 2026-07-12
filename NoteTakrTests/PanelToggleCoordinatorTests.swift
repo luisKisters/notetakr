@@ -10,11 +10,13 @@ private final class FakeRegistrar: HotkeyRegistering {
     var unregisterCallCount = 0
     var lastRegisteredCombo: HotkeyCombo?
     var registeredAction: (() -> Void)?
+    var registerResult = true
 
-    func register(combo: HotkeyCombo, action: @escaping () -> Void) {
+    func register(combo: HotkeyCombo, action: @escaping () -> Void) -> Bool {
         registerCallCount += 1
         lastRegisteredCombo = combo
         registeredAction = action
+        return registerResult
     }
 
     func unregister() {
@@ -106,6 +108,84 @@ final class PanelToggleCoordinatorTests: XCTestCase {
         XCTAssertEqual(registrar.lastRegisteredCombo, combo)
     }
 
+    func testUpdateHotkeysRegistersPanelAndRecordingHotkeys() throws {
+        let panelRegistrar = FakeRegistrar()
+        let recordingRegistrar = FakeRegistrar()
+        let coordinator = PanelToggleCoordinator(
+            panelRegistrar: panelRegistrar,
+            recordingRegistrar: recordingRegistrar
+        )
+        let panelCombo = try HotkeyCombo.parse("⌃⌥⌘N")
+        let recordingCombo = try HotkeyCombo.parse("⌃⌥⌘R")
+
+        coordinator.updateHotkeys(panelToggle: panelCombo, recordingStart: recordingCombo)
+
+        XCTAssertEqual(panelRegistrar.registerCallCount, 1)
+        XCTAssertEqual(panelRegistrar.lastRegisteredCombo, panelCombo)
+        XCTAssertEqual(recordingRegistrar.registerCallCount, 1)
+        XCTAssertEqual(recordingRegistrar.lastRegisteredCombo, recordingCombo)
+        XCTAssertEqual(recordingRegistrar.unregisterCallCount, 0)
+    }
+
+    func testRegistrationResultNotifiesCallback() throws {
+        let panelRegistrar = FakeRegistrar()
+        let recordingRegistrar = FakeRegistrar()
+        recordingRegistrar.registerResult = false
+        let coordinator = PanelToggleCoordinator(
+            panelRegistrar: panelRegistrar,
+            recordingRegistrar: recordingRegistrar
+        )
+        var events: [(HotkeyRegistrationPurpose, HotkeyCombo, Bool)] = []
+        coordinator.hotkeyRegistrationChanged = { events.append(($0, $1, $2)) }
+        let panelCombo = try HotkeyCombo.parse("⌃⌥⌘N")
+        let recordingCombo = try HotkeyCombo.parse("⌃⌥⌘R")
+
+        coordinator.updateHotkeys(panelToggle: panelCombo, recordingStart: recordingCombo)
+
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events[0].0, .panelToggle)
+        XCTAssertEqual(events[0].1, panelCombo)
+        XCTAssertTrue(events[0].2)
+        XCTAssertEqual(events[1].0, .recordingStart)
+        XCTAssertEqual(events[1].1, recordingCombo)
+        XCTAssertFalse(events[1].2)
+    }
+
+    func testConflictingHotkeysUnregisterRecordingHotkey() throws {
+        let panelRegistrar = FakeRegistrar()
+        let recordingRegistrar = FakeRegistrar()
+        let coordinator = PanelToggleCoordinator(
+            panelRegistrar: panelRegistrar,
+            recordingRegistrar: recordingRegistrar
+        )
+        let combo = try HotkeyCombo.parse("⌃⌥⌘N")
+
+        coordinator.updateHotkeys(panelToggle: combo, recordingStart: combo)
+
+        XCTAssertEqual(panelRegistrar.registerCallCount, 1)
+        XCTAssertEqual(panelRegistrar.lastRegisteredCombo, combo)
+        XCTAssertEqual(recordingRegistrar.registerCallCount, 0)
+        XCTAssertEqual(recordingRegistrar.unregisterCallCount, 1)
+    }
+
+    func testRecordingHotkeyActionStartsRecording() async throws {
+        let panelRegistrar = FakeRegistrar()
+        let recordingRegistrar = FakeRegistrar()
+        let coordinator = PanelToggleCoordinator(
+            panelRegistrar: panelRegistrar,
+            recordingRegistrar: recordingRegistrar
+        )
+        let combo = try HotkeyCombo.parse("⌃⌥⌘R")
+        var startCount = 0
+        coordinator.startRecording = { startCount += 1 }
+
+        coordinator.updateRecordingHotkey(combo)
+        recordingRegistrar.registeredAction?()
+        await Task.yield()
+
+        XCTAssertEqual(startCount, 1)
+    }
+
     func testHotkeyReregistrationOnSettingsChange() throws {
         let registrar = FakeRegistrar()
         let coordinator = PanelToggleCoordinator(registrar: registrar)
@@ -152,6 +232,17 @@ final class PanelToggleCoordinatorTests: XCTestCase {
 
         let combo = try HotkeyCombo.parse("⌃⌥⌘M")
         vm.setHotkey(combo)
+
+        XCTAssertEqual(receivedCombo, combo)
+    }
+
+    func testRecordingHotkeyChangeNotifiesCallback() throws {
+        let (vm, _) = makeSettingsVM()
+        var receivedCombo: HotkeyCombo?
+        vm.onRecordingHotkeyChange = { receivedCombo = $0 }
+
+        let combo = try HotkeyCombo.parse("⌃⌥⌘R")
+        vm.setRecordingHotkey(combo)
 
         XCTAssertEqual(receivedCombo, combo)
     }

@@ -19,6 +19,7 @@ public final class AppSettingsStore {
     private var _appearance: Appearance = .glass
     // try! is safe: the default string is a known-valid combo
     private var _hotkey: HotkeyCombo = try! HotkeyCombo.parse("⌃⌥⌘N")
+    private var _recordingHotkey: HotkeyCombo = try! HotkeyCombo.parse("⌃⌥⌘R")
     private var _launchAtLogin: Bool = false
     private var _notesFolderPath: String? = nil
     private var _yourName: String = ""
@@ -58,6 +59,11 @@ public final class AppSettingsStore {
     public var hotkey: HotkeyCombo {
         get { _hotkey }
         set { _hotkey = newValue; saveToDisk() }
+    }
+
+    public var recordingHotkey: HotkeyCombo {
+        get { _recordingHotkey }
+        set { _recordingHotkey = newValue; saveToDisk() }
     }
 
     public var launchAtLogin: Bool {
@@ -108,6 +114,7 @@ public final class AppSettingsStore {
         var inPersonByDefault: Bool?
         var appearance: Appearance?
         var hotkey: HotkeyCombo?
+        var recordingHotkey: HotkeyCombo?
         var launchAtLogin: Bool?
         var notesFolderPath: String?
         var yourName: String?
@@ -127,6 +134,7 @@ public final class AppSettingsStore {
         if let v = payload.inPersonByDefault     { _inPersonByDefault = v }
         if let v = payload.appearance            { _appearance = v }
         if let v = payload.hotkey                { _hotkey = v }
+        if let v = payload.recordingHotkey       { _recordingHotkey = v }
         if let v = payload.launchAtLogin         { _launchAtLogin = v }
         _notesFolderPath = payload.notesFolderPath
         if let v = payload.yourName              { _yourName = v }
@@ -144,6 +152,7 @@ public final class AppSettingsStore {
             inPersonByDefault: _inPersonByDefault,
             appearance: _appearance,
             hotkey: _hotkey,
+            recordingHotkey: _recordingHotkey,
             launchAtLogin: _launchAtLogin,
             notesFolderPath: _notesFolderPath,
             yourName: _yourName,

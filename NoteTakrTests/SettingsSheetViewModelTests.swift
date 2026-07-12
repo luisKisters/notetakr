@@ -17,7 +17,7 @@ final class SettingsSheetViewModelTests: XCTestCase {
         vm.selectedTab = .thisMeeting
         XCTAssertTrue(vm.showScopeBanner)
 
-        for tab: SettingsTab in [.general, .recording, .vocabulary, .updates] {
+        for tab: SettingsTab in [.general, .recording, .vocabulary, .permissions] {
             vm.selectedTab = tab
             XCTAssertFalse(vm.showScopeBanner, "Banner should be hidden for \(tab)")
         }
@@ -119,6 +119,52 @@ final class SettingsSheetViewModelTests: XCTestCase {
         vm.setLaunchAtLogin(true)
 
         XCTAssertEqual(ctx.settings.launchAtLogin, true)
+    }
+
+    func testRecordingHotkeyWritesSettingsAndNotifies() throws {
+        let (vm, ctx) = makeVM()
+        var receivedCombo: HotkeyCombo?
+        vm.onRecordingHotkeyChange = { receivedCombo = $0 }
+
+        let combo = try HotkeyCombo.parse("⌃⌥⌘R")
+        XCTAssertTrue(vm.setRecordingHotkey(combo))
+
+        XCTAssertEqual(ctx.settings.recordingHotkey, combo)
+        XCTAssertEqual(receivedCombo, combo)
+        XCTAssertNil(vm.hotkeyConflictMessage)
+    }
+
+    func testHotkeyRegistrationMessagesAreTrackedPerRole() {
+        let (vm, _) = makeVM()
+
+        vm.setHotkeyRegistrationMessage("Show note failed", for: .showNote)
+        vm.setHotkeyRegistrationMessage("Recording failed", for: .recording)
+
+        XCTAssertEqual(vm.hotkeyRegistrationMessages, ["Show note failed", "Recording failed"])
+
+        vm.setHotkeyRegistrationMessage(nil, for: .showNote)
+
+        XCTAssertEqual(vm.hotkeyRegistrationMessages, ["Recording failed"])
+    }
+
+    func testPanelHotkeyConflictIsRejected() throws {
+        let (vm, ctx) = makeVM()
+        let original = ctx.settings.hotkey
+
+        XCTAssertFalse(vm.setHotkey(ctx.settings.recordingHotkey))
+
+        XCTAssertEqual(ctx.settings.hotkey, original)
+        XCTAssertNotNil(vm.hotkeyConflictMessage)
+    }
+
+    func testRecordingHotkeyConflictIsRejected() throws {
+        let (vm, ctx) = makeVM()
+        let original = ctx.settings.recordingHotkey
+
+        XCTAssertFalse(vm.setRecordingHotkey(ctx.settings.hotkey))
+
+        XCTAssertEqual(ctx.settings.recordingHotkey, original)
+        XCTAssertNotNil(vm.hotkeyConflictMessage)
     }
 
     // MARK: - Language warning matches Kit rule

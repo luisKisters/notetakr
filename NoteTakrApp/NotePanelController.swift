@@ -130,7 +130,7 @@ final class NotePanelController {
                 title: session.title,
                 date: session.date,
                 participants: session.participants.map {
-                    NoteTakrKit.Participant(name: $0.name, email: $0.email)
+                    NoteTakrKit.Participant(name: $0.name, email: $0.email, crm: $0.crm)
                 },
                 inPerson: session.inPerson
             )
@@ -156,6 +156,12 @@ final class NotePanelController {
         )
         recordingBridge = recBridge
         recBridge.startRecording()
+        if recordPillMachine.isStartPending {
+            recordPillMachine.confirmStarted()
+        } else {
+            recordPillMachine.reflectExternalRecordingStarted()
+        }
+        startPillTickTimer()
 
         // Tick the elapsed REC chip every second
         elapsedTimer?.invalidate()
@@ -166,6 +172,14 @@ final class NotePanelController {
 
     /// Called by AppDelegate when recording stops. Stops the bridge (triggers transcription).
     func recordingStopped() {
+        let stoppedNoteID = switcherBridge.activeRecordingNoteID ?? frontmatterBridge.noteID
+        let shouldDriveExternalPillStop: Bool = {
+            switch recordPillMachine.state {
+            case .recording, .paused: return true
+            default: return false
+            }
+        }()
+        stopPillTickTimer()
         elapsedTimer?.invalidate()
         elapsedTimer = nil
         switcherBridge.setActiveRecordingNoteID(nil)
@@ -175,6 +189,12 @@ final class NotePanelController {
         if switcherBridge.isVisible {
             switcherBridge.refresh()
         }
+        guard shouldDriveExternalPillStop,
+              !stoppedNoteID.isEmpty,
+              frontmatterBridge.noteID == stoppedNoteID else { return }
+        recordPillMachine.beginTranscribing()
+        frontmatterBridge.hasCompletedRecording = true
+        drivePostStopPipeline(noteID: stoppedNoteID, intent: .transcribe)
     }
 
     func show() {
@@ -191,7 +211,7 @@ final class NotePanelController {
             loadCurrentNote()
         }
         panel?.makeKeyAndOrderFront(nil)
-        (panel as? FloatingPanel)?.updateCloseButtonVisibilityForCurrentMouse()
+        (panel as? FloatingPanel)?.hideNativeTrafficLights()
         Task { await appModelRef?.loadUpcomingEvents() }
     }
 
@@ -241,11 +261,11 @@ final class NotePanelController {
                     self?.appModelRef?.renameSpeaker(noteID: noteID, from: oldName, to: newName)
                 }
             ),
-            hoverChanged: { [weak p] isHovered in
-                p?.setCloseButtonVisible(isHovered)
+            hoverChanged: { [weak p] _ in
+                p?.hideNativeTrafficLights()
             }
         )
-        p.startCloseButtonHoverTracking()
+        p.hideNativeTrafficLights()
         // Wire ESC precedence: settings → switcher → hide panel.
         // This is a safety-net in case SwiftUI keyboard shortcuts don't consume the event
         // (e.g. focus is on an AppKit control rather than a SwiftUI view).
@@ -642,7 +662,7 @@ final class NotePanelController {
                 startedAt: session.date,
                 calendarEvent: session.linkedEventID,
                 participants: session.participants.map {
-                    NoteTakrKit.Participant(name: $0.name, email: $0.email)
+                    NoteTakrKit.Participant(name: $0.name, email: $0.email, crm: $0.crm)
                 }
             )
             return
@@ -780,8 +800,6 @@ private final class TranscribeStartFlag {
 
 private final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
-    private var localHoverMonitor: Any?
-    private var globalHoverMonitor: Any?
 
     /// Called by the controller after the panel is built to wire the overlay checks.
     /// Return `true` to consume the ESC and prevent the panel from hiding.
@@ -830,43 +848,10 @@ private final class FloatingPanel: NSPanel {
         return event.charactersIgnoringModifiers == "\u{7F}"
     }
 
-    func setCloseButtonVisible(_ isVisible: Bool) {
-        standardWindowButton(.closeButton)?.isHidden = !isVisible
-    }
-
-    func updateCloseButtonVisibilityForCurrentMouse() {
-        setCloseButtonVisible(isVisible && frame.contains(NSEvent.mouseLocation))
-    }
-
-    func startCloseButtonHoverTracking() {
-        let mask: NSEvent.EventTypeMask = [
-            .mouseMoved,
-            .leftMouseDragged,
-            .rightMouseDragged,
-            .otherMouseDragged,
-            .leftMouseDown,
-            .rightMouseDown,
-            .otherMouseDown
-        ]
-
-        localHoverMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-            self?.updateCloseButtonVisibilityForCurrentMouse()
-            return event
-        }
-        globalHoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.updateCloseButtonVisibilityForCurrentMouse()
-            }
-        }
-    }
-
-    deinit {
-        if let localHoverMonitor {
-            NSEvent.removeMonitor(localHoverMonitor)
-        }
-        if let globalHoverMonitor {
-            NSEvent.removeMonitor(globalHoverMonitor)
-        }
+    func hideNativeTrafficLights() {
+        standardWindowButton(.closeButton)?.isHidden = true
+        standardWindowButton(.miniaturizeButton)?.isHidden = true
+        standardWindowButton(.zoomButton)?.isHidden = true
     }
 }
 

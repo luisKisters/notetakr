@@ -14,13 +14,17 @@ final class FrontmatterPresenterBridge: ObservableObject {
     /// Set by NotePanelController on note load; drives the Transcript-row audio player.
     @Published var audioFileURL: URL?
     /// Calendar events available for the event picker; updated live by NotePanelController.
-    @Published var availableEvents: [UpcomingEvent] = []
+    @Published var availableEvents: [UpcomingEvent] = [] {
+        didSet { rebuildPeopleIndex(notes: indexedNotes) }
+    }
     @Published var availableEventWindow: EventPickerWindow?
     @Published var isLoadingAvailableEvents: Bool = false
     @Published var availableEventsError: String?
+    @Published private(set) var peopleIndexEntries: [PersonIndexEntry] = []
 
     private(set) var presenter: FrontmatterPresenter?
     private let store: any NoteStoring
+    private var indexedNotes: [MeetingNote] = []
     var onRequestCalendarEvents: ((EventPickerWindow) -> Void)?
 
     init(store: any NoteStoring) {
@@ -42,6 +46,12 @@ final class FrontmatterPresenterBridge: ObservableObject {
         hasCompletedRecording = false
         audioFileURL = nil  // re-set by NotePanelController right after load
         refresh()
+        refreshPeopleIndexFromStoreIfPossible()
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["NOTETAKR_E2E_EXPAND_FRONTMATTER"] == "1" {
+            isExpanded = true
+        }
+        #endif
     }
 
     // MARK: - Mutations (forwarded to Kit presenter)
@@ -53,16 +63,19 @@ final class FrontmatterPresenterBridge: ObservableObject {
     func linkCalendarEvent(
         id: String,
         title: String,
-        attendees: [(name: String, email: String?)],
+        attendees: [Participant],
         startDate: Date? = nil,
         endDate: Date? = nil,
         locationText: String? = nil,
         meetingLink: String? = nil
     ) {
         let participants = attendees.map {
-            Participant(
-                name: Participant.displayName(name: $0.name, email: $0.email),
-                email: $0.email?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            let email = $0.email?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            let crm = $0.crm?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            return Participant(
+                name: Participant.displayName(name: $0.name, email: email),
+                email: email,
+                crm: crm
             )
         }
         let info = LinkedEventInfo(
@@ -81,8 +94,12 @@ final class FrontmatterPresenterBridge: ObservableObject {
         try? presenter?.unlinkEvent()
     }
 
-    func addParticipant(name: String, email: String? = nil) {
-        try? presenter?.addParticipant(Participant(name: name, email: email))
+    func addParticipant(name: String, email: String? = nil, crm: String? = nil) {
+        try? presenter?.addParticipant(Participant(name: name, email: email, crm: crm))
+    }
+
+    func addParticipant(_ participant: Participant) {
+        try? presenter?.addParticipant(participant)
     }
 
     func removeParticipant(_ participant: Participant) {
@@ -103,6 +120,25 @@ final class FrontmatterPresenterBridge: ObservableObject {
 
     func requestCalendarEvents(window: EventPickerWindow) {
         onRequestCalendarEvents?(window)
+    }
+
+    func rebuildPeopleIndex(notes: [MeetingNote]) {
+        indexedNotes = notes
+        let activeNoteID = presenter?.note.id
+        let indexNotes = notes.filter { $0.id != activeNoteID }
+        peopleIndexEntries = PeopleIndex(notes: indexNotes, events: availableEvents).entries
+    }
+
+    func participantSuggestions(matching query: String, excluding selectedParticipants: [Participant], limit: Int = 6) -> [PersonIndexEntry] {
+        PeopleIndex(entries: peopleIndexEntries).suggestions(
+            matching: query,
+            excluding: selectedParticipants,
+            limit: limit
+        )
+    }
+
+    func personEntry(for participant: Participant) -> PersonIndexEntry? {
+        PeopleIndex(entries: peopleIndexEntries).entry(for: participant)
     }
 
     func setTranscribe(_ value: Bool) {
@@ -150,6 +186,13 @@ final class FrontmatterPresenterBridge: ObservableObject {
         guard let p = presenter else { return }
         chips = p.chips
         propertyRows = p.propertyRows
+        refreshPeopleIndexFromStoreIfPossible()
+    }
+
+    private func refreshPeopleIndexFromStoreIfPossible() {
+        guard let noteStore = store as? NoteStore,
+              let notes = try? noteStore.list() else { return }
+        rebuildPeopleIndex(notes: notes)
     }
 }
 
