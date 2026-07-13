@@ -7,6 +7,9 @@ import NoteTakrKit
 final class FrontmatterPresenterBridge: ObservableObject {
     @Published private(set) var chips: [Chip] = []
     @Published private(set) var propertyRows: [PropertyRow] = []
+    /// Per-note override used by the This Meeting settings toggle. Publishing
+    /// it keeps SwiftUI in sync after presenter mutations persist the note.
+    @Published private(set) var noteInPerson: Bool?
     @Published var isExpanded: Bool = false
     /// Set by the recording pipeline when a recording completes and audio is available.
     @Published var hasCompletedRecording: Bool = false
@@ -195,6 +198,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
         guard let p = presenter else { return }
         chips = p.chips
         propertyRows = p.propertyRows
+        noteInPerson = p.note.inPerson
         refreshPeopleIndexFromStoreIfPossible()
     }
 

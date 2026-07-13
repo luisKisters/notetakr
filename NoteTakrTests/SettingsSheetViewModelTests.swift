@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 import NoteTakrKit
 @testable import NoteTakr
 
@@ -42,11 +43,17 @@ final class SettingsSheetViewModelTests: XCTestCase {
 
     func testInPersonThisMeetingWritesFrontmatter() throws {
         let (vm, ctx) = makeVM()
+        let published = expectation(description: "Settings forwards frontmatter state changes")
+        published.assertForOverFulfill = false
+        let observation = vm.objectWillChange.sink { published.fulfill() }
         vm.setInPersonThisMeeting(true)
+        wait(for: [published], timeout: 1)
 
         let saved = try XCTUnwrap(ctx.spy.notes["note-1"])
         XCTAssertEqual(saved.inPerson, true)
+        XCTAssertEqual(vm.frontmatterBridge.noteInPerson, true)
         XCTAssertEqual(ctx.settings.inPersonByDefault, false, "settings.json must not change")
+        withExtendedLifetime(observation) {}
     }
 
     func testLanguageThisMeetingWritesFrontmatter() throws {

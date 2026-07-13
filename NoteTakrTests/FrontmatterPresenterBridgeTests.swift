@@ -15,11 +15,13 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
 
         let bridge = FrontmatterPresenterBridge(store: spy)
         bridge.load(note: note)
+        XCTAssertEqual(bridge.noteInPerson, false)
 
         bridge.setInPerson(true)
 
         let saved = try XCTUnwrap(spy.notes["fp-1"])
         XCTAssertEqual(saved.inPerson, true)
+        XCTAssertEqual(bridge.noteInPerson, true)
     }
 
     func testToggleInPersonFalseToTrue() throws {
@@ -30,11 +32,13 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
 
         let bridge = FrontmatterPresenterBridge(store: spy)
         bridge.load(note: note)
+        XCTAssertEqual(bridge.noteInPerson, true)
 
         bridge.setInPerson(false)
 
         let saved = try XCTUnwrap(spy.notes["fp-2"])
         XCTAssertEqual(saved.inPerson, false)
+        XCTAssertEqual(bridge.noteInPerson, false)
     }
 
     func testInPersonCannotChangeDuringActiveRecording() throws {
@@ -49,6 +53,22 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
 
         XCTAssertTrue(bridge.isRecording)
         XCTAssertEqual(try XCTUnwrap(spy.notes[note.id]).inPerson, false)
+        XCTAssertEqual(bridge.noteInPerson, false)
+    }
+
+    func testPublishedInPersonStateResetsWhenLoadingAnotherNote() {
+        let spy = SpyPresenterStore()
+        let first = MeetingNote(id: "fp-load-1", title: "First", date: fixedDate(), inPerson: true)
+        let second = MeetingNote(id: "fp-load-2", title: "Second", date: fixedDate())
+        spy.notes[first.id] = first
+        spy.notes[second.id] = second
+        let bridge = FrontmatterPresenterBridge(store: spy)
+
+        bridge.load(note: first)
+        XCTAssertEqual(bridge.noteInPerson, true)
+
+        bridge.load(note: second)
+        XCTAssertNil(bridge.noteInPerson)
     }
 
     // MARK: - Chips view model state matches Kit presenter

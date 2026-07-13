@@ -49,6 +49,7 @@ final class NoteTakrUITests: XCTestCase {
         XCTAssertTrue(inPersonToggle.waitForExistence(timeout: 5))
         XCTAssertTrue(inPersonToggle.isEnabled)
         setInPersonFromTestProcess(true)
+        try waitForPersistedInPersonFrontmatter()
         let checked = expectation(
             for: NSPredicate(format: "value == '1'"),
             evaluatedWith: inPersonToggle
@@ -200,6 +201,34 @@ final class NoteTakrUITests: XCTestCase {
             domain: "NoteTakrUITests",
             code: 1,
             userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for mock recording metadata"]
+        )
+    }
+
+    private func waitForPersistedInPersonFrontmatter(timeout: TimeInterval = 5) throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        let sessions = appSupportRoot
+            .appendingPathComponent("NoteTakr", isDirectory: true)
+            .appendingPathComponent("Sessions", isDirectory: true)
+        while Date() < deadline {
+            let folders = (try? FileManager.default.contentsOfDirectory(
+                at: sessions,
+                includingPropertiesForKeys: nil,
+                options: .skipsHiddenFiles
+            )) ?? []
+            for folder in folders {
+                let noteURL = folder.appendingPathComponent("note.md")
+                guard let text = try? String(contentsOf: noteURL, encoding: .utf8) else { continue }
+                let persisted = text.split(separator: "\n").contains {
+                    $0.trimmingCharacters(in: .whitespaces) == "in_person: true"
+                }
+                if persisted { return }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        throw NSError(
+            domain: "NoteTakrUITests",
+            code: 2,
+            userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for in_person: true frontmatter"]
         )
     }
 

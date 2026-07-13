@@ -218,7 +218,7 @@ struct SettingsSheetView: View {
 
             settingsRow {
                 Toggle(isOn: Binding(
-                    get: { viewModel.frontmatterBridge.presenter?.note.inPerson ?? viewModel.appSettings.inPersonByDefault },
+                    get: { viewModel.frontmatterBridge.noteInPerson ?? viewModel.appSettings.inPersonByDefault },
                     set: { viewModel.setInPersonThisMeeting($0) }
                 )) {
                     HStack(alignment: .center, spacing: 10) {

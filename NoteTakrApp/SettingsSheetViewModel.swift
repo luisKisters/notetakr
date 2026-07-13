@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import NoteTakrKit
 
@@ -31,6 +32,7 @@ final class SettingsSheetViewModel: ObservableObject {
     let frontmatterBridge: FrontmatterPresenterBridge
     let appSettings: AppSettingsStore
     private var hotkeyRegistrationMessagesByRole: [HotkeyRegistrationRole: String] = [:]
+    private var frontmatterObservation: AnyCancellable?
 
     /// Called when the user records a new hotkey so the coordinator can re-register.
     var onHotkeyChange: ((HotkeyCombo) -> Void)?
@@ -45,6 +47,9 @@ final class SettingsSheetViewModel: ObservableObject {
         self.frontmatterBridge = frontmatterBridge
         self.appSettings = appSettings
         self.currentAppearance = appSettings.appearance
+        self.frontmatterObservation = frontmatterBridge.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
     }
 
     // MARK: - Derived state
