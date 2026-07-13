@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteTakr — Cloud, Sync &amp; CRM Implementation Plan</title>
+<style>
+  :root {
+    --bg: #151417;
+    --surface: #1d1c21;
+    --surface-2: #242329;
+    --border: rgba(255,255,255,0.08);
+    --text: rgba(255,255,255,0.92);
+    --text-dim: rgba(255,255,255,0.55);
+    --text-faint: rgba(255,255,255,0.35);
+    --accent: #8B5CF6;
+    --accent-soft: #A78BFA;
+    --accent-bg: rgba(139,92,246,0.12);
+    --green: rgba(74,222,128,0.9);
+    --orange: rgba(251,146,60,0.9);
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 24px 96px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+
+  header { margin-bottom: 40px; }
+  .kicker { font: 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-soft); margin-bottom: 10px; }
+  h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .meta { color: var(--text-faint); font-size: 12px; }
+  .meta code { font-family: var(--mono); }
+
+  h2 { font-size: 15px; font-weight: 600; margin: 44px 0 14px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+  h2::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+
+  /* decision chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 11px; font-size: 12.5px; color: var(--text-dim);
+  }
+  .chip b { color: var(--text); font-weight: 550; }
+
+  /* architecture diagram */
+  .arch { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px 24px; overflow-x: auto; }
+  .lane { display: flex; align-items: center; gap: 0; margin: 10px 0; min-width: 700px; }
+  .lane-label { width: 92px; flex: none; font: 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+  .node {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; text-align: center; flex: 1;
+  }
+  .node .n-title { font-weight: 600; font-size: 13px; }
+  .node .n-sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .node.hub { border-color: rgba(139,92,246,0.45); background: var(--accent-bg); }
+  .node.hub .n-title { color: var(--accent-soft); }
+  .arrow { flex: none; width: 72px; text-align: center; color: var(--text-faint); font-size: 10.5px; position: relative; padding: 0 4px; }
+  .arrow::after { content: ""; display: block; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25) 20%, rgba(255,255,255,0.25) 80%, transparent); margin-top: 4px; }
+  .arrow.fwd::before { content: "→"; position: absolute; right: -2px; top: 12px; color: var(--text-dim); }
+  .arrow.back::before { content: "←"; position: absolute; left: -2px; top: 12px; color: var(--text-dim); }
+  .arch-note { font-size: 12px; color: var(--text-dim); margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .arch-note b { color: var(--text); font-weight: 550; }
+
+  /* pipeline */
+  .pipe { counter-reset: step; }
+  .pipe li {
+    list-style: none; position: relative; padding: 10px 0 10px 44px;
+    border-left: 1px solid var(--border); margin-left: 14px;
+  }
+  .pipe li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: -13px; top: 10px;
+    width: 25px; height: 25px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--accent-soft); font: 600 11px/23px var(--mono); text-align: center;
+  }
+  .pipe li b { font-weight: 550; }
+  .pipe .where { font: 10px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); margin-right: 8px; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 12.5px; }
+  th { text-align: left; font: 600 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-dim); }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { font-family: var(--mono); font-size: 12px; color: var(--text); white-space: nowrap; }
+  table { border-radius: 12px; border-style: hidden; box-shadow: 0 0 0 1px var(--border); }
+
+  /* phases */
+  .phase { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; }
+  .phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .phase-num { font: 600 11px var(--mono); color: var(--accent-soft); background: var(--accent-bg); border-radius: 6px; padding: 3px 8px; }
+  .phase-title { font-weight: 600; font-size: 14px; }
+  .phase-tag { margin-left: auto; font: 10.5px var(--mono); color: var(--text-faint); letter-spacing: 0.06em; text-transform: uppercase; }
+  .phase ul { list-style: none; }
+  .phase li { padding: 5px 0 5px 22px; position: relative; font-size: 13px; color: var(--text-dim); }
+  .phase li::before { content: ""; position: absolute; left: 4px; top: 12px; width: 7px; height: 7px; border: 1.5px solid var(--accent); border-radius: 50%; opacity: 0.8; }
+  .phase li b { color: var(--text); font-weight: 550; }
+  .phase li code, .arch-note code, .pipe code, p code { font-family: var(--mono); font-size: 11.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--accent-soft); }
+  .phase .ship { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--text-faint); }
+  .phase .ship b { color: var(--green); font-weight: 550; }
+
+  /* risks */
+  .risks li { list-style: none; padding: 8px 0 8px 24px; position: relative; font-size: 13px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+  .risks li:last-child { border-bottom: none; }
+  .risks li::before { content: "!"; position: absolute; left: 2px; top: 8px; color: var(--orange); font: 600 12px var(--mono); }
+  .risks li b { color: var(--text); font-weight: 550; }
+
+  p.lede { color: var(--text-dim); max-width: 640px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="kicker">NoteTakr · Implementation Plan</div>
+  <h1>Cloud Sync, Server Summaries &amp; CRM Push</h1>
+  <div class="meta">2026-07-13 · status: <code>solidified</code> · stack: Swift/macOS · Clerk · Convex · OpenRouter Kimi K2.7 · Twenty (→ Attio) · full TDD spec: <code>20260713-cloud-crm-sync.md</code></div>
+</header>
+
+<h2>Locked decisions</h2>
+<div class="chips">
+  <div class="chip"><b>Local is where writes happen</b> — Mac JSON stays source of truth</div>
+  <div class="chip"><b>Convex is where integrations happen</b> — mirror + automation hub</div>
+  <div class="chip"><b>One-way push</b> — no bidirectional sync, no conflicts (cross-device: later)</div>
+  <div class="chip"><b>Auth:</b> Google via Clerk (<code style="font-family:var(--mono)">clerk-convex-swift</code>)</div>
+  <div class="chip"><b>Summary server-side</b> — Convex action → OpenRouter <b>Kimi K2.7</b>; existing local path stays as signed-out fallback</div>
+  <div class="chip"><b>Ownership partitioned</b> — Mac owns content, Convex owns summary/pushStatus → no field has two writers</div>
+  <div class="chip"><b>CRM push fires after summary</b>, note attached to person(s)</div>
+  <div class="chip"><b>Twenty first</b> (self-hosted, publicly reachable ✓, no relevant note limit ✓), Attio next, HS/SF if customers need it</div>
+  <div class="chip"><b>Unmatched participants</b> — accepted as-is; small warning banner above the footer tabs when a CRM is connected</div>
+  <div class="chip"><b>Apple Calendar only</b> (EventKit — already the case)</div>
+  <div class="chip"><b>TDD</b> — unit tests specified per phase in the .md plan; each phase exits through an e2e gate</div>
+  <div class="chip"><b>Apple Contacts = source only</b>, never written to — test bed for the abstraction</div>
+  <div class="chip"><b>No audio upload</b> — recordings stay local</div>
+  <div class="chip"><b><code style="font-family:var(--mono)">localOnly</code> flag</b> — sensitive meetings never leave the Mac</div>
+</div>
+
+<h2>Architecture — sources vs. sinks, every arrow one-directional</h2>
+<div class="arch">
+  <div class="lane">
+    <div class="lane-label">People<br>(sources)</div>
+    <div class="node"><div class="n-title">Twenty CRM</div><div class="n-sub">canonical people</div></div>
+    <div class="arrow fwd">mirror cron</div>
+    <div class="node hub"><div class="n-title">Convex</div><div class="n-sub">people table</div></div>
+    <div class="arrow fwd">cache</div>
+    <div class="node"><div class="n-title">Mac</div><div class="n-sub">picker · auto-match<br>+ Apple Contacts · past meetings (local sources)</div></div>
+  </div>
+  <div class="lane">
+    <div class="lane-label">Content<br>(sink)</div>
+    <div class="node"><div class="n-title">Mac</div><div class="n-sub">meetings · notes · transcripts</div></div>
+    <div class="arrow fwd">idempotent upsert</div>
+    <div class="node hub"><div class="n-title">Convex</div><div class="n-sub">summary action → scheduler</div></div>
+    <div class="arrow fwd">note on person</div>
+    <div class="node"><div class="n-title">Twenty CRM</div><div class="n-sub">summary + transcript</div></div>
+  </div>
+  <div class="arch-note">
+    <b>PeopleSource</b> (many; device- or server-side) feeds the picker &amp; attendee auto-match.
+    <b>CRMSink</b> (one adapter per CRM; server-side TypeScript in Convex) receives meeting notes.
+    Apple Contacts is a source, never a sink. Nothing is merged anywhere — only mirrored or pushed,
+    so three places stay tolerable.
+  </div>
+</div>
+
+<h2>Pipeline — meeting end to CRM note</h2>
+<ol class="pipe">
+  <li><span class="where">mac</span><b>Meeting ends</b> — note + transcript finalized locally (existing behavior, unchanged).</li>
+  <li><span class="where">mac</span><b>Push</b> — outbox uploads meeting, note, transcript segments to Convex. Idempotent upsert keyed by local record ID; retry-safe; skipped when <code>localOnly</code>.</li>
+  <li><span class="where">convex</span><b>Summarize</b> — action calls OpenRouter (Kimi K2.7) with the transcript, writes <code>summary</code> onto the meeting. UI shows <code>waiting → generating → done</code>.</li>
+  <li><span class="where">convex</span><b>Match</b> — participant emails resolved against <code>people</code> (Twenty mirror). Unmatched names recorded on the meeting for a later “link / create in CRM” affordance — they never block the push.</li>
+  <li><span class="where">convex</span><b>Push to Twenty</b> — scheduler fires <code>upsertMeetingNote()</code>: one note (summary on top, transcript beneath), attached to all matched persons. <code>crmNoteId</code> stored → retries update, never duplicate.</li>
+  <li><span class="where">mac</span><b>Status surfaces</b> — per-meeting <code>pushStatus: pending | pushed | failed | skipped</code> shown as a quiet indicator in the note’s property panel.</li>
+</ol>
+
+<h2>Convex schema (v1)</h2>
+<table>
+  <tr><th>table</th><th>fields</th><th>notes</th></tr>
+  <tr><td>meetings</td><td>userId, localId, title, startedAt, calendarEventId, participants[{name, email?, personId?}], unmatched[], summary?, summaryStatus, crmNoteId?, pushStatus, localOnly, version, updatedAt</td><td>upsert keyed by (userId, localId)</td></tr>
+  <tr><td>notes</td><td>meetingId, markdownBody, version, updatedAt</td><td>one per meeting; versioned blob → CRDT-swappable later</td></tr>
+  <tr><td>transcriptSegments</td><td>meetingId, seq, startMs, text</td><td>append-only; separate table dodges 1 MB doc limit</td></tr>
+  <tr><td>people</td><td>userId, email, name, aliases[], company?, sourceRefs[{provider, remoteId}]</td><td>mirrored from Twenty; email is the matching key</td></tr>
+  <tr><td>devices</td><td>userId, deviceId, name, lastPushAt</td><td>bookkeeping only in v1</td></tr>
+</table>
+<p class="lede" style="margin-top:10px; font-size:12px;"><code>version</code>/<code>updatedAt</code> carried from day one so flipping to bidirectional later is a feature flag, not a migration. Zero conflict machinery is built now.</p>
+
+<h2>Interfaces</h2>
+<div class="cols">
+  <div class="phase">
+    <div class="phase-head"><span class="phase-title">Swift — PeopleSource</span><span class="phase-tag">device</span></div>
+    <ul>
+      <li><code>Person { name, emails[], company?, sourceRefs[] }</code> — deduped by email across sources</li>
+      <li><code>PeopleSource: search(query) / person(forEmail:)</code></li>
+      <li>Impl 1: <b>PastMeetingsIndex</b> (local JSON notes)</li>
+      <li>Impl 2: <b>AppleContactsSource</b> (grow from <code>ContactNameResolving</code> in <code>7433c4a</code>)</li>
+      <li>Impl 3: <b>ConvexPeopleCache</b> (Twenty mirror, later)</li>
+    </ul>
+  </div>
+  <div class="phase">
+    <div class="phase-head"><span class="phase-title">TypeScript — CRMSink</span><span class="phase-tag">convex</span></div>
+    <ul>
+      <li><code>listPeople() → {remoteId, name, emails[], company?}[]</code></li>
+      <li><code>upsertMeetingNote(personRemoteIds, title, markdown, existingNoteId?) → remoteNoteId</code></li>
+      <li>Impl 1: <b>TwentyAdapter</b> (REST/GraphQL, note targets → persons)</li>
+      <li>Impl 2: <b>AttioAdapter</b> (same interface, second impl)</li>
+      <li>Messiness quarantined behind the adapter — UI and pipeline never see the CRM’s API shape</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Build order</h2>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">P1</span><span class="phase-title">Person picker — local only, no cloud</span><span class="phase-tag">no account needed</span></div>
+  <ul>
+    <li><b>P0 first:</b> cherry-pick <code>7433c4a</code> (Apple Contacts name resolution) <i>and</i> the hosted XCUITest e2e harness commits from <code>origin/codex/bugfix-e2e-20260712</code> onto main — the harness is what every phase’s e2e gate runs on</li>
+    <li>Build <b>PastMeetingsIndex</b> from existing local notes; rank people by <b>co-meeting frequency × 90-day recency decay</b></li>
+    <li><code>@</code>-picker in frontmatter participants: sections <i>In this event → Recent → Contacts</i>, current attendees pinned, origin badges on deduped rows</li>
+    <li>Hover card: company (from email domain), last N meetings together</li>
+    <li>Free-text participants still allowed (stay strings; no Person record without an email)</li>
+  </ul>
+  <div class="ship">Ships: <b>picker + person history</b>, de-risks the Person/PeopleSource abstraction before any cloud code exists.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">P2</span><span class="phase-title">Cloud spine — Clerk + Convex + server summary</span><span class="phase-tag">accounts appear</span></div>
+  <ul>
+    <li>Clerk (Google OAuth) via <code>clerk-convex-swift</code>; signed-out = app unchanged (“no cloud, no account” stays true)</li>
+    <li>Convex project: schema above; outbox in Swift pushing idempotent upserts (~small; no merge logic)</li>
+    <li><code>localOnly</code> toggle per meeting, respected by the outbox</li>
+    <li>Summary action (Claude API) + <code>summaryStatus</code> states in the note UI</li>
+    <li>Restore-from-cloud = one-shot bulk import on a fresh Mac (backup value, zero sync complexity)</li>
+  </ul>
+  <div class="ship">Ships: <b>backup + server summaries</b>. Mac can sleep once the transcript is uploaded.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">P3</span><span class="phase-title">Twenty sink — people mirror + note push</span><span class="phase-tag">crm value</span></div>
+  <ul>
+    <li>People mirror cron: Twenty → <code>people</code> table; manual “refresh people” affordance; Mac-side <b>ConvexPeopleCache</b> source joins the picker</li>
+    <li><b>Auto-match calendar attendees by email</b> — most participants resolve with zero interaction; picker becomes the fallback</li>
+    <li>CRM push action per pipeline above; <code>crmNoteId</code> idempotency; summary edits re-sync the same note</li>
+    <li>Per-meeting “don’t push to CRM” toggle alongside <code>localOnly</code></li>
+    <li>API key/config for Twenty stored per-user in Convex (encrypted env / user settings table)</li>
+  </ul>
+  <div class="ship">Ships: <b>meetings land on people in your CRM automatically</b> — the actual point of all this.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">P4</span><span class="phase-title">Attio adapter (+ later: HS/SF, bidirectional sync, audio opt-in)</span><span class="phase-tag">when needed</span></div>
+  <ul>
+    <li>Second <b>CRMSink</b> implementation against a proven interface — no UI or pipeline changes</li>
+    <li>“Create in CRM” for unmatched free-text participants</li>
+    <li>Deferred deliberately: cross-device live sync, audio upload (R2, opt-in), sharing, real-time co-editing</li>
+  </ul>
+</div>
+
+<h2>Risks &amp; open items</h2>
+<ul class="risks">
+  <li><b>Attendee emails are best-effort</b> — some calendar accounts expose names only; those participants won’t auto-match (accepted as-is; quiet banner above the footer when a CRM is connected).</li>
+  <li><b>LLM cost + privacy asterisk</b> — server summaries mean “transcripts are processed in the cloud when sync is on”; needs one honest line in the README/settings. Signed-out users keep the existing local OpenRouter path.</li>
+  <li><b>Apple Developer membership ($99/y)</b> — not needed for any of P1–P4 (Google-only auth), but unlocks notarization + Sign in with Apple later.</li>
+  <li><b>Kimi K2.7 model slug</b> — confirm the exact OpenRouter slug at implementation time; it lives in a Convex env var, not code.</li>
+</ul>
+
+</div>
+</body>
+</html>
