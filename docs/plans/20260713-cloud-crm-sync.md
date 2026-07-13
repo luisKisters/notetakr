@@ -28,6 +28,7 @@ Stack: Swift/macOS (this repo) · Clerk (Google OAuth) · Convex (backend, TypeS
 - Pure logic goes in **NoteTakrKit** (runs on Linux CI, `kit-tests` job) whenever it doesn't need Core types. Networking/store logic goes in the new **NoteTakrSync** target with macOS `swift test`. App-glue tests go in `NoteTakrTests` (xcodebuild).
 - Convex functions are unit-tested with `convex-test` + vitest in `convex/` (new `npm test` step; add a `convex-tests` job to `.github/workflows/macos-ci.yml` running on ubuntu).
 - Privacy invariants are tested by **counting mock invocations** (the `lookupCount == 0` style from `EventKitAdapterTests`): signed-out ⇒ zero network calls; `local_only` ⇒ zero enqueues; CRM disconnected ⇒ zero CRM calls.
+- **Live integration tests** (real Twenty instance, real API key) complement the mocked unit tests wherever an external API is adapted. They live in `*.integration.test.ts`, are gated on `TWENTY_TEST_BASE_URL` + `TWENTY_TEST_API_KEY` env vars (suite self-skips with a loud console warning when unset), run via `npm run test:integration`, and in CI via repo secrets. Every entity they create is prefixed `[nt-test]` and deleted in `finally` blocks. **A phase whose scope includes a live API does not pass its exit gate until its integration suite has run green against the real instance** — mocked-green alone is not done.
 - E2E gates use the XCUITest harness (env-var seams `NOTETAKR_E2E_*`, AX identifiers, filesystem assertions) adopted in Phase 0, plus new rows in `docs/manual-smoke-test.md` for what CI genuinely cannot verify.
 
 ---
@@ -160,7 +161,7 @@ Cherry-pick from `origin/codex/bugfix-e2e-20260712` onto `main`:
 
 - `crm/provider.ts` — `interface CrmProvider { listPeople(cfg): Promise<CrmPerson[]>; upsertMeetingNote(cfg, personRemoteIds, title, markdown, existingNoteId?): Promise<string> }`; registry keyed by `userSettings.crm.provider`.
 - `crm/twenty.ts` — `TwentyProvider` against the user's base URL + API key (both in `userSettings`, set from the Mac settings UI): people query with pagination; note create/update + noteTargets attaching all matched persons.
-- `crm/mirror.ts` — cron (hourly) + on-demand mutation: mirror CRM people into `people` (match by lowercased email; update name/company; remove rows whose remoteId disappeared).
+- `crm/mirror.ts` — mirrors CRM people into `people` (match by lowercased email; update name/company; remove rows whose remoteId disappeared). Triggered three ways: **hourly cron** (`crons.ts`), immediately after the user saves/changes CRM config, and on-demand from the Mac's "Refresh people" affordance. The Mac's picker cache refreshes from `people` on every sync-loop pass while signed in, so a contact added in Twenty shows up in the picker within the hour — or instantly via manual refresh.
 - `crm/push.ts` — action scheduled by `summarize`: skip if `crmPushOptOut` or no CRM configured; match `participants[].email` against `people`; compose markdown (summary, then transcript); `upsertMeetingNote` with stored `crmNoteId` for idempotency; write back `crmNoteId`, `pushStatus`, `unmatched: [names]`.
 
 ### New code — Swift
@@ -192,6 +193,14 @@ Cherry-pick from `origin/codex/bugfix-e2e-20260712` onto `main`:
 - `mirror inserts new people and updates changed names`
 - `mirror removes people whose remoteId disappeared from crm`
 - `mirror never touches people rows of other users`
+- `hourly cron is registered and points at the mirror function` (assert against `crons.ts` registration)
+
+`convex/crm/twenty.integration.test.ts` — **live tests against the real Twenty instance** (env-gated per the testing ground rules; required green for this phase's exit gate)
+- `live: listPeople returns a non-empty mapped page from the real instance` — asserts real records map to `CrmPerson` with lowercased emails; fails loudly on schema drift Twenty-side.
+- `live: a person created via the API appears in the next mirror pass` — create disposable person `[nt-test] Mirror Probe <nt-test+<runId>@example.invalid>`, run the mirror logic against the live provider, assert the person lands in `people`; delete in `finally`.
+- `live: upsertMeetingNote creates exactly one note attached to the test person` — create note with summary+transcript markdown, list the person's notes, assert count 1 and body intact; delete in `finally`.
+- `live: second upsert with the returned crmNoteId updates in place` — call again with changed markdown + `existingNoteId`, assert still exactly one note and body is the new version (the idempotency guarantee, proven against the real API, not a mock).
+- `live: invalid api key maps to typed CrmError.unauthorized` — call with a garbage key, assert the typed error (so the settings "test connection" button can show a precise message).
 
 `Tests/NoteTakrSyncTests/ConvexPeopleCacheSourceTests.swift`
 - `testLoadsPeopleFromCachedSnapshot` — fixture cache file → `allPeople()` matches.
@@ -206,7 +215,7 @@ Cherry-pick from `origin/codex/bugfix-e2e-20260712` onto `main`:
 
 ### Exit gate (e2e)
 
-- All above green in CI.
+- All above green in CI — **including `twenty.integration.test.ts` run against the real instance** (locally with env vars set, and in CI via `TWENTY_TEST_BASE_URL`/`TWENTY_TEST_API_KEY` repo secrets on the `convex-tests` job; the job fails if secrets are present but the suite errors, and prints a skipped-warning if absent so a missing key can't silently pass the gate).
 - New XCUITest `testUnmatchedCrmBannerAppearsAboveFooter` — env seam `NOTETAKR_E2E_MOCK_CRM_CONNECTED=1`, seeded note with one email-less participant → `crmUnmatchedBanner` exists and sits above the footer tabs; dismiss → gone; relaunch on another seeded note → banner logic re-evaluates.
 - Manual smoke additions (against your real Twenty instance): connect CRM in settings (test button green); finish a real meeting with a known CRM contact → note with summary+transcript appears on that person in Twenty; re-run push → still exactly one note; opt-out toggle → `pushStatus: skipped`.
 
@@ -214,7 +223,7 @@ Cherry-pick from `origin/codex/bugfix-e2e-20260712` onto `main`:
 
 ## Phase 4 — Attio adapter (+ deferred backlog)
 
-- `convex/crm/attio.ts` — second `CrmProvider`; **no Swift, UI, or pipeline changes** (that's the point of the interface). Tests: mirror of `twenty.test.ts` (same six cases against Attio API shapes) + `provider registry resolves by userSettings.crm.provider`.
+- `convex/crm/attio.ts` — second `CrmProvider`; **no Swift, UI, or pipeline changes** (that's the point of the interface). Tests: mirror of `twenty.test.ts` (same six cases against Attio API shapes) + `provider registry resolves by userSettings.crm.provider` + an `attio.integration.test.ts` with the same five live cases, gated on `ATTIO_TEST_API_KEY`.
 - "Create in CRM" affordance for unmatched participants (from the banner / participant menu) → `CrmProvider.createPerson` added with its own small test set.
 - Deferred deliberately: cross-device live sync (schema is ready: payload-based, hash-tracked), audio upload (R2, opt-in), sharing, HubSpot/Salesforce (only on customer demand), real-time co-editing.
 
@@ -227,5 +236,6 @@ Cherry-pick from `origin/codex/bugfix-e2e-20260712` onto `main`:
 | Kit People/presenter tests | `NoteTakrKit/Tests` | Linux `kit-tests` job (fast gate) |
 | NoteTakrSync tests | `Tests/NoteTakrSyncTests` | macOS `swift-package-tests` job |
 | Convex tests | `convex/` vitest | new ubuntu `convex-tests` job |
+| Live CRM integration tests | `convex/crm/*.integration.test.ts` | same job, env-gated on `TWENTY_TEST_*` repo secrets (required for P3/P4 gates) |
 | App glue + XCUITest e2e | `NoteTakrTests` / `NoteTakrUITests` | macOS `xcode-build-and-test` job |
 | Real-world checks | `docs/manual-smoke-test.md` (rows added per phase) | physical Mac |

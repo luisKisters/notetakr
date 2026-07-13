@@ -242,7 +242,8 @@
 <div class="phase">
   <div class="phase-head"><span class="phase-num">P3</span><span class="phase-title">Twenty sink — people mirror + note push</span><span class="phase-tag">crm value</span></div>
   <ul>
-    <li>People mirror cron: Twenty → <code>people</code> table; manual “refresh people” affordance; Mac-side <b>ConvexPeopleCache</b> source joins the picker</li>
+    <li>People mirror: <b>hourly cron</b> + on-config-save + manual “refresh people”; Twenty → <code>people</code> table; Mac-side <b>ConvexPeopleCache</b> source joins the picker (new contacts appear within the hour, instantly on manual refresh)</li>
+    <li><b>Live integration tests</b> against the real Twenty instance (env-gated <code>TWENTY_TEST_API_KEY</code>): mirror picks up a freshly created person, note push is idempotent on the real API — required for the phase gate, mocks alone don’t pass</li>
     <li><b>Auto-match calendar attendees by email</b> — most participants resolve with zero interaction; picker becomes the fallback</li>
     <li>CRM push action per pipeline above; <code>crmNoteId</code> idempotency; summary edits re-sync the same note</li>
     <li>Per-meeting “don’t push to CRM” toggle alongside <code>localOnly</code></li>
