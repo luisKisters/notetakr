@@ -79,8 +79,9 @@ final class NoteTakrUITests: XCTestCase {
             evaluatedWith: lockedToggle
         )
         wait(for: [disabled], timeout: 5)
+        let detail = element("inPersonMeetingDetail")
         XCTAssertEqual(
-            element("inPersonMeetingDetail").label,
+            (detail.value as? String) ?? detail.label,
             "Stop recording to change audio sources"
         )
     }
