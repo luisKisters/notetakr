@@ -75,9 +75,9 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 4: Kit People — PeopleDirectory and PeoplePickerPresenter (tests first)
 
-- [ ] Write `PeopleDirectoryTests.swift` and `PeoplePickerPresenterTests.swift` with exactly the spec-doc tests (`testMergesPeopleSharingAnyEmailAcrossSources`, `testNamePrecedenceFollowsSourcePriorityOrder`, `testPeopleFromSingleSourcesPassThroughUnchanged`, `testEventAttendeesArePinnedInFirstSection`, `testAlreadyAddedParticipantsAreExcluded`, `testFreeTextRowAppearsWhenNoExactMatch`, `testSelectingPersonProducesParticipantWithPrimaryEmail`).
-- [ ] Implement `People/PeopleSource.swift` (protocol: `providerId`, `allPeople()`, `search(_:)`), `People/PeopleDirectory.swift` (merge by any shared lowercased email, union sourceRefs, name precedence by init-order source priority), `People/PeoplePickerPresenter.swift` (sections `.inThisEvent` / `.recent` / per-source; free-text fallback row) until the tests pass as written.
-- [ ] Run `cd NoteTakrKit && swift test`; all green.
+- [x] Write `PeopleDirectoryTests.swift` and `PeoplePickerPresenterTests.swift` with exactly the spec-doc tests (`testMergesPeopleSharingAnyEmailAcrossSources`, `testNamePrecedenceFollowsSourcePriorityOrder`, `testPeopleFromSingleSourcesPassThroughUnchanged`, `testEventAttendeesArePinnedInFirstSection`, `testAlreadyAddedParticipantsAreExcluded`, `testFreeTextRowAppearsWhenNoExactMatch`, `testSelectingPersonProducesParticipantWithPrimaryEmail`).
+- [x] Implement `People/PeopleSource.swift` (protocol: `providerId`, `allPeople()`, `search(_:)`), `People/PeopleDirectory.swift` (merge by any shared lowercased email, union sourceRefs, name precedence by init-order source priority), `People/PeoplePickerPresenter.swift` (sections `.inThisEvent` / `.recent` / per-source; free-text fallback row) until the tests pass as written.
+- [x] Run `cd NoteTakrKit && swift test`; all green. (passed: 611 tests, 0 failures)
 
 ### Task 5: AppleContactsSource behind the Contacts privacy gate (tests first)
 
