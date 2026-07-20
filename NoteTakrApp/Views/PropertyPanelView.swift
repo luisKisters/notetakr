@@ -1056,9 +1056,9 @@ private struct PeopleValue: View {
     let theme: ThemeColors
 
     @State private var menuParticipant: Participant? = nil
+    @State private var hoverParticipant: Participant? = nil
     @State private var showAddPopover = false
-    @State private var newPersonName = ""
-    @State private var newPersonEmail = ""
+    @State private var pickerQuery = ""
 
     var body: some View {
         HStack(spacing: 5) {
@@ -1093,28 +1093,21 @@ private struct PeopleValue: View {
             .help("Add person")
             .popover(isPresented: $showAddPopover, arrowEdge: .bottom) {
                 AddParticipantPopover(
-                    name: $newPersonName,
-                    email: $newPersonEmail,
+                    query: $pickerQuery,
                     theme: theme,
-                    suggestions: { query in
-                        bridge.participantSuggestions(
+                    sections: { query in
+                        bridge.peoplePickerSections(
                             matching: query,
                             excluding: participants
                         )
                     },
                     cancel: {
-                        newPersonName = ""
-                        newPersonEmail = ""
+                        pickerQuery = ""
                         showAddPopover = false
                     },
-                    add: {
-                        commitAdd()
-                        showAddPopover = false
-                    },
-                    selectSuggestion: { entry in
-                        bridge.addParticipant(entry.participant)
-                        newPersonName = ""
-                        newPersonEmail = ""
+                    selectRow: { row in
+                        bridge.addParticipant(fromPickerRow: row, excluding: participants)
+                        pickerQuery = ""
                         showAddPopover = false
                     }
                 )
@@ -1156,19 +1149,35 @@ private struct PeopleValue: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovering in
+            if isHovering {
+                hoverParticipant = participant
+            } else if menuParticipant != participant {
+                hoverParticipant = nil
+            }
+        }
         .popover(
             isPresented: Binding(
-                get: { menuParticipant == participant },
-                set: { if !$0 { menuParticipant = nil } }
+                get: { menuParticipant == participant || hoverParticipant == participant },
+                set: {
+                    if !$0 {
+                        menuParticipant = nil
+                        hoverParticipant = nil
+                    }
+                }
             ),
             arrowEdge: .bottom
         ) {
-            ParticipantMenu(
+            ParticipantHoverCard(
                 participant: participant,
-                personEntry: bridge.personEntry(for: participant),
+                company: bridge.company(for: participant),
+                pastMeetingEntry: bridge.pastMeetingEntry(for: participant),
                 bridge: bridge,
                 theme: theme,
-                dismiss: { menuParticipant = nil }
+                dismiss: {
+                    menuParticipant = nil
+                    hoverParticipant = nil
+                }
             )
         }
         .help("\(displayName)\(participant.email.map { "\n\($0)" } ?? "")\nClick to manage")
@@ -1180,54 +1189,19 @@ private struct PeopleValue: View {
             .joined()
         return initials.isEmpty ? "?" : initials
     }
-
-    private func commitAdd() {
-        let trimmedName = newPersonName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedEmail = newPersonEmail.trimmingCharacters(in: .whitespacesAndNewlines)
-        let email = trimmedEmail.isEmpty ? nil : trimmedEmail
-        let name = Participant.displayName(
-            name: trimmedName.isEmpty ? nil : trimmedName,
-            email: email
-        )
-
-        if !name.isEmpty {
-            bridge.addParticipant(name: name, email: email)
-        }
-
-        newPersonName = ""
-        newPersonEmail = ""
-    }
 }
 
 private struct AddParticipantPopover: View {
-    @Binding var name: String
-    @Binding var email: String
+    @Binding var query: String
     let theme: ThemeColors
-    let suggestions: (String) -> [PersonIndexEntry]
+    let sections: (String) -> [PeoplePickerPresenter.Section]
     let cancel: () -> Void
-    let add: () -> Void
-    let selectSuggestion: (PersonIndexEntry) -> Void
+    let selectRow: (PeoplePickerPresenter.Row) -> Void
 
-    @FocusState private var focusedField: Field?
+    @FocusState private var searchFocused: Bool
 
-    private enum Field {
-        case name
-        case email
-    }
-
-    private var canAdd: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var suggestionQuery: String {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedName.isEmpty { return trimmedName }
-        return email.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var visibleSuggestions: [PersonIndexEntry] {
-        suggestions(suggestionQuery)
+    private var visibleSections: [PeoplePickerPresenter.Section] {
+        sections(query)
     }
 
     var body: some View {
@@ -1241,28 +1215,45 @@ private struct AddParticipantPopover: View {
                     .foregroundStyle(theme.primaryText.swiftUIColor)
             }
 
-            VStack(spacing: 8) {
-                personTextField("Name", text: $name, focus: .name)
-                personTextField("Email", text: $email, focus: .email)
-            }
+            TextField("Search people", text: $query)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(theme.primaryText.swiftUIColor)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: 7).fill(theme.fieldFill.swiftUIColor))
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1))
+                .focused($searchFocused)
+                .onSubmit(selectFirstRow)
+                .accessibilityIdentifier("participantPickerField")
 
-            if !visibleSuggestions.isEmpty {
+            if !visibleSections.isEmpty {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(suggestionQuery.isEmpty ? "Recent people" : "Suggestions")
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                    ForEach(Array(visibleSections.enumerated()), id: \.offset) { _, section in
+                        if !section.rows.isEmpty {
+                            Text(title(for: section.id))
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(theme.tertiaryText.swiftUIColor)
 
-                    VStack(spacing: 3) {
-                        ForEach(visibleSuggestions) { entry in
-                            Button {
-                                selectSuggestion(entry)
-                            } label: {
-                                PersonSuggestionRow(entry: entry, theme: theme)
+                            VStack(spacing: 3) {
+                                ForEach(Array(section.rows.enumerated()), id: \.offset) { _, row in
+                                    Button {
+                                        selectRow(row)
+                                    } label: {
+                                        PeoplePickerRow(row: row, theme: theme)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier(rowAccessibilityIdentifier(for: row))
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
+            } else {
+                Text("No people yet")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             HStack(spacing: 8) {
@@ -1273,50 +1264,61 @@ private struct AddParticipantPopover: View {
                     .foregroundStyle(theme.secondaryText.swiftUIColor)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 6)
-
-                Button(action: add) {
-                    Text("Add")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7)
-                                .fill(canAdd ? theme.accent.swiftUIColor : theme.tertiaryText.swiftUIColor)
-                        )
-                }
-                .buttonStyle(.plain)
-                .disabled(!canAdd)
             }
         }
         .frame(width: 286)
         .padding(12)
         .background(theme.panelFill.swiftUIColor)
-        .onAppear { focusedField = .name }
+        .onAppear { searchFocused = true }
     }
 
-    @ViewBuilder
-    private func personTextField(_ placeholder: String, text: Binding<String>, focus: Field) -> some View {
-        TextField(placeholder, text: text)
-            .textFieldStyle(.plain)
-            .font(.system(size: 12))
-            .foregroundStyle(theme.primaryText.swiftUIColor)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 7).fill(theme.fieldFill.swiftUIColor))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1))
-            .focused($focusedField, equals: focus)
-            .onSubmit(add)
+    private func selectFirstRow() {
+        guard let row = visibleSections.flatMap({ $0.rows }).first else { return }
+        selectRow(row)
+    }
+
+    private func title(for sectionID: PeoplePickerPresenter.SectionID) -> String {
+        switch sectionID {
+        case .inThisEvent:
+            return "In this event"
+        case .recent:
+            return "Recent"
+        case .source(let providerId):
+            if providerId == "contacts" { return "Contacts" }
+            return providerId
+                .split(separator: "-")
+                .map { $0.localizedCapitalized }
+                .joined(separator: " ")
+        case .freeText:
+            return "Add"
+        }
+    }
+
+    private func rowAccessibilityIdentifier(for row: PeoplePickerPresenter.Row) -> String {
+        "participantPickerRow_\(rowToken(for: row))"
+    }
+
+    private func rowToken(for row: PeoplePickerPresenter.Row) -> String {
+        let token: String
+        switch row {
+        case .person(let person):
+            token = person.emails.first ?? person.name
+        case .freeText(let value):
+            token = value
+        }
+
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "unknown" : trimmed
     }
 }
 
-private struct PersonSuggestionRow: View {
-    let entry: PersonIndexEntry
+private struct PeoplePickerRow: View {
+    let row: PeoplePickerPresenter.Row
     let theme: ThemeColors
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(initials(for: entry.displayName))
+            Text(initials(for: displayName))
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(theme.secondaryText.swiftUIColor)
                 .frame(width: 24, height: 24)
@@ -1324,7 +1326,7 @@ private struct PersonSuggestionRow: View {
                 .overlay(Circle().stroke(theme.hairline.swiftUIColor.opacity(0.9), lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.displayName)
+                Text(displayName)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(theme.primaryText.swiftUIColor)
                     .lineLimit(1)
@@ -1347,18 +1349,29 @@ private struct PersonSuggestionRow: View {
         .background(RoundedRectangle(cornerRadius: 7).fill(theme.hoverFill.swiftUIColor))
     }
 
+    private var displayName: String {
+        switch row {
+        case .person(let person):
+            return person.name
+        case .freeText(let value):
+            return value
+        }
+    }
+
     private var detailText: String {
-        var pieces: [String] = []
-        if entry.noteCount > 0 {
-            pieces.append(entry.noteCount == 1 ? "1 past note" : "\(entry.noteCount) past notes")
+        switch row {
+        case .person(let person):
+            var pieces: [String] = []
+            if let company = person.company, !company.isEmpty {
+                pieces.append(company)
+            }
+            if let email = person.emails.first, !email.isEmpty {
+                pieces.append(email)
+            }
+            return pieces.isEmpty ? "Local person" : pieces.joined(separator: " · ")
+        case .freeText:
+            return "Free text participant"
         }
-        if entry.calendarEventCount > 0 {
-            pieces.append(entry.calendarEventCount == 1 ? "calendar attendee" : "\(entry.calendarEventCount) calendar events")
-        }
-        if let email = entry.participant.email, !email.isEmpty {
-            pieces.append(email)
-        }
-        return pieces.isEmpty ? "Local person" : pieces.joined(separator: " · ")
     }
 
     private func initials(for name: String) -> String {
@@ -1369,9 +1382,10 @@ private struct PersonSuggestionRow: View {
     }
 }
 
-private struct ParticipantMenu: View {
+private struct ParticipantHoverCard: View {
     let participant: Participant
-    let personEntry: PersonIndexEntry?
+    let company: String?
+    let pastMeetingEntry: PastMeetingsIndexEntry?
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let theme: ThemeColors
     let dismiss: () -> Void
@@ -1406,18 +1420,21 @@ private struct ParticipantMenu: View {
                     .labelStyle(.titleAndIcon)
             }
 
-            if let personEntry {
+            if company != nil || pastMeetingEntry != nil || participant.crm != nil {
                 VStack(alignment: .leading, spacing: 4) {
-                    if personEntry.noteCount > 0 {
-                        Label(
-                            personEntry.noteCount == 1 ? "1 past note" : "\(personEntry.noteCount) past notes",
-                            systemImage: "clock.arrow.circlepath"
-                        )
+                    if let company {
+                        Label(company, systemImage: "building.2")
                     }
-                    if personEntry.calendarEventCount > 0 {
+                    if let pastMeetingEntry {
                         Label(
-                            personEntry.calendarEventCount == 1 ? "Seen in calendar" : "\(personEntry.calendarEventCount) calendar events",
-                            systemImage: "calendar"
+                            pastMeetingEntry.coMeetingCount == 1
+                                ? "1 meeting together"
+                                : "\(pastMeetingEntry.coMeetingCount) meetings together",
+                            systemImage: "person.2"
+                        )
+                        Label(
+                            "Last met \(Self.dateFormatter.string(from: pastMeetingEntry.lastMeetingDate))",
+                            systemImage: "clock.arrow.circlepath"
                         )
                     }
                     if let crm = participant.crm, !crm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1456,6 +1473,7 @@ private struct ParticipantMenu: View {
         .frame(width: 240)
         .padding(12)
         .background(theme.panelFill.swiftUIColor)
+        .accessibilityIdentifier("participantHoverCard")
     }
 
     private var showsInferredNameHint: Bool {
@@ -1472,6 +1490,13 @@ private struct ParticipantMenu: View {
             .joined()
         return initials.isEmpty ? "?" : initials
     }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
 }
 
 // MARK: - Editable text value

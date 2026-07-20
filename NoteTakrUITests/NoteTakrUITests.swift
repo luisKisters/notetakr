@@ -126,16 +126,62 @@ final class NoteTakrUITests: XCTestCase {
         XCTAssertEqual(restoredTitle.value as? String, "Selected older meeting")
     }
 
+    func testParticipantPickerAddsPersonFromPastMeetings() throws {
+        let email = "ada.lovelace@analytical.example"
+        try seedMeeting(
+            id: "33333333-3333-3333-3333-333333333333",
+            title: "Engine notes",
+            date: "2026-07-08T09:00:00Z",
+            participants: [SeedParticipant(name: "Ada Lovelace", email: email)]
+        )
+        try seedMeeting(
+            id: "44444444-4444-4444-4444-444444444444",
+            title: "Engine follow-up",
+            date: "2026-07-09T09:00:00Z",
+            participants: [SeedParticipant(name: "Ada Lovelace", email: email)]
+        )
+        try seedMeeting(
+            id: "55555555-5555-5555-5555-555555555555",
+            title: "Picker target",
+            date: "2026-07-12T09:00:00Z"
+        )
+
+        launch(
+            enablePanelToggleControl: true,
+            expandFrontmatter: true,
+            openPeoplePicker: true
+        )
+
+        let pickerField = element("participantPickerField")
+        XCTAssertTrue(pickerField.waitForExistence(timeout: 8))
+        pickerField.click()
+        pickerField.typeText("Ada")
+
+        let row = element("participantPickerRow_\(email)")
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.click()
+
+        try waitForPersistedParticipantFrontmatter(
+            noteID: "55555555-5555-5555-5555-555555555555",
+            name: "Ada Lovelace",
+            email: email
+        )
+    }
+
     private func launch(
         openSettings: Bool = false,
         openSwitcher: Bool = false,
-        enablePanelToggleControl: Bool = false
+        enablePanelToggleControl: Bool = false,
+        expandFrontmatter: Bool = false,
+        openPeoplePicker: Bool = false
     ) {
         app.launchEnvironment["NOTETAKR_E2E_APP_SUPPORT_ROOT"] = appSupportRoot.path
         app.launchEnvironment["NOTETAKR_E2E_USE_MOCK_RECORDER"] = "1"
         app.launchEnvironment["NOTETAKR_E2E_SHOW_PANEL"] = "1"
         app.launchEnvironment["NOTETAKR_E2E_OPEN_SETTINGS"] = openSettings ? "1" : "0"
         app.launchEnvironment["NOTETAKR_E2E_OPEN_SWITCHER"] = openSwitcher ? "1" : "0"
+        app.launchEnvironment["NOTETAKR_E2E_EXPAND_FRONTMATTER"] = expandFrontmatter ? "1" : "0"
+        app.launchEnvironment["NOTETAKR_E2E_OPEN_PEOPLE_PICKER"] = openPeoplePicker ? "1" : "0"
         app.launchEnvironment["NOTETAKR_E2E_ENABLE_PANEL_TOGGLE_CONTROL"] =
             enablePanelToggleControl ? "1" : "0"
         app.launch()
@@ -159,19 +205,29 @@ final class NoteTakrUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    private func seedMeeting(id: String, title: String, date: String) throws {
+    private func seedMeeting(
+        id: String,
+        title: String,
+        date: String,
+        participants: [SeedParticipant] = []
+    ) throws {
         let sessions = appSupportRoot
             .appendingPathComponent("NoteTakr", isDirectory: true)
             .appendingPathComponent("Sessions", isDirectory: true)
         let folder = sessions.appendingPathComponent("seed_\(id.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let markdown = """
-        ---
-        id: \(id)
-        title: \(title)
-        date: \(date)
-        ---
-        """
+        var frontmatterLines = [
+            "---",
+            "id: \(id)",
+            "title: \(title)",
+            "date: \(date)",
+        ]
+        if !participants.isEmpty {
+            let rendered = participants.map(\.frontmatterValue).joined(separator: ", ")
+            frontmatterLines.append("participants: [\(rendered)]")
+        }
+        frontmatterLines.append("---")
+        let markdown = frontmatterLines.joined(separator: "\n") + "\n"
         try Data(markdown.utf8).write(to: folder.appendingPathComponent("note.md"))
     }
 
@@ -230,6 +286,40 @@ final class NoteTakrUITests: XCTestCase {
         )
     }
 
+    private func waitForPersistedParticipantFrontmatter(
+        noteID: String,
+        name: String,
+        email: String,
+        timeout: TimeInterval = 5
+    ) throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        let sessions = appSupportRoot
+            .appendingPathComponent("NoteTakr", isDirectory: true)
+            .appendingPathComponent("Sessions", isDirectory: true)
+        while Date() < deadline {
+            let folders = (try? FileManager.default.contentsOfDirectory(
+                at: sessions,
+                includingPropertiesForKeys: nil,
+                options: .skipsHiddenFiles
+            )) ?? []
+            for folder in folders {
+                let noteURL = folder.appendingPathComponent("note.md")
+                guard let text = try? String(contentsOf: noteURL, encoding: .utf8),
+                      text.contains("id: \(noteID)") else { continue }
+                let participant = "\(name) <\(email)>"
+                if text.contains("participants:") && text.contains(participant) {
+                    return
+                }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        throw NSError(
+            domain: "NoteTakrUITests",
+            code: 3,
+            userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for persisted participant email"]
+        )
+    }
+
     private func togglePanelFromTestProcess() {
         DistributedNotificationCenter.default().post(
             name: Notification.Name("com.notetakr.e2e.togglePanel"),
@@ -255,4 +345,16 @@ final class NoteTakrUITests: XCTestCase {
 private struct SessionSnapshot: Decodable {
     let inPerson: Bool
     let systemAudioEnabled: Bool
+}
+
+private struct SeedParticipant {
+    let name: String
+    let email: String?
+
+    var frontmatterValue: String {
+        if let email, !email.isEmpty {
+            return "\(name) <\(email)>"
+        }
+        return name
+    }
 }

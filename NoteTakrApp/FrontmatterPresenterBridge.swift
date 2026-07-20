@@ -18,12 +18,14 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published var audioFileURL: URL?
     /// Calendar events available for the event picker; updated live by NotePanelController.
     @Published var availableEvents: [UpcomingEvent] = [] {
-        didSet { rebuildPeopleIndex(notes: indexedNotes) }
+        didSet { rebuildPeopleSources(notes: indexedNotes) }
     }
     @Published var availableEventWindow: EventPickerWindow?
     @Published var isLoadingAvailableEvents: Bool = false
     @Published var availableEventsError: String?
     @Published private(set) var peopleIndexEntries: [PersonIndexEntry] = []
+    @Published private(set) var peopleDirectory = PeopleDirectory(sources: [])
+    @Published private(set) var pastMeetingsIndex = PastMeetingsIndex(notes: [])
     /// Meeting capture sources are fixed for the lifetime of a recording. The
     /// in-person toggle is disabled while this is true so system audio cannot
     /// continue behind metadata that was changed mid-recording.
@@ -135,10 +137,36 @@ final class FrontmatterPresenterBridge: ObservableObject {
     }
 
     func rebuildPeopleIndex(notes: [MeetingNote]) {
-        indexedNotes = notes
-        let activeNoteID = presenter?.note.id
-        let indexNotes = notes.filter { $0.id != activeNoteID }
-        peopleIndexEntries = PeopleIndex(notes: indexNotes, events: availableEvents).entries
+        rebuildPeopleSources(notes: notes)
+    }
+
+    func peoplePickerSections(
+        matching query: String,
+        excluding selectedParticipants: [Participant]
+    ) -> [PeoplePickerPresenter.Section] {
+        peoplePickerPresenter(excluding: selectedParticipants).sections(for: query)
+    }
+
+    func addParticipant(fromPickerRow row: PeoplePickerPresenter.Row, excluding selectedParticipants: [Participant]) {
+        let participant = peoplePickerPresenter(excluding: selectedParticipants).participant(from: row)
+        addParticipant(participant)
+    }
+
+    func company(for participant: Participant) -> String? {
+        if let email = participant.email,
+           let person = peopleDirectory.person(forEmail: email),
+           let company = person.company?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !company.isEmpty {
+            return company
+        }
+
+        guard let email = participant.email else { return nil }
+        return Person(name: participant.displayName, emails: [email]).company
+    }
+
+    func pastMeetingEntry(for participant: Participant) -> PastMeetingsIndexEntry? {
+        guard let email = participant.email else { return nil }
+        return pastMeetingsIndex.entry(forEmail: email)
     }
 
     func participantSuggestions(matching query: String, excluding selectedParticipants: [Participant], limit: Int = 6) -> [PersonIndexEntry] {
@@ -205,7 +233,37 @@ final class FrontmatterPresenterBridge: ObservableObject {
     private func refreshPeopleIndexFromStoreIfPossible() {
         guard let noteStore = store as? NoteStore,
               let notes = try? noteStore.list() else { return }
-        rebuildPeopleIndex(notes: notes)
+        rebuildPeopleSources(notes: notes)
+    }
+
+    private func rebuildPeopleSources(notes: [MeetingNote]) {
+        indexedNotes = notes
+        let activeNoteID = presenter?.note.id
+        let indexNotes = notes.filter { $0.id != activeNoteID }
+        let pastIndex = PastMeetingsIndex(notes: indexNotes)
+
+        var sources: [any PeopleSource] = []
+        #if canImport(Contacts)
+        sources.append(AppleContactsSource())
+        #endif
+        sources.append(pastIndex)
+
+        pastMeetingsIndex = pastIndex
+        peopleDirectory = PeopleDirectory(sources: sources)
+        peopleIndexEntries = PeopleIndex(notes: indexNotes, events: availableEvents).entries
+    }
+
+    private func peoplePickerPresenter(excluding selectedParticipants: [Participant]) -> PeoplePickerPresenter {
+        PeoplePickerPresenter(
+            directory: peopleDirectory,
+            eventAttendees: linkedEventAttendees(),
+            alreadyAdded: selectedParticipants
+        )
+    }
+
+    private func linkedEventAttendees() -> [Participant] {
+        guard let eventID = presenter?.note.calendarEvent else { return [] }
+        return availableEvents.first(where: { $0.id == eventID })?.participants ?? []
     }
 }
 
