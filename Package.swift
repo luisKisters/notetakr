@@ -8,6 +8,7 @@ let package = Package(
     ],
     products: [
         .library(name: "NoteTakrCore", targets: ["NoteTakrCore"]),
+        .library(name: "NoteTakrSync", targets: ["NoteTakrSync"]),
         .executable(name: "NoteTakrTranscriptionProbe", targets: ["NoteTakrTranscriptionProbe"]),
     ],
     dependencies: [
@@ -29,6 +30,23 @@ let package = Package(
                 .product(name: "NoteTakrKit", package: "NoteTakrKit"),
             ],
             path: "Tests/NoteTakrCoreTests"
+        ),
+        .target(
+            name: "NoteTakrSync",
+            dependencies: [
+                "NoteTakrCore",
+                .product(name: "NoteTakrKit", package: "NoteTakrKit"),
+            ],
+            path: "Sources/NoteTakrSync"
+        ),
+        .testTarget(
+            name: "NoteTakrSyncTests",
+            dependencies: [
+                "NoteTakrSync",
+                "NoteTakrCore",
+                .product(name: "NoteTakrKit", package: "NoteTakrKit"),
+            ],
+            path: "Tests/NoteTakrSyncTests"
         ),
         .executableTarget(
             name: "NoteTakrTranscriptionProbe",

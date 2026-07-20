@@ -50,6 +50,30 @@ final class FrontmatterSerializerTests: XCTestCase {
         XCTAssertEqual(parsed, note)
     }
 
+    func testLocalOnlyRoundTripsThroughFrontmatter() {
+        let note = MeetingNote(
+            id: "LOCAL1",
+            title: "Private Sync Review",
+            date: makeDate(2026, 7, 20, 9, 30),
+            localOnly: true
+        )
+
+        let rendered = FrontmatterSerializer.render(note: note)
+        let parsed = FrontmatterSerializer.parse(fileText: rendered)
+
+        XCTAssertTrue(rendered.contains("local_only: true"))
+        XCTAssertEqual(parsed.localOnly, true)
+        let absent = FrontmatterSerializer.parse(fileText: """
+        ---
+        id: LOCAL2
+        title: Regular Meeting
+        date: 2026-07-20T09:30:00Z
+        ---
+        Body.
+        """)
+        XCTAssertNil(absent.localOnly)
+    }
+
     // MARK: - Title edge cases
 
     func testTitleWithUmlauts() {

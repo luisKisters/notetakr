@@ -50,6 +50,9 @@ public enum FrontmatterSerializer {
         if let tr = note.transcribe {
             lines.append("transcribe: \(tr ? "true" : "false")")
         }
+        if let localOnly = note.localOnly {
+            lines.append("local_only: \(localOnly ? "true" : "false")")
+        }
         if let lang = note.language {
             lines.append("language: \(lang.rawValue)")
         }
@@ -105,11 +108,12 @@ public enum FrontmatterSerializer {
         var meetingLink: String? = nil
         var inPerson: Bool? = nil
         var transcribe: Bool? = nil
+        var localOnly: Bool? = nil
         var language: TranscribeLanguage? = nil
         var vocabulary: [String] = []
         var unknownKeys: [(key: String, rawLine: String)] = []
 
-        let knownKeys: Set<String> = ["id","title","date","end","calendar_event","participants","location","location_text","meeting_link","in_person","transcribe","language","vocabulary"]
+        let knownKeys: Set<String> = ["id","title","date","end","calendar_event","participants","location","location_text","meeting_link","in_person","transcribe","local_only","language","vocabulary"]
 
         let lines = fm.components(separatedBy: "\n")
         var i = 0
@@ -185,6 +189,8 @@ public enum FrontmatterSerializer {
                     inPerson = parseBool(valuePart)
                 case "transcribe":
                     transcribe = parseBool(valuePart)
+                case "local_only":
+                    localOnly = parseBool(valuePart)
                 case "language":
                     language = TranscribeLanguage(rawValue: unquote(valuePart))
                 case "vocabulary":
@@ -213,6 +219,7 @@ public enum FrontmatterSerializer {
             meetingLink: meetingLink,
             inPerson: inPerson,
             transcribe: transcribe,
+            localOnly: localOnly,
             language: language,
             vocabulary: vocabulary,
             unknownFrontmatterKeys: unknownKeys,

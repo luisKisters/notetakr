@@ -89,6 +89,7 @@ public struct MeetingNote: Equatable {
     public var meetingLink: String?
     public var inPerson: Bool?
     public var transcribe: Bool?
+    public var localOnly: Bool?
     public var language: TranscribeLanguage?
     public var vocabulary: [String]
     public var unknownFrontmatterKeys: [(key: String, rawLine: String)]
@@ -106,6 +107,7 @@ public struct MeetingNote: Equatable {
         meetingLink: String? = nil,
         inPerson: Bool? = nil,
         transcribe: Bool? = nil,
+        localOnly: Bool? = nil,
         language: TranscribeLanguage? = nil,
         vocabulary: [String] = [],
         unknownFrontmatterKeys: [(key: String, rawLine: String)] = [],
@@ -122,6 +124,7 @@ public struct MeetingNote: Equatable {
         self.meetingLink = meetingLink
         self.inPerson = inPerson
         self.transcribe = transcribe
+        self.localOnly = localOnly
         self.language = language
         self.vocabulary = vocabulary
         self.unknownFrontmatterKeys = unknownFrontmatterKeys
@@ -140,6 +143,7 @@ public struct MeetingNote: Equatable {
         lhs.meetingLink == rhs.meetingLink &&
         lhs.inPerson == rhs.inPerson &&
         lhs.transcribe == rhs.transcribe &&
+        lhs.localOnly == rhs.localOnly &&
         lhs.language == rhs.language &&
         lhs.vocabulary == rhs.vocabulary &&
         lhs.body == rhs.body
