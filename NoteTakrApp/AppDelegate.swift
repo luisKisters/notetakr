@@ -190,6 +190,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 npc?.settingsBridge.setInPersonThisMeeting(encodedValue == "1")
             }
         })
+        e2eControlObservers.append(center.addObserver(
+            forName: .noteTakrE2ESetAppearance,
+            object: nil,
+            queue: .main
+        ) { [weak npc] notification in
+            guard let rawValue = notification.object as? String,
+                  let appearance = Appearance(rawValue: rawValue) else { return }
+            Task { @MainActor in
+                npc?.settingsBridge.setAppearance(appearance)
+            }
+        })
     }
 
     private func runE2ELaunchHooks(notePanelController npc: NotePanelController) {
@@ -223,5 +234,6 @@ extension Notification.Name {
     static let noteTakrE2ETogglePanel = Notification.Name("com.notetakr.e2e.togglePanel")
     static let noteTakrE2ESelectNote = Notification.Name("com.notetakr.e2e.selectNote")
     static let noteTakrE2ESetInPerson = Notification.Name("com.notetakr.e2e.setInPerson")
+    static let noteTakrE2ESetAppearance = Notification.Name("com.notetakr.e2e.setAppearance")
     #endif
 }

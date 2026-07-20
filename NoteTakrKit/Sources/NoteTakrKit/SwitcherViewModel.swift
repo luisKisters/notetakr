@@ -132,6 +132,26 @@ public struct SwitcherGroup: Equatable {
     }
 }
 
+public enum ViewportRevealEdge: Equatable {
+    case top
+    case bottom
+}
+
+/// Shared edge-only scrolling rule for keyboard-driven picker lists.
+public enum EdgeAwareScrollPolicy {
+    public static func revealEdge(
+        rowMinY: Double,
+        rowMaxY: Double,
+        viewportHeight: Double,
+        topInset: Double = 0,
+        bottomInset: Double = 0
+    ) -> ViewportRevealEdge? {
+        if rowMinY < topInset { return .top }
+        if rowMaxY > viewportHeight - bottomInset { return .bottom }
+        return nil
+    }
+}
+
 // MARK: - Protocols
 
 public protocol NoteListProviding {

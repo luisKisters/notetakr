@@ -30,6 +30,7 @@ final class NotePanelController {
     private var pillTickTimer: Timer?
     private var pillPipelineCancellables = Set<AnyCancellable>()
     private var calendarCancellables = Set<AnyCancellable>()
+    private var appearanceCancellable: AnyCancellable?
     private weak var appModelRef: AppModel?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
@@ -275,6 +276,7 @@ final class NotePanelController {
         p.isMovableByWindowBackground = true
         p.isOpaque = false
         p.backgroundColor = .clear
+        p.appearance = settingsBridge.currentAppearance.nsAppearance
         p.acceptsMouseMovedEvents = true
         p.minSize = NSSize(width: 300, height: 400)
         p.standardWindowButton(.closeButton)?.isHidden = true
@@ -297,6 +299,11 @@ final class NotePanelController {
                 p?.hideNativeTrafficLights()
             }
         )
+        appearanceCancellable = settingsBridge.$currentAppearance
+            .removeDuplicates()
+            .sink { [weak p] appearance in
+                p?.appearance = appearance.nsAppearance
+            }
         p.hideNativeTrafficLights()
         // Wire ESC precedence: settings → switcher → hide panel.
         // This is a safety-net in case SwiftUI keyboard shortcuts don't consume the event
@@ -380,6 +387,23 @@ final class NotePanelController {
     private func wireRecordPill(appModel: AppModel?) {
         guard let appModel else { return }
         let machine = recordPillMachine
+
+        frontmatterBridge.onInPersonChange = { [weak self, weak appModel] inPerson in
+            guard let self, let appModel,
+                  appModel.recordingManager.isRecording,
+                  self.switcherBridge.activeRecordingNoteID == self.frontmatterBridge.noteID else { return }
+            let previousValue = appModel.recordingManager.activeSession?.inPerson ?? !inPerson
+            Task { @MainActor in
+                guard await appModel.updateActiveRecordingInPerson(inPerson) else {
+                    self.frontmatterBridge.restoreInPersonAfterRecordingUpdateFailure(previousValue)
+                    self.showRecordingError(
+                        appModel.recordingError ?? "The recording audio sources could not be changed."
+                    )
+                    return
+                }
+                self.refreshActiveRecordingSnapshot()
+            }
+        }
 
         machine.onStarted = { [weak self, weak appModel] in
             guard let self, let appModel else { return }

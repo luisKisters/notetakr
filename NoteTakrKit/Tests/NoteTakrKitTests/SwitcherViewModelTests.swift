@@ -472,6 +472,33 @@ final class SwitcherViewModelTests: XCTestCase {
 
     // MARK: - Selection and navigation
 
+    func testEdgeAwareScrollDoesNotMoveForFullyVisibleRows() {
+        XCTAssertNil(EdgeAwareScrollPolicy.revealEdge(
+            rowMinY: 90,
+            rowMaxY: 144,
+            viewportHeight: 360,
+            topInset: 34,
+            bottomInset: 4
+        ))
+    }
+
+    func testEdgeAwareScrollRevealsOnlyRowsCrossingViewportEdges() {
+        XCTAssertEqual(EdgeAwareScrollPolicy.revealEdge(
+            rowMinY: 20,
+            rowMaxY: 74,
+            viewportHeight: 360,
+            topInset: 34,
+            bottomInset: 4
+        ), .top)
+        XCTAssertEqual(EdgeAwareScrollPolicy.revealEdge(
+            rowMinY: 330,
+            rowMaxY: 384,
+            viewportHeight: 360,
+            topInset: 34,
+            bottomInset: 4
+        ), .bottom)
+    }
+
     func testInitialSelectionIsZero() {
         let n = makeNote(id: "n1", title: "A", date: utcDate(2026, 6, 9, 10))
         let (vm, _) = makeVM(notes: [n])

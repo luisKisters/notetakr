@@ -98,6 +98,12 @@ struct SettingsSheetView: View {
             modelSettings = transcriptionSettingsStore.load()
             yourNameDraft = viewModel.appSettings.yourName
         }
+        .overlay(alignment: .topLeading) {
+            AppearanceAccessibilityMarker(
+                appearance: viewModel.currentAppearance,
+                identifier: "settingsAppearance"
+            )
+        }
     }
 
     // MARK: - Tab bar
@@ -226,7 +232,7 @@ struct SettingsSheetView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("In-person meeting").font(.system(size: 13)).foregroundColor(textPrimary)
                             Text(viewModel.frontmatterBridge.isRecording
-                                 ? "Stop recording to change audio sources"
+                                 ? "Mic only — changes audio sources immediately"
                                  : "Mic only — skips system audio")
                                 .font(.system(size: 11)).foregroundColor(textTertiary)
                                 .accessibilityIdentifier("inPersonMeetingDetail")
@@ -237,7 +243,6 @@ struct SettingsSheetView: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(accent)
-                .disabled(viewModel.frontmatterBridge.isRecording)
                 .accessibilityIdentifier("inPersonMeetingToggle")
             }
 
@@ -452,6 +457,7 @@ struct SettingsSheetView: View {
                 Spacer()
                 HotkeyRecorderView(
                     combo: viewModel.appSettings.hotkey,
+                    theme: theme,
                     onComboChange: { viewModel.setHotkey($0) }
                 )
                 .frame(width: 110, height: 26)
@@ -469,6 +475,7 @@ struct SettingsSheetView: View {
                 Spacer()
                 HotkeyRecorderView(
                     combo: viewModel.appSettings.recordingHotkey,
+                    theme: theme,
                     onComboChange: { viewModel.setRecordingHotkey($0) }
                 )
                 .frame(width: 110, height: 26)
@@ -510,6 +517,7 @@ struct SettingsSheetView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 152)
+                .accessibilityIdentifier("appearancePicker")
             }
 
             settingsRow {
@@ -1291,16 +1299,19 @@ private extension Image {
 /// Shows the current combo; click to enter recording mode; press modifier+key to save.
 private struct HotkeyRecorderView: NSViewRepresentable {
     let combo: HotkeyCombo
+    let theme: ThemeColors
     let onComboChange: (HotkeyCombo) -> Void
 
     func makeNSView(context: Context) -> HotkeyRecorderControl {
         let control = HotkeyRecorderControl()
         control.displayCombo = combo
         control.onComboChange = onComboChange
+        control.applyTheme(theme)
         return control
     }
 
     func updateNSView(_ control: HotkeyRecorderControl, context: Context) {
+        control.applyTheme(theme)
         if !control.isRecording {
             control.displayCombo = combo
         }
@@ -1316,6 +1327,7 @@ final class HotkeyRecorderControl: NSControl {
     private(set) var isRecording = false
 
     private let label = NSTextField(labelWithString: "")
+    private var theme = Theme.glass
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -1330,15 +1342,12 @@ final class HotkeyRecorderControl: NSControl {
         wantsLayer = true
         layer?.cornerRadius = 7
         layer?.borderWidth = 0.5
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.09).cgColor
 
         label.isBezeled = false
         label.isEditable = false
         label.drawsBackground = false
         label.alignment = .center
         label.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-        label.textColor = NSColor.labelColor
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
         NSLayoutConstraint.activate([
@@ -1348,7 +1357,15 @@ final class HotkeyRecorderControl: NSControl {
         ])
 
         addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(clicked)))
+        applyTheme(theme)
         refreshLabel()
+    }
+
+    func applyTheme(_ theme: ThemeColors) {
+        self.theme = theme
+        layer?.backgroundColor = theme.fieldFill.nsColor.cgColor
+        layer?.borderColor = (isRecording ? theme.accent : theme.fieldBorder).nsColor.cgColor
+        label.textColor = (isRecording ? theme.secondaryText : theme.primaryText).nsColor
     }
 
     @objc private func clicked() {
@@ -1359,13 +1376,12 @@ final class HotkeyRecorderControl: NSControl {
     private func startRecording() {
         isRecording = true
         label.stringValue = "Press shortcut\u{2026}"
-        label.textColor = NSColor.secondaryLabelColor
-        layer?.borderColor = NSColor.controlAccentColor.cgColor
+        applyTheme(theme)
     }
 
     private func stopRecording() {
         isRecording = false
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        applyTheme(theme)
         refreshLabel()
     }
 
@@ -1397,6 +1413,6 @@ final class HotkeyRecorderControl: NSControl {
 
     private func refreshLabel() {
         label.stringValue = displayCombo?.displayString ?? "None"
-        label.textColor = NSColor.labelColor
+        label.textColor = theme.primaryText.nsColor
     }
 }

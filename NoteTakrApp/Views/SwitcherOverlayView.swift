@@ -9,15 +9,16 @@ import NoteTakrKit
 struct SwitcherOverlayView: View {
     @ObservedObject var bridge: SwitcherBridge
     let appearance: Appearance
-    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var searchFocused: Bool
     @State private var hoveredIndex: Int?
     @State private var initialScrollApplied = false
     @State private var rowListReady = false
     @State private var suppressNextSelectionScroll = false
+    @State private var rowFrames: [String: CGRect] = [:]
+    @State private var listViewportHeight: CGFloat = 0
 
     private var paletteColors: ThemeColors {
-        SwitcherOverlayPalette.colors(for: appearance, colorScheme: colorScheme)
+        SwitcherOverlayPalette.colors(for: appearance)
     }
 
     private var paletteBackground: Color {
@@ -36,10 +37,19 @@ struct SwitcherOverlayView: View {
             hintsFooter
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(paletteBackground.ignoresSafeArea())
+        .background {
+            ThemedSurface(appearance: appearance)
+                .ignoresSafeArea()
+        }
         .onAppear { focusSearchField() }
         .background(keyboardButtons)
         .accessibilityIdentifier("switcherOverlay")
+        .overlay(alignment: .topLeading) {
+            AppearanceAccessibilityMarker(
+                appearance: appearance,
+                identifier: "switcherAppearance"
+            )
+        }
     }
 
     // MARK: - Search
@@ -96,8 +106,17 @@ struct SwitcherOverlayView: View {
                 .padding(.horizontal, 8)
                 .padding(.bottom, 12)
             }
+            .coordinateSpace(name: "switcherEventListViewport")
             .accessibilityIdentifier("switcherEventList")
             .background(paletteBackground)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: SwitcherViewportHeightPreferenceKey.self,
+                        value: geometry.size.height
+                    )
+                }
+            )
             .mask(rowListFadeMask)
             .opacity(rowListReady ? 1 : 0)
             .onAppear {
@@ -106,16 +125,51 @@ struct SwitcherOverlayView: View {
             .onChange(of: groupsSignature) { _, _ in
                 applyInitialScroll(proxy: proxy)
             }
-            .onChange(of: bridge.selectedIndex) { _, idx in
+            .onChange(of: bridge.selectedIndex) { oldIndex, idx in
                 if suppressNextSelectionScroll {
                     suppressNextSelectionScroll = false
                     return
                 }
                 guard let item = bridge.viewModel.selectedItem else { return }
-                withAnimation(.easeOut(duration: 0.1)) {
-                    proxy.scrollTo(rowID(flatIndex: idx, item: item), anchor: .center)
-                }
+                revealSelectionIfNeeded(
+                    rowID: rowID(flatIndex: idx, item: item),
+                    movingDown: idx > oldIndex,
+                    proxy: proxy
+                )
             }
+            .onPreferenceChange(SwitcherRowFramePreferenceKey.self) { rowFrames = $0 }
+            .onPreferenceChange(SwitcherViewportHeightPreferenceKey.self) { listViewportHeight = $0 }
+        }
+    }
+
+    private func revealSelectionIfNeeded(
+        rowID: String,
+        movingDown: Bool,
+        proxy: ScrollViewProxy
+    ) {
+        guard listViewportHeight > 0 else { return }
+        let topInset: CGFloat = 34
+        let bottomInset: CGFloat = 4
+
+        let revealEdge = rowFrames[rowID].flatMap { frame in
+            EdgeAwareScrollPolicy.revealEdge(
+                rowMinY: Double(frame.minY),
+                rowMaxY: Double(frame.maxY),
+                viewportHeight: Double(listViewportHeight),
+                topInset: Double(topInset),
+                bottomInset: Double(bottomInset)
+            )
+        }
+        if rowFrames[rowID] != nil, revealEdge == nil { return }
+
+        withAnimation(.easeOut(duration: 0.1)) {
+            let anchor: UnitPoint
+            switch revealEdge {
+            case .top: anchor = .top
+            case .bottom: anchor = .bottom
+            case nil: anchor = movingDown ? .bottom : .top
+            }
+            proxy.scrollTo(rowID, anchor: anchor)
         }
     }
 
@@ -201,6 +255,18 @@ struct SwitcherOverlayView: View {
                 let flatIdx = flatIndex(group: group, itemOffset: offset)
                 twoLineRow(item: item, flatIndex: flatIdx)
                     .id(rowID(flatIndex: flatIdx, item: item))
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: SwitcherRowFramePreferenceKey.self,
+                                value: [
+                                    rowID(flatIndex: flatIdx, item: item): geometry.frame(
+                                        in: .named("switcherEventListViewport")
+                                    )
+                                ]
+                            )
+                        }
+                    )
             }
         } header: {
             Text(group.label.uppercased())
@@ -610,16 +676,25 @@ struct SwitcherOverlayView: View {
     }
 }
 
+private struct SwitcherRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+private struct SwitcherViewportHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 enum SwitcherOverlayPalette {
-    static func colors(for appearance: Appearance, colorScheme: ColorScheme) -> ThemeColors {
-        switch appearance {
-        case .dark:
-            return Theme.dark
-        case .light:
-            return Theme.light
-        case .glass:
-            return colorScheme == .light ? Theme.light : Theme.dark
-        }
+    static func colors(for appearance: Appearance) -> ThemeColors {
+        Theme.colors(for: appearance)
     }
 }
 

@@ -24,15 +24,15 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published var isLoadingAvailableEvents: Bool = false
     @Published var availableEventsError: String?
     @Published private(set) var peopleIndexEntries: [PersonIndexEntry] = []
-    /// Meeting capture sources are fixed for the lifetime of a recording. The
-    /// in-person toggle is disabled while this is true so system audio cannot
-    /// continue behind metadata that was changed mid-recording.
+    /// Tracks whether this note owns the active recording. In-person changes
+    /// remain available and are forwarded to the recording pipeline live.
     @Published private(set) var isRecording: Bool = false
 
     private(set) var presenter: FrontmatterPresenter?
     private let store: any NoteStoring
     private var indexedNotes: [MeetingNote] = []
     var onRequestCalendarEvents: ((EventPickerWindow) -> Void)?
+    var onInPersonChange: ((Bool) -> Void)?
 
     init(store: any NoteStoring) {
         self.store = store
@@ -64,7 +64,12 @@ final class FrontmatterPresenterBridge: ObservableObject {
     // MARK: - Mutations (forwarded to Kit presenter)
 
     func setInPerson(_ value: Bool) {
-        guard !isRecording else { return }
+        guard presenter != nil else { return }
+        try? presenter?.setInPerson(value)
+        onInPersonChange?(value)
+    }
+
+    func restoreInPersonAfterRecordingUpdateFailure(_ value: Bool) {
         try? presenter?.setInPerson(value)
     }
 

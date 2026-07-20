@@ -34,7 +34,7 @@ final class NoteTakrUITests: XCTestCase {
         appSupportRoot = nil
     }
 
-    func testPermissionsAndInPersonAudioSourceLockWhileRecording() throws {
+    func testPermissionsAndInPersonCanChangeAudioSourcesWhileRecording() throws {
         launch(openSettings: true, enablePanelToggleControl: true)
 
         let permissionsTab = element("settingsTab_permissions")
@@ -48,10 +48,6 @@ final class NoteTakrUITests: XCTestCase {
         let inPersonToggle = element("inPersonMeetingToggle")
         XCTAssertTrue(inPersonToggle.waitForExistence(timeout: 5))
         XCTAssertTrue(inPersonToggle.isEnabled)
-        setInPersonFromTestProcess(true)
-        try waitForPersistedInPersonFrontmatter()
-        // Hosted accessory-panel AX snapshots do not refresh this nested
-        // switch's value; persistence and recording metadata verify the state.
 
         element("settingsCloseButton").click()
         let recordButton = element("recordPillMainButton")
@@ -61,29 +57,84 @@ final class NoteTakrUITests: XCTestCase {
             element("recordPillCaretButton").waitForExistence(timeout: 8),
             "The mock recorder should transition the pill to its recording state."
         )
-        let session = try waitForRecordedSession()
-        XCTAssertTrue(session.inPerson)
-        XCTAssertFalse(
-            session.systemAudioEnabled,
-            "An in-person recording must persist without a desktop-audio stream."
-        )
+        let initialSession = try waitForRecordedSession()
+        XCTAssertFalse(initialSession.inPerson)
+        XCTAssertTrue(initialSession.systemAudioEnabled)
 
         app.typeKey(",", modifierFlags: [.command])
         XCTAssertTrue(element("settingsTab_thisMeeting").waitForExistence(timeout: 5))
         element("settingsTab_thisMeeting").click()
 
-        let lockedToggle = element("inPersonMeetingToggle")
-        XCTAssertTrue(lockedToggle.waitForExistence(timeout: 5))
-        let disabled = expectation(
-            for: NSPredicate(format: "enabled == false"),
-            evaluatedWith: lockedToggle
+        let liveToggle = element("inPersonMeetingToggle")
+        XCTAssertTrue(liveToggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(liveToggle.isEnabled, "In-person must remain editable during recording.")
+        setInPersonFromTestProcess(true)
+        try waitForPersistedInPersonFrontmatter()
+        let updatedSession = try waitForRecordedSession(inPerson: true)
+        XCTAssertFalse(
+            updatedSession.systemAudioEnabled,
+            "Turning on in-person during recording must stop and persist desktop audio as disabled."
         )
-        wait(for: [disabled], timeout: 5)
         let detail = element("inPersonMeetingDetail")
         XCTAssertEqual(
             (detail.value as? String) ?? detail.label,
-            "Stop recording to change audio sources"
+            "Mic only — changes audio sources immediately"
         )
+    }
+
+    func testBottomBarControlsOpenCommandMenuAndSettings() {
+        launch()
+
+        let commandButton = element("bottomCommandKButton")
+        let settingsButton = element("bottomSettingsButton")
+        XCTAssertTrue(commandButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+
+        commandButton.click()
+        XCTAssertTrue(element("switcherOverlay").waitForExistence(timeout: 5))
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(element("meetingTitleField").waitForExistence(timeout: 5))
+
+        settingsButton.click()
+        XCTAssertTrue(element("settingsCloseButton").waitForExistence(timeout: 5))
+    }
+
+    func testCalendarPickerFocusesCurrentEventAndSupportsKeyboardNavigation() {
+        launch(commandKEvents: true, expandFrontmatter: true)
+
+        let pickerButton = element("calendarEventPickerButton")
+        XCTAssertTrue(pickerButton.waitForExistence(timeout: 5))
+        pickerButton.click()
+
+        let current = element("eventPickerRow_e2e-commandk-current-calendar-only")
+        XCTAssertTrue(current.waitForExistence(timeout: 5))
+        XCTAssertEqual(current.value as? String, "Focused")
+        let search = element("eventPickerSearchField")
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.typeKey(.downArrow, modifierFlags: [])
+        XCTAssertEqual(
+            element("eventPickerRow_e2e-commandk-future-calendar-only-1").value as? String,
+            "Focused"
+        )
+    }
+
+    func testAppearanceChangesStaySynchronizedAcrossSettingsEditorAndCommandMenu() {
+        launch(openSettings: true, enablePanelToggleControl: true)
+
+        for appearance in ["light", "dark", "glass"] {
+            setAppearanceFromTestProcess(appearance)
+            XCTAssertTrue(waitForAppearance(appearance, element: element("settingsAppearance")))
+
+            element("settingsCloseButton").click()
+            XCTAssertTrue(waitForAppearance(appearance, element: element("editorAppearance")))
+
+            element("bottomCommandKButton").click()
+            XCTAssertTrue(waitForAppearance(appearance, element: element("switcherAppearance")))
+
+            app.typeKey(.escape, modifierFlags: [])
+            element("bottomSettingsButton").click()
+            XCTAssertTrue(waitForAppearance(appearance, element: element("settingsAppearance")))
+        }
     }
 
     func testHideAndReopenPreservesSelectedMeetingIdentity() throws {
@@ -129,7 +180,9 @@ final class NoteTakrUITests: XCTestCase {
     private func launch(
         openSettings: Bool = false,
         openSwitcher: Bool = false,
-        enablePanelToggleControl: Bool = false
+        enablePanelToggleControl: Bool = false,
+        commandKEvents: Bool = false,
+        expandFrontmatter: Bool = false
     ) {
         app.launchEnvironment["NOTETAKR_E2E_APP_SUPPORT_ROOT"] = appSupportRoot.path
         app.launchEnvironment["NOTETAKR_E2E_USE_MOCK_RECORDER"] = "1"
@@ -138,6 +191,8 @@ final class NoteTakrUITests: XCTestCase {
         app.launchEnvironment["NOTETAKR_E2E_OPEN_SWITCHER"] = openSwitcher ? "1" : "0"
         app.launchEnvironment["NOTETAKR_E2E_ENABLE_PANEL_TOGGLE_CONTROL"] =
             enablePanelToggleControl ? "1" : "0"
+        app.launchEnvironment["NOTETAKR_E2E_COMMANDK_EVENTS"] = commandKEvents ? "1" : "0"
+        app.launchEnvironment["NOTETAKR_E2E_EXPAND_FRONTMATTER"] = expandFrontmatter ? "1" : "0"
         app.launch()
         app.activate()
 
@@ -175,7 +230,10 @@ final class NoteTakrUITests: XCTestCase {
         try Data(markdown.utf8).write(to: folder.appendingPathComponent("note.md"))
     }
 
-    private func waitForRecordedSession(timeout: TimeInterval = 5) throws -> SessionSnapshot {
+    private func waitForRecordedSession(
+        inPerson expectedInPerson: Bool? = nil,
+        timeout: TimeInterval = 5
+    ) throws -> SessionSnapshot {
         let deadline = Date().addingTimeInterval(timeout)
         let sessions = appSupportRoot
             .appendingPathComponent("NoteTakr", isDirectory: true)
@@ -189,7 +247,8 @@ final class NoteTakrUITests: XCTestCase {
             for folder in folders {
                 let file = folder.appendingPathComponent("session.json")
                 if let data = try? Data(contentsOf: file),
-                   let snapshot = try? JSONDecoder().decode(SessionSnapshot.self, from: data) {
+                   let snapshot = try? JSONDecoder().decode(SessionSnapshot.self, from: data),
+                   expectedInPerson == nil || snapshot.inPerson == expectedInPerson {
                     return snapshot
                 }
             }
@@ -249,6 +308,30 @@ final class NoteTakrUITests: XCTestCase {
             name: Notification.Name("com.notetakr.e2e.setInPerson"),
             object: value ? "1" : "0"
         )
+    }
+
+    private func setAppearanceFromTestProcess(_ appearance: String) {
+        DistributedNotificationCenter.default().post(
+            name: Notification.Name("com.notetakr.e2e.setAppearance"),
+            object: appearance,
+            deliverImmediately: true
+        )
+    }
+
+    private func waitForAppearance(
+        _ appearance: String,
+        element: XCUIElement,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let expected = "Appearance: \(appearance)"
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.waitForExistence(timeout: 0.2), element.value as? String == expected {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return false
     }
 }
 

@@ -61,3 +61,32 @@ public enum EventPickerFiltering {
         text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     }
 }
+
+public enum EventPickerSelection {
+    /// The event a calendar picker should focus when it opens: an event in
+    /// progress, otherwise the next event, otherwise the most recent one.
+    public static func focusedIndex(in events: [UpcomingEvent], now: Date) -> Int? {
+        guard !events.isEmpty else { return nil }
+
+        let current = events.indices
+            .filter { index in
+                let event = events[index]
+                return event.start <= now && (event.end ?? event.start) > now
+            }
+            .max { events[$0].start < events[$1].start }
+        if let current {
+            return current
+        }
+        if let next = events.firstIndex(where: { $0.start >= now }) {
+            return next
+        }
+        return events.indices.last
+    }
+
+    public static func dotState(for event: UpcomingEvent, now: Date) -> DotState {
+        if event.start <= now && (event.end ?? event.start) > now {
+            return .current
+        }
+        return event.start > now ? .upcoming : .past
+    }
+}

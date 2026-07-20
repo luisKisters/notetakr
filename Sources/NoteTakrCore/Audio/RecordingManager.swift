@@ -6,6 +6,7 @@ import AVFoundation
 public enum RecordingManagerError: Error, Sendable, Equatable {
     case noActiveSession
     case alreadyRecording
+    case recorderDoesNotSupportReconfiguration
 }
 
 public final class RecordingManager: @unchecked Sendable {
@@ -103,6 +104,37 @@ public final class RecordingManager: @unchecked Sendable {
             _recordingStartedAt = nil
             throw error
         }
+    }
+
+    /// Updates the capture sources and metadata of the active session without
+    /// ending the recording. The recorder is changed before the session is
+    /// persisted, so stored metadata never promises a source change that failed.
+    public func updateActiveRecording(
+        inPerson: Bool,
+        options requestedOptions: AudioRecordingOptions
+    ) async throws -> MeetingSession {
+        guard var session = _activeSession else {
+            throw RecordingManagerError.noActiveSession
+        }
+        guard let recorder = recorder as? any ReconfigurableAudioRecorder else {
+            throw RecordingManagerError.recorderDoesNotSupportReconfiguration
+        }
+
+        let options = AudioRecordingOptions(
+            microphoneEnabled: requestedOptions.microphoneEnabled,
+            systemAudioEnabled: requestedOptions.systemAudioEnabled && !inPerson
+        )
+        guard options.microphoneEnabled || options.systemAudioEnabled else {
+            throw AudioRecorderError.recordingFailed("No audio sources are enabled")
+        }
+
+        try await recorder.updateRecording(options: options)
+        session.inPerson = inPerson
+        session.microphoneEnabled = options.microphoneEnabled
+        session.systemAudioEnabled = options.systemAudioEnabled
+        try store.save(session)
+        _activeSession = session
+        return session
     }
 
     /// Cancels any in-progress recording without throwing; session is marked .failed.
