@@ -293,7 +293,8 @@ final class NotePanelController {
                 recordPillMachine: recordPillMachine,
                 onRenameSpeaker: { [weak self] noteID, oldName, newName in
                     self?.appModelRef?.renameSpeaker(noteID: noteID, from: oldName, to: newName)
-                }
+                },
+                onClose: { [weak p] in p?.orderOut(nil) }
             ),
             hoverChanged: { [weak p] _ in
                 p?.hideNativeTrafficLights()
