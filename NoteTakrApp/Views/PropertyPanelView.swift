@@ -222,13 +222,15 @@ private struct EventPickerMenu: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let theme: ThemeColors
     let dismiss: () -> Void
+    @Environment(\.appAppearance) private var appearance
 
     @State private var searchQuery = ""
     @State private var loadedWindow: EventPickerWindow?
     @State private var pendingConfirmation: EventLinkConfirmation?
     @State private var selectedEventID: String?
     @State private var hoveredEventID: String?
-    @State private var keyboardVisibleRange: ClosedRange<Int>?
+    @State private var visibleEventIDs: Set<String> = []
+    @State private var eventListViewportHeight: CGFloat = 0
     @FocusState private var searchFocused: Bool
 
     private var effectiveWindow: EventPickerWindow {
@@ -316,7 +318,10 @@ private struct EventPickerMenu: View {
             }
             .frame(width: 360, height: 420, alignment: .top)
             .padding(10)
-            .background(theme.background.swiftUIColor)
+            .background {
+                ThemedSurface(appearance: appearance)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .onAppear {
                 let window = bridge.availableEventWindow ?? EventPickerWindow.defaultWindow(now: Date())
                 loadedWindow = window
@@ -409,6 +414,16 @@ private struct EventPickerMenu: View {
                         }
                         .buttonStyle(.plain)
                         .id(event.id)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: EventPickerRowFramePreferenceKey.self,
+                                    value: [
+                                        event.id: geometry.frame(in: .named("eventPickerListViewport"))
+                                    ]
+                                )
+                            }
+                        }
                         .onHover { hovering in
                             hoveredEventID = hovering ? event.id : (hoveredEventID == event.id ? nil : hoveredEventID)
                         }
@@ -420,6 +435,23 @@ private struct EventPickerMenu: View {
             .padding(.vertical, 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { eventListViewportHeight = geometry.size.height }
+                    .onChange(of: geometry.size.height) { _, height in
+                        eventListViewportHeight = height
+                    }
+            }
+        }
+        .coordinateSpace(name: "eventPickerListViewport")
+        .onPreferenceChange(EventPickerRowFramePreferenceKey.self) { frames in
+            guard eventListViewportHeight > 0 else { return }
+            visibleEventIDs = Set(frames.compactMap { id, frame in
+                frame.minY >= 0 && frame.maxY <= eventListViewportHeight ? id : nil
+            })
+        }
+        .clipped()
         .accessibilityIdentifier("eventPickerList")
     }
 
@@ -430,7 +462,6 @@ private struct EventPickerMenu: View {
         }
         let id = filteredEvents[index].id
         selectedEventID = id
-        keyboardVisibleRange = visibleEventRange(startingAt: index)
         DispatchQueue.main.async {
             var transaction = Transaction()
             transaction.disablesAnimations = true
@@ -447,34 +478,14 @@ private struct EventPickerMenu: View {
         } ?? EventPickerSelection.focusedIndex(in: filteredEvents, now: Date()) ?? 0
         let next = min(max(current + offset, filteredEvents.startIndex), filteredEvents.index(before: filteredEvents.endIndex))
         let id = filteredEvents[next].id
-        let visibleRange = keyboardVisibleRange ?? visibleEventRange(startingAt: current)
-        let anchor: UnitPoint?
-        if next < visibleRange.lowerBound {
-            keyboardVisibleRange = visibleEventRange(startingAt: next)
-            anchor = .top
-        } else if next > visibleRange.upperBound {
-            keyboardVisibleRange = visibleEventRange(endingAt: next)
-            anchor = .bottom
-        } else {
-            anchor = nil
-        }
         selectedEventID = id
 
-        guard let anchor else { return }
-        DispatchQueue.main.async {
-            withAnimation(.easeOut(duration: 0.1)) {
-                proxy.scrollTo(id, anchor: anchor)
-            }
+        guard !visibleEventIDs.contains(id) else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(id, anchor: offset > 0 ? .bottom : .top)
         }
-    }
-
-    private func visibleEventRange(startingAt start: Int) -> ClosedRange<Int> {
-        let last = max(0, filteredEvents.count - 1)
-        return min(start, last)...min(start + 4, last)
-    }
-
-    private func visibleEventRange(endingAt end: Int) -> ClosedRange<Int> {
-        max(0, end - 4)...end
     }
 
     private func activateSelectedEvent() {
@@ -643,6 +654,14 @@ private struct EventPickerMenu: View {
         let startText = formatter.string(from: start)
         guard let end else { return startText }
         return "\(startText)-\(formatter.string(from: end))"
+    }
+}
+
+private struct EventPickerRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 
@@ -941,6 +960,7 @@ private struct DatePickerPopover: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let theme: ThemeColors
     let dismiss: () -> Void
+    @Environment(\.appAppearance) private var appearance
     @State private var selectedDate: Date
     @State private var selectedEnd: Date
     @State private var hasEnd: Bool
@@ -1064,7 +1084,10 @@ private struct DatePickerPopover: View {
         }
         .frame(width: 390)
         .padding(12)
-        .background(theme.panelFill.swiftUIColor)
+        .background {
+            ThemedSurface(appearance: appearance)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var canSave: Bool {
