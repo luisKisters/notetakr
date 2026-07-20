@@ -69,9 +69,9 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 3: Kit People core — Person model and PastMeetingsIndex (tests first)
 
-- [ ] Write `NoteTakrKit/Tests/NoteTakrKitTests/PersonTests.swift` and `PastMeetingsIndexTests.swift` with exactly the tests named in the spec doc Phase 1 (`testEmailsAreLowercasedAndDeduplicatedOnInit`, `testCompanyIsDerivedFromCustomDomain`, `testCompanyIsNilForPublicEmailDomains`, `testAggregatesParticipantsAcrossNotesByEmail`, `testParticipantsWithoutEmailAreExcluded`, `testRankingPrefersFrequencyThenRecency` with injected `now`, `testSearchMatchesNameAndEmailCaseInsensitively`).
-- [ ] Implement `People/Person.swift` (with `SourceRef`) and `People/PastMeetingsIndex.swift` (input: `[MeetingNote]`; score = co-meeting count × exp(−days since last co-meeting ÷ 90)) until those tests pass as written. Foundation only — must build in the Linux `kit-tests` container.
-- [ ] Run `cd NoteTakrKit && swift test`; all green.
+- [x] Write `NoteTakrKit/Tests/NoteTakrKitTests/PersonTests.swift` and `PastMeetingsIndexTests.swift` with exactly the tests named in the spec doc Phase 1 (`testEmailsAreLowercasedAndDeduplicatedOnInit`, `testCompanyIsDerivedFromCustomDomain`, `testCompanyIsNilForPublicEmailDomains`, `testAggregatesParticipantsAcrossNotesByEmail`, `testParticipantsWithoutEmailAreExcluded`, `testRankingPrefersFrequencyThenRecency` with injected `now`, `testSearchMatchesNameAndEmailCaseInsensitively`).
+- [x] Implement `People/Person.swift` (with `SourceRef`) and `People/PastMeetingsIndex.swift` (input: `[MeetingNote]`; score = co-meeting count × exp(−days since last co-meeting ÷ 90)) until those tests pass as written. Foundation only — must build in the Linux `kit-tests` container.
+- [x] Run `cd NoteTakrKit && swift test`; all green. (passed: 604 tests, 0 failures)
 
 ### Task 4: Kit People — PeopleDirectory and PeoplePickerPresenter (tests first)
 
