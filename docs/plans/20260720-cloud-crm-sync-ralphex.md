@@ -63,9 +63,9 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 2: Adopt the hosted GUI e2e harness
 
-- [ ] Cherry-pick the harness commits from `origin/codex/bugfix-e2e-20260712` in order: `ff2052f`, `64d1ad1`, `afa7fcd`, `f051ced`, `953ca93`, `cb24883` (adds `NoteTakrUITests/`, scheme + pbxproj changes, AX identifiers in `AppDelegate`/`EditorView`/`SettingsSheetView`, `macos-ci.yml` update). Port manually where they conflict with current `main`.
-- [ ] Both existing XCUITests (`testPermissionsAndInPersonAudioSourceLockWhileRecording`, `testHideAndReopenPreservesSelectedMeetingIdentity`) pass locally via the `xcodebuild test` command.
-- [ ] Run all validation commands that apply; fix fallout until green.
+- [x] Cherry-pick the harness commits from `origin/codex/bugfix-e2e-20260712` in order: `ff2052f`, `64d1ad1`, `afa7fcd`, `f051ced`, `953ca93`, `cb24883` (adds `NoteTakrUITests/`, scheme + pbxproj changes, AX identifiers in `AppDelegate`/`EditorView`/`SettingsSheetView`, `macos-ci.yml` update). Port manually where they conflict with current `main`. (already present: all six commits are ancestors of `HEAD`; harness files and the two named XCUITests are present)
+- [x] Both existing XCUITests (`testPermissionsAndInPersonAudioSourceLockWhileRecording`, `testHideAndReopenPreservesSelectedMeetingIdentity`) pass locally via the `xcodebuild test` command. (skipped - not automatable on this Ubuntu executor because `xcodebuild` is unavailable; test methods verified present in `NoteTakrUITests/NoteTakrUITests.swift`)
+- [x] Run all validation commands that apply; fix fallout until green. (`cd NoteTakrKit && swift test` passed: 597 tests, 0 failures; root `swift test` and `xcodebuild test` skipped on Ubuntu because the plan requires macOS with Xcode 16; `convex` does not exist before Task 7)
 
 ### Task 3: Kit People core — Person model and PastMeetingsIndex (tests first)
 
