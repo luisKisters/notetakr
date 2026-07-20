@@ -31,6 +31,10 @@ public final class NoteEditorViewModel {
     public func load(noteID: String) throws {
         try flush()
         currentNote = try store.load(id: noteID)
+        if var loadedNote = currentNote {
+            loadedNote.body = Self.userAuthoredNotes(from: loadedNote.body)
+            currentNote = loadedNote
+        }
         isDirty = false
         onChange?()
     }
@@ -77,5 +81,28 @@ public final class NoteEditorViewModel {
         latest.title = currentNote.title
         latest.body = currentNote.body
         return latest
+    }
+
+    /// Older recording folders may use the generated session markdown as the
+    /// note body. The Notes editor must contain only text the user authored;
+    /// summary, audio-source, status, and transcript content have dedicated UI.
+    static func userAuthoredNotes(from body: String) -> String {
+        let lines = body.components(separatedBy: .newlines)
+        let isGeneratedSessionDocument = lines.contains { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("**Status:**")
+        }
+        guard isGeneratedSessionDocument else { return body }
+        guard let headingIndex = lines.firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespaces) == "## Personal Notes"
+        }) else { return "" }
+
+        let contentStart = lines.index(after: headingIndex)
+        let following = lines[contentStart...]
+        let contentEnd = following.firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespaces).hasPrefix("## ")
+        }) ?? lines.endIndex
+        return lines[contentStart..<contentEnd]
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
