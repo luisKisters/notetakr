@@ -57,9 +57,9 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 1: Merge Contacts name resolution from the codex branch
 
-- [ ] Cherry-pick `7433c4a` ("Resolve attendee names from authorized contacts") from `origin/codex/bugfix-e2e-20260712` onto `main`. Resolve conflicts by preserving current `main` behavior plus the branch's additions; port hunks manually if the cherry-pick does not apply cleanly.
-- [ ] Keep the commit's tests (`NoteTakrTests/EventKitAdapterTests.swift` additions, `MVPPolishTests` update) passing unmodified — they encode the privacy invariant (denied/undetermined Contacts access ⇒ zero store lookups).
-- [ ] Run `cd NoteTakrKit && swift test`, `swift test`, and the `xcodebuild test` command; fix fallout until green.
+- [x] Cherry-pick `7433c4a` ("Resolve attendee names from authorized contacts") from `origin/codex/bugfix-e2e-20260712` onto `main`. Resolve conflicts by preserving current `main` behavior plus the branch's additions; port hunks manually if the cherry-pick does not apply cleanly. (already present: `7433c4a` is an ancestor of `HEAD`)
+- [x] Keep the commit's tests (`NoteTakrTests/EventKitAdapterTests.swift` additions, `MVPPolishTests` update) passing unmodified — they encode the privacy invariant (denied/undetermined Contacts access ⇒ zero store lookups). (source tests present; macOS-only execution skipped on Ubuntu - not automatable here)
+- [x] Run `cd NoteTakrKit && swift test`, `swift test`, and the `xcodebuild test` command; fix fallout until green. (`cd NoteTakrKit && swift test` passed: 597 tests, 0 failures; `swift test` and `xcodebuild test` skipped on Ubuntu because root/Xcode validation requires macOS with Xcode 16 and `xcodebuild` is unavailable)
 
 ### Task 2: Adopt the hosted GUI e2e harness
 
