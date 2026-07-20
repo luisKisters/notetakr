@@ -13,8 +13,8 @@ struct SwitcherOverlayView: View {
     @State private var hoveredIndex: Int?
     @State private var initialScrollApplied = false
     @State private var rowListReady = false
-    @State private var suppressNextSelectionScroll = false
-    @State private var keyboardVisibleRange: ClosedRange<Int>?
+    @State private var visibleRowIDs: Set<String> = []
+    @State private var rowListViewportHeight: CGFloat = 0
 
     private var paletteColors: ThemeColors {
         SwitcherOverlayPalette.colors(for: appearance)
@@ -87,7 +87,7 @@ struct SwitcherOverlayView: View {
     private var rowList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(bridge.groups, id: \.switcherOverlayID) { group in
                         rowGroupSection(group: group)
                     }
@@ -107,24 +107,36 @@ struct SwitcherOverlayView: View {
             }
             .accessibilityIdentifier("switcherEventList")
             .background(paletteBackground)
-            .mask(rowListFadeMask)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { rowListViewportHeight = geometry.size.height }
+                        .onChange(of: geometry.size.height) { _, height in
+                            rowListViewportHeight = height
+                        }
+                }
+            }
+            .coordinateSpace(name: "switcherListViewport")
+            .onPreferenceChange(SwitcherRowFramePreferenceKey.self) { frames in
+                guard rowListViewportHeight > 0 else { return }
+                visibleRowIDs = Set(frames.compactMap { id, frame in
+                    frame.minY >= 0 && frame.maxY <= rowListViewportHeight ? id : nil
+                })
+            }
+            .clipped()
             .opacity(rowListReady ? 1 : 0)
             .onAppear {
                 applyInitialScroll(proxy: proxy)
             }
             .onChange(of: groupsSignature) { _, _ in
-                keyboardVisibleRange = nil
+                visibleRowIDs = []
                 applyInitialScroll(proxy: proxy)
             }
-            .onChange(of: bridge.selectedIndex) { _, idx in
-                if suppressNextSelectionScroll {
-                    suppressNextSelectionScroll = false
-                    return
-                }
+            .onChange(of: bridge.selectedIndex) { oldIndex, idx in
                 guard let item = bridge.viewModel.selectedItem else { return }
                 revealSelectionIfNeeded(
                     rowID: rowID(flatIndex: idx, item: item),
-                    selectedIndex: idx,
+                    movingDown: idx > oldIndex,
                     proxy: proxy
                 )
             }
@@ -133,73 +145,14 @@ struct SwitcherOverlayView: View {
 
     private func revealSelectionIfNeeded(
         rowID: String,
-        selectedIndex: Int,
+        movingDown: Bool,
         proxy: ScrollViewProxy
     ) {
-        let visibleRange = keyboardVisibleRange ?? defaultKeyboardVisibleRange()
-        let anchor: UnitPoint?
-        if selectedIndex < visibleRange.lowerBound {
-            keyboardVisibleRange = switcherVisibleRange(startingAt: selectedIndex)
-            anchor = .top
-        } else if selectedIndex > visibleRange.upperBound {
-            keyboardVisibleRange = switcherVisibleRange(endingAt: selectedIndex)
-            anchor = .bottom
-        } else {
-            anchor = nil
-        }
-        guard let anchor else { return }
-
-        DispatchQueue.main.async {
-            withAnimation(.easeOut(duration: 0.1)) {
-                proxy.scrollTo(rowID, anchor: anchor)
-            }
-        }
-    }
-
-    private var totalItemCount: Int {
-        bridge.groups.reduce(0) { $0 + $1.items.count }
-    }
-
-    private func defaultKeyboardVisibleRange() -> ClosedRange<Int> {
-        let last = max(0, totalItemCount - 1)
-        let center = min(max(0, bridge.selectedIndex), last)
-        var start = max(0, center - 3)
-        let end = min(start + 6, last)
-        start = max(0, end - 6)
-        return start...end
-    }
-
-    private func switcherVisibleRange(startingAt start: Int) -> ClosedRange<Int> {
-        let last = max(0, totalItemCount - 1)
-        return min(start, last)...min(start + 6, last)
-    }
-
-    private func switcherVisibleRange(endingAt end: Int) -> ClosedRange<Int> {
-        max(0, end - 6)...end
-    }
-
-    private var rowListFadeMask: some View {
-        VStack(spacing: 0) {
-            Color.black.frame(height: 34)
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0.00),
-                    .init(color: .black, location: 1.00),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 24)
-            Color.black
-            LinearGradient(
-                stops: [
-                    .init(color: .black, location: 0.00),
-                    .init(color: .clear, location: 1.00),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 34)
+        guard !visibleRowIDs.contains(rowID) else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(rowID, anchor: movingDown ? .bottom : .top)
         }
     }
 
@@ -264,6 +217,17 @@ struct SwitcherOverlayView: View {
                 let flatIdx = flatIndex(group: group, itemOffset: offset)
                 twoLineRow(item: item, flatIndex: flatIdx)
                     .id(rowID(flatIndex: flatIdx, item: item))
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: SwitcherRowFramePreferenceKey.self,
+                                value: [
+                                    rowID(flatIndex: flatIdx, item: item):
+                                        geometry.frame(in: .named("switcherListViewport"))
+                                ]
+                            )
+                        }
+                    }
             }
         } header: {
             Text(group.label.uppercased())
@@ -272,8 +236,6 @@ struct SwitcherOverlayView: View {
                 .tracking(0.9)
                 .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
                 .padding(.horizontal, 6)
-                .background(paletteBackground)
-                .zIndex(2)
                 .accessibilityIdentifier("switcherSection_\(group.label)")
         }
         .id(group.switcherOverlayID)
@@ -292,16 +254,13 @@ struct SwitcherOverlayView: View {
             .onHover { isHov in
                 if isHov {
                     hoveredIndex = flatIndex
-                    if bridge.selectedIndex != flatIndex {
-                        suppressNextSelectionScroll = true
-                    }
-                    bridge.selectFromHover(index: flatIndex)
                 } else if hoveredIndex == flatIndex {
                     hoveredIndex = nil
                 }
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
+            .accessibilityValue(isSelected ? "Selected" : (isHovering ? "Hovered" : ""))
             .accessibilityIdentifier("switcherRow_\(item.switcherOverlayID)")
     }
 
@@ -670,6 +629,14 @@ struct SwitcherOverlayView: View {
                 bridge.triggerCreateBlankNote()
             }
         }
+    }
+}
+
+private struct SwitcherRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 
