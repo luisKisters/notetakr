@@ -9,8 +9,8 @@ struct EditorView: View {
     @ObservedObject var settingsBridge: SettingsSheetViewModel
     let recordPillMachine: RecordPillStateMachine
     let onRenameSpeaker: ((String, String, String) -> Void)?
+    let onClose: () -> Void
     @State private var pillState: RecordPillState = .idle
-    @State private var isWindowHovered = false
 
     private var themeColors: ThemeColors {
         Theme.colors(for: settingsBridge.currentAppearance)
@@ -29,7 +29,6 @@ struct EditorView: View {
                     appearance: settingsBridge.currentAppearance
                 )
                     .environment(\.themeColors, themeColors)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                     .zIndex(10)
             }
 
@@ -43,9 +42,15 @@ struct EditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 0) {
-                // Window chrome: dimmed traffic lights left. Persistent app
-                // controls live at the edges of the bottom bar.
-                WindowChromeView(isWindowHovered: isWindowHovered)
+                WindowChromeView(
+                    close: onClose,
+                    openCommandMenu: { switcherBridge.show() },
+                    openSettings: {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            settingsBridge.isVisible.toggle()
+                        }
+                    }
+                )
                 .environment(\.themeColors, themeColors)
 
                 TextField("Title", text: Binding(
@@ -93,11 +98,12 @@ struct EditorView: View {
                 footerTabs
             }
             .ignoresSafeArea(.container, edges: .top)
+            .allowsHitTesting(!switcherBridge.isVisible && !settingsBridge.isVisible)
         }
         // ⌘K — toggle switcher
         .background(
             Button("") {
-                withAnimation(.easeInOut(duration: 0.15)) { switcherBridge.toggle() }
+                switcherBridge.toggle()
             }
             .keyboardShortcut("k", modifiers: .command)
             .hidden()
@@ -112,10 +118,10 @@ struct EditorView: View {
             .keyboardShortcut(",", modifiers: .command)
             .hidden()
         )
-        .onHover { isWindowHovered = $0 }
         // SwiftUI/AppKit controls otherwise inherit the Mac's system appearance,
         // which can disagree with NoteTakr's explicit Light/Dark/Glass setting.
         .environment(\.colorScheme, settingsBridge.currentAppearance.colorScheme)
+        .environment(\.appAppearance, settingsBridge.currentAppearance)
         .overlay(alignment: .topLeading) {
             AppearanceAccessibilityMarker(
                 appearance: settingsBridge.currentAppearance,
@@ -190,67 +196,14 @@ struct EditorView: View {
                 .fill(themeColors.hairline.swiftUIColor)
                 .frame(height: 1)
 
-            ZStack {
-                HStack(spacing: 34) {
-                    tabButton("Private Notes", tab: .privateNotes)
-                    tabButton("Summary", tab: .summary)
-                    tabButton("Transcript", tab: .transcript)
-                }
-
-                HStack {
-                    bottomCommandButton
-                    Spacer()
-                    bottomSettingsButton
-                }
-                .padding(.horizontal, 12)
+            HStack(spacing: 34) {
+                tabButton("Notes", tab: .privateNotes)
+                tabButton("Summary", tab: .summary)
+                tabButton("Transcript", tab: .transcript)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 42)
         }
-    }
-
-    private var bottomCommandButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) { switcherBridge.show() }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "command")
-                    .font(.system(size: 11, weight: .medium))
-                Text("K")
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(themeColors.secondaryText.swiftUIColor)
-            .frame(minWidth: 30, minHeight: 26)
-            .background(themeColors.fieldFill.swiftUIColor)
-            .clipShape(RoundedRectangle(cornerRadius: 7))
-            .overlay(RoundedRectangle(cornerRadius: 7)
-                .stroke(themeColors.fieldBorder.swiftUIColor, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .help("Open command menu (⌘K)")
-        .accessibilityLabel("Open command menu")
-        .accessibilityIdentifier("bottomCommandKButton")
-    }
-
-    private var bottomSettingsButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.22)) {
-                settingsBridge.isVisible.toggle()
-            }
-        } label: {
-            Image(systemName: "gearshape")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(themeColors.secondaryText.swiftUIColor)
-                .frame(width: 30, height: 26)
-                .background(themeColors.fieldFill.swiftUIColor)
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-                .overlay(RoundedRectangle(cornerRadius: 7)
-                    .stroke(themeColors.fieldBorder.swiftUIColor, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .help("Settings (⌘,)")
-        .accessibilityLabel("Settings")
-        .accessibilityIdentifier("bottomSettingsButton")
     }
 
     private func tabButton(_ label: String, tab: NoteTab) -> some View {
