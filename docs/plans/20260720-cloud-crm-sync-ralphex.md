@@ -102,9 +102,9 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 8: Server summary action via OpenRouter Kimi K2.7 (tests first)
 
-- [ ] Write `convex/summarize.test.ts` first (OpenRouter fetch mocked) with exactly: `writes summary and status ready on success`; `sets status failed and preserves previous summary on API error`; `schedules crm push after ready`.
-- [ ] Implement `convex/summarize.ts`: action loads transcript, calls OpenRouter chat completions with `OPENROUTER_API_KEY` and `SUMMARY_MODEL` env vars (default the Kimi K2.7 slug — verify the exact current slug on openrouter.ai and record it in the code comment), writes `summary` + `summaryStatus`, schedules the CRM push (a no-op stub until Task 11).
-- [ ] Run `cd convex && npm test`; all green.
+- [x] Write `convex/summarize.test.ts` first (OpenRouter fetch mocked) with exactly: `writes summary and status ready on success`; `sets status failed and preserves previous summary on API error`; `schedules crm push after ready`. (added all three spec-named tests; focused run failed before implementation because `summarize` module was missing, then passed after implementation)
+- [x] Implement `convex/summarize.ts`: action loads transcript, calls OpenRouter chat completions with `OPENROUTER_API_KEY` and `SUMMARY_MODEL` env vars (default the Kimi K2.7 slug — verify the exact current slug on openrouter.ai and record it in the code comment), writes `summary` + `summaryStatus`, schedules the CRM push (a no-op stub until Task 11). (implemented `summarizeMeeting` with internal read/write helpers, default slug `moonshotai/kimi-k2.7-code` verified on OpenRouter 2026-07-20, and a no-op `crm/push:pushMeetingToCrm` stub scheduled after ready summaries)
+- [x] Run `cd convex && npm test`; all green. (`cd convex && npm test` passed: 2 test files, 8 tests; `cd convex && npm run typecheck` passed; `cd NoteTakrKit && swift test` passed: 611 tests, 0 failures)
 
 ### Task 9: NoteTakrSync target — envelope, outbox, local_only flag (tests first)
 
