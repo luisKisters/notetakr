@@ -8,10 +8,19 @@ struct ThemeColorsKey: EnvironmentKey {
     static let defaultValue: ThemeColors = Theme.glass
 }
 
+struct AppAppearanceKey: EnvironmentKey {
+    static let defaultValue: Appearance = .glass
+}
+
 extension EnvironmentValues {
     var themeColors: ThemeColors {
         get { self[ThemeColorsKey.self] }
         set { self[ThemeColorsKey.self] = newValue }
+    }
+
+    var appAppearance: Appearance {
+        get { self[AppAppearanceKey.self] }
+        set { self[AppAppearanceKey.self] = newValue }
     }
 }
 
