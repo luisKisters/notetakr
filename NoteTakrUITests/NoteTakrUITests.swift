@@ -82,13 +82,15 @@ final class NoteTakrUITests: XCTestCase {
         )
     }
 
-    func testBottomBarControlsOpenCommandMenuAndSettings() {
-        launch()
+    func testTitleBarControlsOpenCommandMenuAndSettings() {
+        launch(enablePanelToggleControl: true)
 
-        let commandButton = element("bottomCommandKButton")
-        let settingsButton = element("bottomSettingsButton")
+        let commandButton = element("toolbarCommandKButton")
+        let settingsButton = element("toolbarSettingsButton")
+        let closeButton = element("toolbarCloseButton")
         XCTAssertTrue(commandButton.waitForExistence(timeout: 5))
         XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(closeButton.waitForExistence(timeout: 5))
 
         commandButton.click()
         XCTAssertTrue(element("switcherOverlay").waitForExistence(timeout: 5))
@@ -97,6 +99,12 @@ final class NoteTakrUITests: XCTestCase {
 
         settingsButton.click()
         XCTAssertTrue(element("settingsCloseButton").waitForExistence(timeout: 5))
+        element("settingsCloseButton").click()
+
+        closeButton.click()
+        XCTAssertTrue(element("meetingTitleField").waitForNonExistence(timeout: 5))
+        togglePanelFromTestProcess()
+        XCTAssertTrue(element("meetingTitleField").waitForExistence(timeout: 5))
     }
 
     func testCalendarPickerFocusesCurrentEventAndSupportsKeyboardNavigation() {
@@ -132,6 +140,27 @@ final class NoteTakrUITests: XCTestCase {
         let revealedOffset = String(describing: scrollBar.value)
         search.typeKey(.downArrow, modifierFlags: [])
         XCTAssertEqual(String(describing: scrollBar.value), revealedOffset)
+    }
+
+    func testCommandMenuRowsExposeHoverFeedbackWithoutChangingKeyboardSelection() throws {
+        try seedMeeting(
+            id: "11111111-1111-1111-1111-111111111111",
+            title: "Hover target",
+            date: "2026-07-10T09:00:00Z"
+        )
+        try seedMeeting(
+            id: "22222222-2222-2222-2222-222222222222",
+            title: "Keyboard selection",
+            date: "2026-07-11T09:00:00Z"
+        )
+        launch(openSwitcher: true)
+
+        let hoverTarget = app.buttons[
+            "switcherRow_note-11111111-1111-1111-1111-111111111111"
+        ]
+        XCTAssertTrue(hoverTarget.waitForExistence(timeout: 5))
+        hoverTarget.hover()
+        XCTAssertEqual(hoverTarget.value as? String, "Hovered")
     }
 
     func testCalendarSwitchConfirmationBlocksThePickerBehindIt() {
@@ -175,11 +204,11 @@ final class NoteTakrUITests: XCTestCase {
             element("settingsCloseButton").click()
             XCTAssertTrue(waitForAppearance(appearance, element: element("editorAppearance")))
 
-            element("bottomCommandKButton").click()
+            element("toolbarCommandKButton").click()
             XCTAssertTrue(waitForAppearance(appearance, element: element("switcherAppearance")))
 
             app.typeKey(.escape, modifierFlags: [])
-            element("bottomSettingsButton").click()
+            element("toolbarSettingsButton").click()
             XCTAssertTrue(waitForAppearance(appearance, element: element("settingsAppearance")))
         }
     }
