@@ -81,9 +81,9 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 5: AppleContactsSource behind the Contacts privacy gate (tests first)
 
-- [ ] Write `NoteTakrTests/AppleContactsSourceTests.swift` with exactly `testDoesNotQueryContactsWithoutAuthorization`, `testDoesNotQueryWhileConsentUndetermined`, `testAuthorizedContactsMapToPersonsWithLowercasedEmails` — DI-closure style copied from `EventKitAdapterTests` (inject `authorizationStatus` + `fetchContacts` closures, count invocations).
-- [ ] Implement `NoteTakrApp/People/AppleContactsSource.swift` conforming to `PeopleSource`, reusing the Task 1 Contacts plumbing; production `convenience init()`, designated init with injected closures. It must never trigger a permission prompt (only reads when already `.authorized`).
-- [ ] Run the `xcodebuild test` command and `cd NoteTakrKit && swift test`; all green.
+- [x] Write `NoteTakrTests/AppleContactsSourceTests.swift` with exactly `testDoesNotQueryContactsWithoutAuthorization`, `testDoesNotQueryWhileConsentUndetermined`, `testAuthorizedContactsMapToPersonsWithLowercasedEmails` — DI-closure style copied from `EventKitAdapterTests` (inject `authorizationStatus` + `fetchContacts` closures, count invocations). (added with fetch-count assertions for denied, undetermined, and authorized contacts)
+- [x] Implement `NoteTakrApp/People/AppleContactsSource.swift` conforming to `PeopleSource`, reusing the Task 1 Contacts plumbing; production `convenience init()`, designated init with injected closures. It must never trigger a permission prompt (only reads when already `.authorized`). (implemented with `CNContactStore.enumerateContacts` behind the `.authorized` gate and lowercased email mapping)
+- [x] Run the `xcodebuild test` command and `cd NoteTakrKit && swift test`; all green. (`cd NoteTakrKit && swift test` passed: 611 tests, 0 failures; `xcodebuild test` skipped on Ubuntu because the command is unavailable and this validation requires macOS with Xcode 16)
 
 ### Task 6: Picker UI, hover card, and the Phase 1 e2e gate
 
