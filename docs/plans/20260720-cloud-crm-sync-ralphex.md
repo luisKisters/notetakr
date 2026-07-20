@@ -94,11 +94,11 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 7: Convex scaffold — schema, upsert mutation, test harness, CI job (tests first)
 
-- [ ] Create `convex/` (npm project: `convex`, `convex-test`, `vitest`; `npm test` runs vitest). Write `convex/schema.ts` with the six tables and indexes from the spec doc.
-- [ ] Write `convex/meetings.test.ts` first with exactly the spec-doc cases: `upsert twice with same localId yields one document with updated fields`; `upsert replaces transcript segments, never duplicates`; `unchanged contentHash does not reschedule summarize`; `changed contentHash reschedules summarize`; `users only read their own meetings`.
-- [ ] Implement `convex/meetings.ts` (`upsertFromDevice` keyed by `(userId, localId)`, transactional segment replace, summarize scheduling) until the tests pass as written.
-- [ ] Add a `convex-tests` job (ubuntu, node LTS, `cd convex && npm ci && npm test`) to `.github/workflows/macos-ci.yml`.
-- [ ] Run `cd convex && npm test`; all green.
+- [x] Create `convex/` (npm project: `convex`, `convex-test`, `vitest`; `npm test` runs vitest). Write `convex/schema.ts` with the six tables and indexes from the spec doc. (added npm scaffold, package-lock, TypeScript config, schema tables: meetings, notes, transcriptSegments, people, userSettings, devices, plus the required indexes)
+- [x] Write `convex/meetings.test.ts` first with exactly the spec-doc cases: `upsert twice with same localId yields one document with updated fields`; `upsert replaces transcript segments, never duplicates`; `unchanged contentHash does not reschedule summarize`; `changed contentHash reschedules summarize`; `users only read their own meetings`. (all five cases added with convex-test)
+- [x] Implement `convex/meetings.ts` (`upsertFromDevice` keyed by `(userId, localId)`, transactional segment replace, summarize scheduling) until the tests pass as written. (implemented auth-scoped upsert, note overwrite, transcript segment replacement, contentHash-based summarize scheduling, and auth-scoped getByLocalId)
+- [x] Add a `convex-tests` job (ubuntu, node LTS, `cd convex && npm ci && npm test`) to `.github/workflows/macos-ci.yml`. (job added with npm cache against convex/package-lock.json)
+- [x] Run `cd convex && npm test`; all green. (`cd convex && npm test` passed: 1 test file, 5 tests; `cd convex && npm run typecheck` passed; `cd NoteTakrKit && swift test` passed: 611 tests, 0 failures)
 
 ### Task 8: Server summary action via OpenRouter Kimi K2.7 (tests first)
 
