@@ -7,6 +7,14 @@ import NoteTakrKit
 @MainActor
 final class SwitcherOverlayTests: XCTestCase {
 
+    func testEventSwitchConfirmationUsesOpaqueThemeSurface() {
+        for theme in [Theme.glass, Theme.dark, Theme.light] {
+            XCTAssertEqual(EventSwitchConfirmationPalette.surface(for: theme).a, 1)
+        }
+        XCTAssertEqual(EventSwitchConfirmationPalette.surface(for: Theme.glass), Theme.dark.background)
+        XCTAssertEqual(EventSwitchConfirmationPalette.surface(for: Theme.light), Theme.light.background)
+    }
+
     // MARK: - 1. ⌘K toggles overlay state
 
     func testToggleSwitcherShowsOverlay() {

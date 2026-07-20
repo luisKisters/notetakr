@@ -14,8 +14,7 @@ struct SwitcherOverlayView: View {
     @State private var initialScrollApplied = false
     @State private var rowListReady = false
     @State private var suppressNextSelectionScroll = false
-    @State private var rowFrames: [String: CGRect] = [:]
-    @State private var listViewportHeight: CGFloat = 0
+    @State private var keyboardVisibleRange: ClosedRange<Int>?
 
     private var paletteColors: ThemeColors {
         SwitcherOverlayPalette.colors(for: appearance)
@@ -106,26 +105,18 @@ struct SwitcherOverlayView: View {
                 .padding(.horizontal, 8)
                 .padding(.bottom, 12)
             }
-            .coordinateSpace(name: "switcherEventListViewport")
             .accessibilityIdentifier("switcherEventList")
             .background(paletteBackground)
-            .background(
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: SwitcherViewportHeightPreferenceKey.self,
-                        value: geometry.size.height
-                    )
-                }
-            )
             .mask(rowListFadeMask)
             .opacity(rowListReady ? 1 : 0)
             .onAppear {
                 applyInitialScroll(proxy: proxy)
             }
             .onChange(of: groupsSignature) { _, _ in
+                keyboardVisibleRange = nil
                 applyInitialScroll(proxy: proxy)
             }
-            .onChange(of: bridge.selectedIndex) { oldIndex, idx in
+            .onChange(of: bridge.selectedIndex) { _, idx in
                 if suppressNextSelectionScroll {
                     suppressNextSelectionScroll = false
                     return
@@ -133,44 +124,58 @@ struct SwitcherOverlayView: View {
                 guard let item = bridge.viewModel.selectedItem else { return }
                 revealSelectionIfNeeded(
                     rowID: rowID(flatIndex: idx, item: item),
-                    movingDown: idx > oldIndex,
+                    selectedIndex: idx,
                     proxy: proxy
                 )
             }
-            .onPreferenceChange(SwitcherRowFramePreferenceKey.self) { rowFrames = $0 }
-            .onPreferenceChange(SwitcherViewportHeightPreferenceKey.self) { listViewportHeight = $0 }
         }
     }
 
     private func revealSelectionIfNeeded(
         rowID: String,
-        movingDown: Bool,
+        selectedIndex: Int,
         proxy: ScrollViewProxy
     ) {
-        guard listViewportHeight > 0 else { return }
-        let topInset: CGFloat = 34
-        let bottomInset: CGFloat = 4
-
-        let revealEdge = rowFrames[rowID].flatMap { frame in
-            EdgeAwareScrollPolicy.revealEdge(
-                rowMinY: Double(frame.minY),
-                rowMaxY: Double(frame.maxY),
-                viewportHeight: Double(listViewportHeight),
-                topInset: Double(topInset),
-                bottomInset: Double(bottomInset)
-            )
+        let visibleRange = keyboardVisibleRange ?? defaultKeyboardVisibleRange()
+        let anchor: UnitPoint?
+        if selectedIndex < visibleRange.lowerBound {
+            keyboardVisibleRange = switcherVisibleRange(startingAt: selectedIndex)
+            anchor = .top
+        } else if selectedIndex > visibleRange.upperBound {
+            keyboardVisibleRange = switcherVisibleRange(endingAt: selectedIndex)
+            anchor = .bottom
+        } else {
+            anchor = nil
         }
-        if rowFrames[rowID] != nil, revealEdge == nil { return }
+        guard let anchor else { return }
 
-        withAnimation(.easeOut(duration: 0.1)) {
-            let anchor: UnitPoint
-            switch revealEdge {
-            case .top: anchor = .top
-            case .bottom: anchor = .bottom
-            case nil: anchor = movingDown ? .bottom : .top
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.1)) {
+                proxy.scrollTo(rowID, anchor: anchor)
             }
-            proxy.scrollTo(rowID, anchor: anchor)
         }
+    }
+
+    private var totalItemCount: Int {
+        bridge.groups.reduce(0) { $0 + $1.items.count }
+    }
+
+    private func defaultKeyboardVisibleRange() -> ClosedRange<Int> {
+        let last = max(0, totalItemCount - 1)
+        let center = min(max(0, bridge.selectedIndex), last)
+        var start = max(0, center - 3)
+        let end = min(start + 6, last)
+        start = max(0, end - 6)
+        return start...end
+    }
+
+    private func switcherVisibleRange(startingAt start: Int) -> ClosedRange<Int> {
+        let last = max(0, totalItemCount - 1)
+        return min(start, last)...min(start + 6, last)
+    }
+
+    private func switcherVisibleRange(endingAt end: Int) -> ClosedRange<Int> {
+        max(0, end - 6)...end
     }
 
     private var rowListFadeMask: some View {
@@ -230,11 +235,15 @@ struct SwitcherOverlayView: View {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.70))
+            proxy.scrollTo(target, anchor: .center)
         }
     }
 
     private func initialViewportTargetID() -> String? {
+        if let selectedItem = bridge.viewModel.selectedItem {
+            return rowID(flatIndex: bridge.selectedIndex, item: selectedItem)
+        }
+
         guard let upcoming = bridge.groups.first,
               upcoming.label == "Upcoming",
               upcoming.items.count >= 3
@@ -255,18 +264,6 @@ struct SwitcherOverlayView: View {
                 let flatIdx = flatIndex(group: group, itemOffset: offset)
                 twoLineRow(item: item, flatIndex: flatIdx)
                     .id(rowID(flatIndex: flatIdx, item: item))
-                    .background(
-                        GeometryReader { geometry in
-                            Color.clear.preference(
-                                key: SwitcherRowFramePreferenceKey.self,
-                                value: [
-                                    rowID(flatIndex: flatIdx, item: item): geometry.frame(
-                                        in: .named("switcherEventListViewport")
-                                    )
-                                ]
-                            )
-                        }
-                    )
             }
         } header: {
             Text(group.label.uppercased())
@@ -673,22 +670,6 @@ struct SwitcherOverlayView: View {
                 bridge.triggerCreateBlankNote()
             }
         }
-    }
-}
-
-private struct SwitcherRowFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-private struct SwitcherViewportHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 

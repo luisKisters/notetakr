@@ -116,6 +116,53 @@ final class NoteTakrUITests: XCTestCase {
             element("eventPickerRow_e2e-commandk-future-calendar-only-1").value as? String,
             "Focused"
         )
+
+        // Moving back to the still-visible current row must only change focus;
+        // it must not jump or rebuild the picker beneath the user.
+        search.typeKey(.upArrow, modifierFlags: [])
+        XCTAssertEqual(current.value as? String, "Focused")
+        XCTAssertTrue(element("eventPickerSearchField").isHittable)
+
+        // Crossing the top edge reveals the previous row. Returning to the
+        // still-visible current row must retain that exact viewport instead of
+        // jumping back to the beginning or end of the list.
+        search.typeKey(.upArrow, modifierFlags: [])
+        let scrollBar = element("eventPickerList").scrollBars.firstMatch
+        XCTAssertTrue(scrollBar.waitForExistence(timeout: 5))
+        let revealedOffset = String(describing: scrollBar.value)
+        search.typeKey(.downArrow, modifierFlags: [])
+        XCTAssertEqual(String(describing: scrollBar.value), revealedOffset)
+    }
+
+    func testCalendarSwitchConfirmationBlocksThePickerBehindIt() {
+        launch(commandKEvents: true, expandFrontmatter: true)
+
+        let pickerButton = element("calendarEventPickerButton")
+        XCTAssertTrue(pickerButton.waitForExistence(timeout: 5))
+        pickerButton.click()
+
+        // Link a future event first so choosing the current event exercises the
+        // destructive metadata-update confirmation instead of immediately
+        // dismissing the picker.
+        let future = element("eventPickerRow_e2e-commandk-future-calendar-only-3")
+        XCTAssertTrue(future.waitForExistence(timeout: 5))
+        future.click()
+        XCTAssertTrue(pickerButton.waitForExistence(timeout: 5))
+        pickerButton.click()
+
+        let current = element("eventPickerRow_e2e-commandk-current-calendar-only")
+        XCTAssertTrue(current.waitForExistence(timeout: 5))
+        current.click()
+
+        XCTAssertTrue(element("eventSwitchConfirmation").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("eventSwitchConfirmationUpdate").isHittable)
+        XCTAssertFalse(
+            element("eventPickerSearchField").exists,
+            "The obscured picker must not remain interactive or scrollable behind the confirmation."
+        )
+
+        element("eventSwitchConfirmationCancel").click()
+        XCTAssertTrue(element("eventPickerSearchField").waitForExistence(timeout: 5))
     }
 
     func testAppearanceChangesStaySynchronizedAcrossSettingsEditorAndCommandMenu() {

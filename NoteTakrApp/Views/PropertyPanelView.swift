@@ -228,8 +228,7 @@ private struct EventPickerMenu: View {
     @State private var pendingConfirmation: EventLinkConfirmation?
     @State private var selectedEventID: String?
     @State private var hoveredEventID: String?
-    @State private var eventRowFrames: [String: CGRect] = [:]
-    @State private var eventListHeight: CGFloat = 0
+    @State private var keyboardVisibleRange: ClosedRange<Int>?
     @FocusState private var searchFocused: Bool
 
     private var effectiveWindow: EventPickerWindow {
@@ -335,8 +334,8 @@ private struct EventPickerMenu: View {
             .onChange(of: filteredEventsSignature) { _, _ in
                 focusCurrentEvent(proxy: proxy)
             }
-            .onPreferenceChange(EventPickerRowFramePreferenceKey.self) { eventRowFrames = $0 }
-            .onPreferenceChange(EventPickerListHeightPreferenceKey.self) { eventListHeight = $0 }
+            .allowsHitTesting(pendingConfirmation == nil)
+            .accessibilityHidden(pendingConfirmation != nil)
             .overlay {
                 if let pendingConfirmation {
                     EventSwitchConfirmationOverlay(
@@ -385,7 +384,10 @@ private struct EventPickerMenu: View {
 
     private var eventList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 1) {
+            // A two-week picker has a bounded number of fixed-height rows.
+            // Keeping them eager makes keyboard viewport ranges deterministic
+            // and avoids LazyVStack rebuilding targets during scrollTo.
+            VStack(alignment: .leading, spacing: 1) {
                 if let error = bridge.availableEventsError {
                     emptyMessage(error)
                 } else if filteredEvents.isEmpty {
@@ -410,14 +412,6 @@ private struct EventPickerMenu: View {
                         .onHover { hovering in
                             hoveredEventID = hovering ? event.id : (hoveredEventID == event.id ? nil : hoveredEventID)
                         }
-                        .background(
-                            GeometryReader { geometry in
-                                Color.clear.preference(
-                                    key: EventPickerRowFramePreferenceKey.self,
-                                    value: [event.id: geometry.frame(in: .named("eventPickerViewport"))]
-                                )
-                            }
-                        )
                         .accessibilityIdentifier("eventPickerRow_\(event.id)")
                         .accessibilityValue(isSelected ? "Focused" : "")
                     }
@@ -425,15 +419,6 @@ private struct EventPickerMenu: View {
             }
             .padding(.vertical, 2)
         }
-        .coordinateSpace(name: "eventPickerViewport")
-        .background(
-            GeometryReader { geometry in
-                Color.clear.preference(
-                    key: EventPickerListHeightPreferenceKey.self,
-                    value: geometry.size.height
-                )
-            }
-        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("eventPickerList")
     }
@@ -445,6 +430,7 @@ private struct EventPickerMenu: View {
         }
         let id = filteredEvents[index].id
         selectedEventID = id
+        keyboardVisibleRange = visibleEventRange(startingAt: index)
         DispatchQueue.main.async {
             var transaction = Transaction()
             transaction.disablesAnimations = true
@@ -461,26 +447,34 @@ private struct EventPickerMenu: View {
         } ?? EventPickerSelection.focusedIndex(in: filteredEvents, now: Date()) ?? 0
         let next = min(max(current + offset, filteredEvents.startIndex), filteredEvents.index(before: filteredEvents.endIndex))
         let id = filteredEvents[next].id
+        let visibleRange = keyboardVisibleRange ?? visibleEventRange(startingAt: current)
+        let anchor: UnitPoint?
+        if next < visibleRange.lowerBound {
+            keyboardVisibleRange = visibleEventRange(startingAt: next)
+            anchor = .top
+        } else if next > visibleRange.upperBound {
+            keyboardVisibleRange = visibleEventRange(endingAt: next)
+            anchor = .bottom
+        } else {
+            anchor = nil
+        }
         selectedEventID = id
 
+        guard let anchor else { return }
         DispatchQueue.main.async {
-            guard let frame = eventRowFrames[id] else {
-                proxy.scrollTo(id, anchor: offset > 0 ? .bottom : .top)
-                return
-            }
-            switch EdgeAwareScrollPolicy.revealEdge(
-                rowMinY: Double(frame.minY),
-                rowMaxY: Double(frame.maxY),
-                viewportHeight: Double(eventListHeight)
-            ) {
-            case .top:
-                withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(id, anchor: .top) }
-            case .bottom:
-                withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(id, anchor: .bottom) }
-            case nil:
-                break
+            withAnimation(.easeOut(duration: 0.1)) {
+                proxy.scrollTo(id, anchor: anchor)
             }
         }
+    }
+
+    private func visibleEventRange(startingAt start: Int) -> ClosedRange<Int> {
+        let last = max(0, filteredEvents.count - 1)
+        return min(start, last)...min(start + 4, last)
+    }
+
+    private func visibleEventRange(endingAt end: Int) -> ClosedRange<Int> {
+        max(0, end - 4)...end
     }
 
     private func activateSelectedEvent() {
@@ -665,15 +659,31 @@ private struct EventLinkChange: Identifiable {
     let after: String
 }
 
+enum EventSwitchConfirmationPalette {
+    /// Confirmation content must never inherit the translucent panel token: it
+    /// sits above dense event rows, where translucency makes both layers look
+    /// interactive. Glass intentionally uses the same dark, opaque modal
+    /// surface as its native-control color scheme.
+    static func surface(for theme: ThemeColors) -> RGBA {
+        theme == Theme.light ? Theme.light.background : Theme.dark.background
+    }
+}
+
 private struct EventSwitchConfirmationOverlay: View {
     let confirmation: EventLinkConfirmation
     let theme: ThemeColors
     let cancel: () -> Void
     let confirm: () -> Void
 
+    private var surface: Color {
+        EventSwitchConfirmationPalette.surface(for: theme).swiftUIColor
+    }
+
     var body: some View {
         ZStack {
-            theme.background.swiftUIColor.opacity(0.55)
+            Color.black.opacity(theme == Theme.light ? 0.14 : 0.48)
+                .contentShape(Rectangle())
+                .onTapGesture { }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 8) {
@@ -729,6 +739,7 @@ private struct EventSwitchConfirmationOverlay: View {
                     Spacer()
                     Button("Cancel", action: cancel)
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("eventSwitchConfirmationCancel")
                         .font(.system(size: 12))
                         .foregroundStyle(theme.secondaryText.swiftUIColor)
                         .padding(.horizontal, 10)
@@ -743,15 +754,19 @@ private struct EventSwitchConfirmationOverlay: View {
                             .background(RoundedRectangle(cornerRadius: 7).fill(theme.accent.swiftUIColor))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("eventSwitchConfirmationUpdate")
                 }
             }
             .padding(14)
             .frame(width: 300)
-            .background(theme.panelFill.swiftUIColor)
+            .background(surface)
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.hairline.swiftUIColor, lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .shadow(color: Color.black.opacity(0.22), radius: 18, y: 10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("eventSwitchConfirmation")
         .transition(.opacity)
     }
 }
@@ -857,22 +872,6 @@ private struct EventPickerRow: View {
         formatter.dateFormat = "HH:mm"
         guard let end else { return formatter.string(from: start) }
         return "\(formatter.string(from: start))-\(formatter.string(from: end))"
-    }
-}
-
-private struct EventPickerRowFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-private struct EventPickerListHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 
