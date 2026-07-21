@@ -121,6 +121,12 @@ public final class FrontmatterPresenter {
         onChange?()
     }
 
+    public func setLocalOnly(_ localOnly: Bool) throws {
+        note.localOnly = localOnly
+        try store.save(note)
+        onChange?()
+    }
+
     public func linkEvent(_ event: LinkedEventInfo) throws {
         note.calendarEvent = event.eventID
         note.title = event.title

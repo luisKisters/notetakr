@@ -13,6 +13,7 @@ public enum NoteTab: Equatable {
 public enum SummaryState: Equatable {
     case needsTranscript    // no transcript yet — CTA is "Transcribe & summarize"
     case missing            // transcript exists but no summary — CTA is "Generate summary"
+    case waiting
     case generating
     case ready(String)
     case failed(String)
@@ -125,6 +126,11 @@ public final class NoteTabsPresenter {
 
     public func setSummary(_ text: String, for noteID: String) {
         summaryByNoteID[noteID] = .ready(text)
+        onChange?()
+    }
+
+    public func setSummaryState(_ state: SummaryState, for noteID: String) {
+        summaryByNoteID[noteID] = state
         onChange?()
     }
 

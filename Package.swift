@@ -13,6 +13,9 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
+        .package(url: "https://github.com/clerk/clerk-convex-swift", from: "0.1.0"),
+        .package(url: "https://github.com/clerk/clerk-ios.git", exact: "1.0.0"),
+        .package(url: "https://github.com/get-convex/convex-swift", from: "0.8.0"),
         .package(path: "NoteTakrKit"),
     ],
     targets: [
@@ -36,6 +39,9 @@ let package = Package(
             dependencies: [
                 "NoteTakrCore",
                 .product(name: "NoteTakrKit", package: "NoteTakrKit"),
+                .product(name: "ClerkConvex", package: "clerk-convex-swift", condition: .when(platforms: [.macOS])),
+                .product(name: "ClerkKit", package: "clerk-ios", condition: .when(platforms: [.macOS])),
+                .product(name: "ConvexMobile", package: "convex-swift", condition: .when(platforms: [.macOS])),
             ],
             path: "Sources/NoteTakrSync"
         ),

@@ -160,12 +160,14 @@ public protocol NoteDefaultsProviding {
     var transcribeByDefault: Bool { get }
     var defaultLanguage: TranscribeLanguage { get }
     var inPersonByDefault: Bool { get }
+    var localOnlyByDefault: Bool { get }
 }
 
 public struct NoopDefaultsProvider: NoteDefaultsProviding {
     public var transcribeByDefault: Bool { true }
     public var defaultLanguage: TranscribeLanguage { .auto }
     public var inPersonByDefault: Bool { false }
+    public var localOnlyByDefault: Bool { false }
     public init() {}
 }
 
@@ -310,6 +312,7 @@ public final class SwitcherViewModel {
             participants: event.participants,
             inPerson: defaultsProvider.inPersonByDefault ? true : nil,
             transcribe: defaultsProvider.transcribeByDefault,
+            localOnly: defaultsProvider.localOnlyByDefault ? true : nil,
             language: {
                 switch defaultsProvider.defaultLanguage {
                 case .auto: return nil

@@ -32,6 +32,7 @@
 		AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */; };
 		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
 		AAFADE000000000000000526 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000804 /* Sparkle */; };
+		AAFADE000000000000000527 /* NoteTakrSync in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000805 /* NoteTakrSync */; };
 		AAFADE00000000000000F006 /* MarkdownEngine in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE00000000000000F008 /* MarkdownEngine */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
@@ -162,6 +163,7 @@
 				AAFADE000000000000000503 /* NoteTakrCore in Frameworks */,
 				AAFADE000000000000000525 /* FluidAudio in Frameworks */,
 				AAFADE000000000000000526 /* Sparkle in Frameworks */,
+				AAFADE000000000000000527 /* NoteTakrSync in Frameworks */,
 				AAFADE000000000000000560 /* NoteTakrKit in Frameworks */,
 				AAFADE00000000000000F006 /* MarkdownEngine in Frameworks */,
 			);
@@ -305,6 +307,7 @@
 				AAFADE000000000000000801 /* NoteTakrCore */,
 				AAFADE000000000000000803 /* FluidAudio */,
 				AAFADE000000000000000804 /* Sparkle */,
+				AAFADE000000000000000805 /* NoteTakrSync */,
 				AAFADE000000000000000851 /* NoteTakrKit */,
 				AAFADE00000000000000F008 /* MarkdownEngine */,
 			);
@@ -825,6 +828,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000901 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		AAFADE000000000000000805 /* NoteTakrSync */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */;
+			productName = NoteTakrSync;
 		};
 		AAFADE000000000000000851 /* NoteTakrKit */ = {
 			isa = XCSwiftPackageProductDependency;

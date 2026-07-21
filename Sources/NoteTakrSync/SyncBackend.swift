@@ -10,9 +10,14 @@ public enum AccountState: Equatable, Sendable {
         }
         return false
     }
+
+    public var email: String? {
+        guard case .signedIn(let email) = self else { return nil }
+        return email
+    }
 }
 
-public struct SummaryUpdate: Equatable, Sendable {
+public struct SummaryUpdate: Codable, Equatable, Sendable {
     public var localId: String
     public var text: String
 
@@ -26,7 +31,16 @@ public protocol SyncBackend: Sendable {
     var accountState: AccountState { get }
 
     func upsertMeeting(_ payload: MeetingPayload) async throws
+    func accountStateUpdates() -> AsyncStream<AccountState>
     func summaryUpdates() -> AsyncStream<SummaryUpdate>
+}
+
+public protocol SyncAccountControlling: Sendable {
+    var accountState: AccountState { get }
+
+    func signInWithGoogle() async throws
+    func signOut() async throws
+    func accountStateUpdates() -> AsyncStream<AccountState>
 }
 
 public enum MockSyncBackendError: Error, Equatable, Sendable {
@@ -35,6 +49,8 @@ public enum MockSyncBackendError: Error, Equatable, Sendable {
 
 public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
     private let lock = NSLock()
+    private let accountStream: AsyncStream<AccountState>
+    private let accountContinuation: AsyncStream<AccountState>.Continuation
     private let summaryStream: AsyncStream<SummaryUpdate>
     private let summaryContinuation: AsyncStream<SummaryUpdate>.Continuation
 
@@ -45,6 +61,13 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
 
     public init(accountState: AccountState = .signedOut) {
         _accountState = accountState
+        var accountContinuation: AsyncStream<AccountState>.Continuation?
+        accountStream = AsyncStream { streamContinuation in
+            accountContinuation = streamContinuation
+            streamContinuation.yield(accountState)
+        }
+        self.accountContinuation = accountContinuation!
+
         var continuation: AsyncStream<SummaryUpdate>.Continuation?
         summaryStream = AsyncStream { streamContinuation in
             continuation = streamContinuation
@@ -60,6 +83,7 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
             locked {
                 _accountState = newValue
             }
+            accountContinuation.yield(newValue)
         }
     }
 
@@ -113,6 +137,10 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
         try await handler(payload)
     }
 
+    public func accountStateUpdates() -> AsyncStream<AccountState> {
+        accountStream
+    }
+
     public func summaryUpdates() -> AsyncStream<SummaryUpdate> {
         summaryStream
     }
@@ -129,5 +157,57 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return try body()
+    }
+}
+
+extension MockSyncBackend: SyncAccountControlling {
+    public func signInWithGoogle() async throws {
+        accountState = .signedIn(email: "sync@example.test")
+    }
+
+    public func signOut() async throws {
+        accountState = .signedOut
+    }
+}
+
+public enum UnavailableSyncBackendError: LocalizedError, Sendable, Equatable {
+    case missingConfiguration([String])
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingConfiguration(let names):
+            return "Missing sync configuration: \(names.joined(separator: ", "))"
+        }
+    }
+}
+
+public final class UnavailableSyncBackend: SyncBackend, SyncAccountControlling, @unchecked Sendable {
+    private let missingConfiguration: [String]
+
+    public init(missingConfiguration: [String]) {
+        self.missingConfiguration = missingConfiguration
+    }
+
+    public var accountState: AccountState { .signedOut }
+
+    public func signInWithGoogle() async throws {
+        throw UnavailableSyncBackendError.missingConfiguration(missingConfiguration)
+    }
+
+    public func signOut() async throws {}
+
+    public func upsertMeeting(_ payload: MeetingPayload) async throws {}
+
+    public func accountStateUpdates() -> AsyncStream<AccountState> {
+        AsyncStream { continuation in
+            continuation.yield(.signedOut)
+            continuation.finish()
+        }
+    }
+
+    public func summaryUpdates() -> AsyncStream<SummaryUpdate> {
+        AsyncStream { continuation in
+            continuation.finish()
+        }
     }
 }

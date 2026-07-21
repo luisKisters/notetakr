@@ -241,6 +241,28 @@ struct SettingsSheetView: View {
                 .accessibilityIdentifier("inPersonMeetingToggle")
             }
 
+            settingsRow {
+                Toggle(isOn: Binding(
+                    get: { viewModel.frontmatterBridge.noteLocalOnly ?? viewModel.appSettings.localOnlyByDefault },
+                    set: { viewModel.setLocalOnlyThisMeeting($0) }
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "lock")
+                            .iconStyle(color: textTertiary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Local only").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Never sync this meeting")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(accent)
+                .accessibilityIdentifier("localOnlyMeetingToggle")
+            }
+
             sectionLabel("Calendar")
 
             settingsRow {
@@ -439,6 +461,8 @@ struct SettingsSheetView: View {
 
             openRouterSection
 
+            accountSyncSection
+
             sectionLabel("App")
 
             settingsRow {
@@ -537,6 +561,76 @@ struct SettingsSheetView: View {
 
             updatesSettingsSection
         }
+    }
+
+    private var accountSyncSection: some View {
+        Group {
+            sectionLabel("Account & Sync")
+
+            settingsRow {
+                Image(systemName: "person.crop.circle")
+                    .iconStyle(color: textTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Google account").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text(accountSubtitle)
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                if viewModel.accountState.isSignedIn {
+                    Button("Sign out") { viewModel.signOut() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundColor(textTertiary)
+                        .accessibilityIdentifier("syncSignOutButton")
+                } else {
+                    Button("Sign in with Google") { viewModel.signInWithGoogle() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(accent)
+                        .accessibilityIdentifier("syncGoogleSignInButton")
+                }
+            }
+
+            if let message = viewModel.accountMessage, !message.isEmpty {
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.destructive.swiftUIColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 2)
+                    .padding(.bottom, 8)
+                    .accessibilityIdentifier("syncAccountMessage")
+            }
+
+            settingsRow {
+                Toggle(isOn: Binding(
+                    get: { viewModel.appSettings.localOnlyByDefault },
+                    set: { viewModel.setLocalOnlyByDefault($0) }
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "lock")
+                            .iconStyle(color: textTertiary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Local only by default").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("New meetings stay off cloud sync")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(accent)
+                .accessibilityIdentifier("localOnlyDefaultToggle")
+            }
+        }
+    }
+
+    private var accountSubtitle: String {
+        if let email = viewModel.accountState.email, !email.isEmpty {
+            return email
+        }
+        return "Signed out"
     }
 
     // MARK: - OpenRouter API key

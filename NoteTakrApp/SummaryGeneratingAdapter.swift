@@ -8,22 +8,32 @@ final class SummaryGeneratingAdapter: SummaryGenerating, @unchecked Sendable {
     private let settingsStore: SummarizationSettingsStore
     private let templateStore: SummaryTemplateStore
     private let keychainStore: KeychainStore
+    private let shouldUseCloudSummary: (String) async -> Bool
+    private let cloudGenerator: ((String) async throws -> String)?
 
     init(
         sessionStore: SessionStore,
         summarizationService: SummarizationService = SummarizationService(),
         settingsStore: SummarizationSettingsStore,
         templateStore: SummaryTemplateStore,
-        keychainStore: KeychainStore
+        keychainStore: KeychainStore,
+        shouldUseCloudSummary: @escaping (String) async -> Bool = { _ in false },
+        cloudGenerator: ((String) async throws -> String)? = nil
     ) {
         self.sessionStore = sessionStore
         self.summarizationService = summarizationService
         self.settingsStore = settingsStore
         self.templateStore = templateStore
         self.keychainStore = keychainStore
+        self.shouldUseCloudSummary = shouldUseCloudSummary
+        self.cloudGenerator = cloudGenerator
     }
 
     func generate(for noteID: String) async throws -> String {
+        if await shouldUseCloudSummary(noteID), let cloudGenerator {
+            return try await cloudGenerator(noteID)
+        }
+
         guard let uuid = UUID(uuidString: noteID) else {
             throw AdapterError.invalidNoteID
         }

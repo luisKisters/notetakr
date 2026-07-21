@@ -2,7 +2,10 @@ import AppKit
 import AVFoundation
 import NoteTakrKit
 import NoteTakrCore
+import NoteTakrSync
 import os
+
+private typealias AppSyncBackend = SyncBackend & SyncAccountControlling
 
 /// Single shared source of truth for the app: owns the session store, recorder,
 /// transcription pipeline, and calendar state.
@@ -12,6 +15,7 @@ final class AppModel: ObservableObject {
 
     // Stores / services
     let store: SessionStore
+    let noteStore: NoteStore
     let recordingManager: RecordingManager
     let vocabularyStore: VocabularyStore
     let transcriptionSettingsStore: TranscriptionSettingsStore
@@ -20,6 +24,11 @@ final class AppModel: ObservableObject {
     let appSettings: AppSettingsStore
     let keychainStore: KeychainStore
     private let summarizationService = SummarizationService()
+    private var syncBackend: (any AppSyncBackend)?
+    private var syncService: SyncService?
+    private var syncRunTask: Task<Void, Never>?
+    private var syncAccountTask: Task<Void, Never>?
+    private var syncedSummaryWaiters: [String: [CheckedContinuation<String, Error>]] = [:]
 
     private let runtime = FluidAudioRuntime()
     private let audioLoader = FluidAudioSampleLoader()
@@ -41,6 +50,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var isCalendarLoading = false
     @Published private(set) var calendarError: String?
     @Published private(set) var calendarAuthorized = false
+    @Published private(set) var syncAccountState: AccountState = .signedOut
+    @Published private(set) var syncAccountMessage: String?
+    @Published private(set) var syncSummaryStates: [String: SummaryState] = [:]
 
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
@@ -55,6 +67,7 @@ final class AppModel: ObservableObject {
         let base = Self.applicationSupportBaseURL()
         let sessionsDir = base.appendingPathComponent("NoteTakr/Sessions", isDirectory: true)
         store = SessionStore(baseURL: sessionsDir)
+        noteStore = NoteStore(root: sessionsDir)
         try? FileManager.default.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
         try? store.recoverInterruptedSessions()
 
@@ -75,6 +88,7 @@ final class AppModel: ObservableObject {
         appSettings = AppSettingsStore(root: base.appendingPathComponent("NoteTakr"))
         keychainStore = KeychainStore()
         recordingManager = RecordingManager(store: store, recorder: Self.makeAudioRecorder())
+        configureSync(rootURL: base)
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleStartRecordingFromNotification),
@@ -118,6 +132,244 @@ final class AppModel: ObservableObject {
         }
         #endif
         return NativeAudioRecorder()
+    }
+
+    // MARK: - Sync
+
+    private func configureSync(rootURL: URL) {
+        let backend = Self.makeSyncBackend(rootURL: rootURL)
+        let outbox = SyncOutbox(rootURL: rootURL.appendingPathComponent("NoteTakr", isDirectory: true))
+        let sessionStore = store
+        let notes = noteStore
+
+        syncBackend = backend
+        syncAccountState = backend.accountState
+
+        let service = SyncService(
+            backend: backend,
+            outbox: outbox,
+            loadSession: { localId in
+                guard let uuid = UUID(uuidString: localId) else { return nil }
+                return try sessionStore.load(id: uuid)
+            },
+            loadNote: { localId in
+                try notes.load(id: localId)
+            },
+            persistSummary: { [weak self, sessionStore] localId, text in
+                guard let uuid = UUID(uuidString: localId),
+                      var session = try sessionStore.load(id: uuid) else { return }
+                session.summary = text
+                try sessionStore.save(session)
+                Self.regenerateNote(for: session, store: sessionStore)
+                Task { @MainActor [weak self] in
+                    self?.handleSyncedSummary(localId: localId, text: text)
+                }
+            }
+        )
+        syncService = service
+
+        recordingManager.markDirty = { [weak self] localId in
+            Task { @MainActor [weak self] in
+                self?.markSyncDirty(localId: localId)
+            }
+        }
+
+        syncRunTask = Task {
+            await service.run()
+        }
+        syncAccountTask = Task { [weak self, backend] in
+            for await state in backend.accountStateUpdates() {
+                await MainActor.run {
+                    self?.syncAccountState = state
+                    if state.isSignedIn {
+                        self?.syncAccountMessage = nil
+                    }
+                }
+                if state.isSignedIn {
+                    await service.runOnce()
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private static func makeSyncBackend(rootURL: URL) -> any AppSyncBackend {
+        #if DEBUG
+        let env = ProcessInfo.processInfo.environment
+        if env["NOTETAKR_E2E_MOCK_SYNC_BACKEND"] == "1" {
+            let spoolRoot = env["NOTETAKR_E2E_SYNC_SPOOL_ROOT"].flatMap { value -> URL? in
+                guard !value.isEmpty else { return nil }
+                return URL(fileURLWithPath: value, isDirectory: true)
+            } ?? rootURL
+                .appendingPathComponent("NoteTakr", isDirectory: true)
+                .appendingPathComponent("MockSyncBackend", isDirectory: true)
+            return FileSpoolSyncBackend(rootURL: spoolRoot)
+        }
+        #endif
+
+        guard let configuration = syncConfiguration() else {
+            return UnavailableSyncBackend(
+                missingConfiguration: [
+                    "CONVEX_DEPLOYMENT_URL or NOTETAKR_CONVEX_DEPLOYMENT_URL",
+                    "CLERK_PUBLISHABLE_KEY or NOTETAKR_CLERK_PUBLISHABLE_KEY",
+                ]
+            )
+        }
+        return ConvexSyncBackend(configuration: configuration)
+    }
+
+    private static func syncConfiguration() -> ConvexSyncConfiguration? {
+        let env = ProcessInfo.processInfo.environment
+        guard let deployment = firstNonEmpty(
+            env["NOTETAKR_CONVEX_DEPLOYMENT_URL"],
+            env["CONVEX_DEPLOYMENT_URL"],
+            env["CONVEX_URL"],
+            Bundle.main.object(forInfoDictionaryKey: "NOTETAKR_CONVEX_DEPLOYMENT_URL") as? String
+        ),
+              let deploymentURL = URL(string: deployment),
+              deploymentURL.scheme?.hasPrefix("http") == true,
+              let clerkKey = firstNonEmpty(
+                  env["NOTETAKR_CLERK_PUBLISHABLE_KEY"],
+                  env["CLERK_PUBLISHABLE_KEY"],
+                  Bundle.main.object(forInfoDictionaryKey: "NOTETAKR_CLERK_PUBLISHABLE_KEY") as? String
+              )
+        else {
+            return nil
+        }
+        let callbackScheme = firstNonEmpty(
+            env["NOTETAKR_CLERK_CALLBACK_SCHEME"],
+            Bundle.main.object(forInfoDictionaryKey: "NOTETAKR_CLERK_CALLBACK_SCHEME") as? String,
+            Bundle.main.bundleIdentifier
+        ) ?? "notetakr"
+        return ConvexSyncConfiguration(
+            deploymentURL: deploymentURL.absoluteString,
+            clerkPublishableKey: clerkKey,
+            callbackURLScheme: callbackScheme
+        )
+    }
+
+    private static func firstNonEmpty(_ values: String?...) -> String? {
+        values
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
+
+    var hasCloudSummaryBackend: Bool {
+        syncAccountState.isSignedIn
+    }
+
+    func canUseCloudSummary(for noteID: String) -> Bool {
+        guard syncAccountState.isSignedIn else { return false }
+        guard let uuid = UUID(uuidString: noteID) else { return false }
+        guard let session = try? store.load(id: uuid),
+              let note = try? noteStore.load(id: noteID) else {
+            return false
+        }
+        return session.localOnly != true && note.localOnly != true
+    }
+
+    @discardableResult
+    func markSyncDirty(localId: String) -> Bool {
+        guard let syncService else { return false }
+        do {
+            let didEnqueue = try syncService.markDirty(localId: localId)
+            guard didEnqueue else { return false }
+            if canUseCloudSummary(for: localId) {
+                syncSummaryStates[localId] = .generating
+            }
+            Task { [syncService] in
+                await syncService.runOnce()
+            }
+            return true
+        } catch {
+            syncAccountMessage = Self.syncErrorMessage(error)
+            return false
+        }
+    }
+
+    func generateServerSummary(for noteID: String) async throws -> String {
+        guard canUseCloudSummary(for: noteID) else {
+            throw CloudSummaryError.unavailable
+        }
+        if case .ready(let text) = syncSummaryStates[noteID], !text.isEmpty {
+            return text
+        }
+        if let uuid = UUID(uuidString: noteID),
+           let session = try? store.load(id: uuid),
+           let summary = session.summary,
+           !summary.isEmpty {
+            syncSummaryStates[noteID] = .ready(summary)
+            return summary
+        }
+
+        syncSummaryStates[noteID] = .waiting
+        _ = markSyncDirty(localId: noteID)
+        let service = syncService
+        Task { [weak self, service] in
+            await service?.runOnce()
+            await MainActor.run {
+                if self?.syncSummaryStates[noteID] == .waiting {
+                    self?.syncSummaryStates[noteID] = .generating
+                }
+            }
+        }
+        return try await waitForSyncedSummary(noteID: noteID)
+    }
+
+    func signInWithGoogle() async {
+        guard let syncBackend else {
+            syncAccountMessage = "Cloud sync is not configured."
+            return
+        }
+        do {
+            try await syncBackend.signInWithGoogle()
+            syncAccountState = syncBackend.accountState
+            syncAccountMessage = nil
+            await syncService?.runOnce()
+        } catch {
+            syncAccountMessage = Self.syncErrorMessage(error)
+        }
+    }
+
+    func signOut() async {
+        guard let syncBackend else { return }
+        do {
+            try await syncBackend.signOut()
+            syncAccountState = syncBackend.accountState
+            syncSummaryStates.removeAll()
+            syncAccountMessage = nil
+        } catch {
+            syncAccountMessage = Self.syncErrorMessage(error)
+        }
+    }
+
+    private func waitForSyncedSummary(noteID: String) async throws -> String {
+        if case .ready(let text) = syncSummaryStates[noteID], !text.isEmpty {
+            return text
+        }
+        try await withCheckedThrowingContinuation { continuation in
+            syncedSummaryWaiters[noteID, default: []].append(continuation)
+        }
+    }
+
+    private func handleSyncedSummary(localId: String, text: String) {
+        syncSummaryStates[localId] = .ready(text)
+        let waiters = syncedSummaryWaiters.removeValue(forKey: localId) ?? []
+        for waiter in waiters {
+            waiter.resume(returning: text)
+        }
+    }
+
+    private static func syncErrorMessage(_ error: Error) -> String {
+        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    }
+
+    private enum CloudSummaryError: LocalizedError {
+        case unavailable
+
+        var errorDescription: String? {
+            "Cloud summaries are unavailable for this meeting."
+        }
     }
 
     // MARK: - Recording
@@ -187,13 +439,14 @@ final class AppModel: ObservableObject {
         let name = title ?? nextMeeting?.title ?? "Meeting Recording"
         do {
             beginRecordingActivity()
-            let pendingSession = MeetingSession(
+            var pendingSession = MeetingSession(
                 title: name,
                 date: Date(),
                 inPerson: inPerson,
                 microphoneEnabled: options.microphoneEnabled,
                 systemAudioEnabled: options.systemAudioEnabled
             )
+            pendingSession.localOnly = appSettings.localOnlyByDefault ? true : nil
             let session = try await recordingManager.startRecording(session: pendingSession)
             isRecording = true
             onRecordingStarted?(session.id.uuidString)
@@ -344,6 +597,7 @@ final class AppModel: ObservableObject {
         session.microphoneEnabled = options.microphoneEnabled
         session.systemAudioEnabled = options.systemAudioEnabled
         session.personalNotes = note.body
+        session.localOnly = note.localOnly ?? (appSettings.localOnlyByDefault ? true : nil)
         return session
     }
 
@@ -390,7 +644,15 @@ final class AppModel: ObservableObject {
             diarizer: diarizer,
             booster: booster
         )
-        let service = TranscriptionService(engine: engine, store: store)
+        let service = TranscriptionService(
+            engine: engine,
+            store: store,
+            markDirty: { [weak self] localId in
+                Task { @MainActor [weak self] in
+                    self?.markSyncDirty(localId: localId)
+                }
+            }
+        )
 
         do {
             let updated = try await service.transcribe(session: latest, vocabulary: vocabEntries)
@@ -514,6 +776,10 @@ final class AppModel: ObservableObject {
 
     /// Writes note.md without opening it (used after transcription/summarization updates it).
     private func regenerateNote(for session: MeetingSession) {
+        Self.regenerateNote(for: session, store: store)
+    }
+
+    private static func regenerateNote(for session: MeetingSession, store: SessionStore) {
         let markdown = MarkdownNoteRenderer.render(session: session)
         let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
         try? markdown.write(to: noteURL, atomically: true, encoding: .utf8)

@@ -29,6 +29,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.recordingHotkey.displayString, "⌃⌥⌘R")
         XCTAssertFalse(store.launchAtLogin)
         XCTAssertNil(store.notesFolderPath)
+        XCTAssertFalse(store.localOnlyByDefault)
     }
 
     // MARK: - Persistence round-trip
@@ -44,6 +45,7 @@ final class AppSettingsStoreTests: XCTestCase {
         store.recordingHotkey = try HotkeyCombo.parse("⌃⌥⌘R")
         store.launchAtLogin = true
         store.notesFolderPath = "/Users/me/Notes"
+        store.localOnlyByDefault = true
 
         let store2 = makeStore(at: root)
         XCTAssertFalse(store2.transcribeByDefault)
@@ -54,6 +56,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(store2.recordingHotkey.displayString, "⌃⌥⌘R")
         XCTAssertTrue(store2.launchAtLogin)
         XCTAssertEqual(store2.notesFolderPath, "/Users/me/Notes")
+        XCTAssertTrue(store2.localOnlyByDefault)
     }
 
     func testNotesFolderPathRoundTrips() {
@@ -104,6 +107,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertTrue(store.transcribeByDefault)
         XCTAssertEqual(store.defaultLanguage, .auto)
         XCTAssertFalse(store.inPersonByDefault)
+        XCTAssertFalse(store.localOnlyByDefault)
     }
 }
 
@@ -131,14 +135,17 @@ final class EffectiveMeetingSettingsTests: XCTestCase {
         var transcribeByDefault: Bool
         var defaultLanguage: TranscribeLanguage
         var inPersonByDefault: Bool
+        var localOnlyByDefault: Bool
         init(
             transcribeByDefault: Bool = true,
             defaultLanguage: TranscribeLanguage = .auto,
-            inPersonByDefault: Bool = false
+            inPersonByDefault: Bool = false,
+            localOnlyByDefault: Bool = false
         ) {
             self.transcribeByDefault = transcribeByDefault
             self.defaultLanguage = defaultLanguage
             self.inPersonByDefault = inPersonByDefault
+            self.localOnlyByDefault = localOnlyByDefault
         }
     }
 

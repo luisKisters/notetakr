@@ -8,6 +8,8 @@ const modules = import.meta.glob("./**/*.*s");
 const upsertFromDevice =
   makeFunctionReference<"mutation">("meetings:upsertFromDevice");
 const getByLocalId = makeFunctionReference<"query">("meetings:getByLocalId");
+const readySummaries =
+  makeFunctionReference<"query">("meetings:readySummaries");
 
 type Segment = {
   seq: number;
@@ -186,5 +188,53 @@ describe("meetings", () => {
       localId: "shared-local-id",
       userId: "user-b",
     });
+  });
+
+  test("readySummaries returns only the current user's ready summaries", async () => {
+    vi.useFakeTimers();
+    const backend = convexTest({ schema, modules });
+    const userA = backend.withIdentity({
+      issuer: "https://clerk.test",
+      subject: "user-a",
+      tokenIdentifier: "user-a",
+    });
+    const userB = backend.withIdentity({
+      issuer: "https://clerk.test",
+      subject: "user-b",
+      tokenIdentifier: "user-b",
+    });
+
+    const first = await userA.mutation(upsertFromDevice, {
+      payload: payload({ localId: "ready-a" }),
+    });
+    const second = await userA.mutation(upsertFromDevice, {
+      payload: payload({ localId: "pending-a", contentHash: "hash-pending" }),
+    });
+    const third = await userB.mutation(upsertFromDevice, {
+      payload: payload({ localId: "ready-b" }),
+    });
+
+    await backend.run(async (ctx) => {
+      await ctx.db.patch(first.meetingId, {
+        summary: "Ready for A",
+        summaryStatus: "ready",
+      });
+      await ctx.db.patch(second.meetingId, {
+        summary: "Pending for A",
+        summaryStatus: "pending",
+      });
+      await ctx.db.patch(third.meetingId, {
+        summary: "Ready for B",
+        summaryStatus: "ready",
+      });
+    });
+
+    await expect(userA.query(readySummaries, {})).resolves.toEqual([
+      {
+        localId: "ready-a",
+        summary: "Ready for A",
+        summaryStatus: "ready",
+      },
+    ]);
   });
 });

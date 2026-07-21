@@ -28,6 +28,7 @@ public final class AppSettingsStore {
     private var _systemAudioEnabled: Bool = true
     private var _autoCheckForUpdates: Bool = true
     private var _autoDownloadUpdates: Bool = false
+    private var _localOnlyByDefault: Bool = false
 
     public init(root: URL) {
         fileURL = root.appendingPathComponent("settings.json")
@@ -106,6 +107,11 @@ public final class AppSettingsStore {
         set { _autoDownloadUpdates = newValue; saveToDisk() }
     }
 
+    public var localOnlyByDefault: Bool {
+        get { _localOnlyByDefault }
+        set { _localOnlyByDefault = newValue; saveToDisk() }
+    }
+
     // MARK: - Persistence
 
     private struct Payload: Codable {
@@ -123,6 +129,7 @@ public final class AppSettingsStore {
         var systemAudioEnabled: Bool?
         var autoCheckForUpdates: Bool?
         var autoDownloadUpdates: Bool?
+        var localOnlyByDefault: Bool?
     }
 
     private func loadFromDisk() {
@@ -143,6 +150,7 @@ public final class AppSettingsStore {
         if let v = payload.systemAudioEnabled    { _systemAudioEnabled = v }
         if let v = payload.autoCheckForUpdates   { _autoCheckForUpdates = v }
         if let v = payload.autoDownloadUpdates   { _autoDownloadUpdates = v }
+        if let v = payload.localOnlyByDefault    { _localOnlyByDefault = v }
     }
 
     private func saveToDisk() {
@@ -160,7 +168,8 @@ public final class AppSettingsStore {
             micEnabled: _micEnabled,
             systemAudioEnabled: _systemAudioEnabled,
             autoCheckForUpdates: _autoCheckForUpdates,
-            autoDownloadUpdates: _autoDownloadUpdates
+            autoDownloadUpdates: _autoDownloadUpdates,
+            localOnlyByDefault: _localOnlyByDefault
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? FileManager.default.createDirectory(

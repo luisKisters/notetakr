@@ -168,15 +168,46 @@ final class NoteTakrUITests: XCTestCase {
         )
     }
 
+    func testMeetingSyncsAfterRecordingStops() throws {
+        launch(enablePanelToggleControl: true, mockSyncBackend: true)
+
+        let recordButton = element("recordPillMainButton")
+        XCTAssertTrue(recordButton.waitForExistence(timeout: 8))
+        recordButton.click()
+        XCTAssertTrue(
+            element("recordPillCaretButton").waitForExistence(timeout: 8),
+            "The mock recorder should enter the recording state."
+        )
+
+        recordButton.click()
+        let payload = try waitForMockSyncPayload()
+        let summaryText = "Server summary from the mock sync backend."
+        try emitMockSyncSummary(localId: payload.localId, text: summaryText)
+
+        app.buttons["Summary"].click()
+        let readySummary = element("summaryReadyText")
+        XCTAssertTrue(
+            readySummary.waitForExistence(timeout: 10),
+            "The Summary tab should render the server-emitted summary."
+        )
+        XCTAssertTrue(
+            readySummary.label.contains(summaryText)
+                || ((readySummary.value as? String)?.contains(summaryText) ?? false)
+        )
+        try waitForPersistedSummary(localId: payload.localId, text: summaryText)
+    }
+
     private func launch(
         openSettings: Bool = false,
         openSwitcher: Bool = false,
         enablePanelToggleControl: Bool = false,
         expandFrontmatter: Bool = false,
-        openPeoplePicker: Bool = false
+        openPeoplePicker: Bool = false,
+        mockSyncBackend: Bool = false
     ) {
         app.launchEnvironment["NOTETAKR_E2E_APP_SUPPORT_ROOT"] = appSupportRoot.path
         app.launchEnvironment["NOTETAKR_E2E_USE_MOCK_RECORDER"] = "1"
+        app.launchEnvironment["NOTETAKR_E2E_MOCK_SYNC_BACKEND"] = mockSyncBackend ? "1" : "0"
         app.launchEnvironment["NOTETAKR_E2E_SHOW_PANEL"] = "1"
         app.launchEnvironment["NOTETAKR_E2E_OPEN_SETTINGS"] = openSettings ? "1" : "0"
         app.launchEnvironment["NOTETAKR_E2E_OPEN_SWITCHER"] = openSwitcher ? "1" : "0"
@@ -199,6 +230,86 @@ final class NoteTakrUITests: XCTestCase {
             launchAnchor.waitForExistence(timeout: 10),
             "The requested NoteTakr screen should become accessible after launch."
         )
+    }
+
+    private func waitForMockSyncPayload(timeout: TimeInterval = 10) throws -> MockSyncPayload {
+        let deadline = Date().addingTimeInterval(timeout)
+        let payloads = mockSyncRoot()
+            .appendingPathComponent("Payloads", isDirectory: true)
+        while Date() < deadline {
+            let files = (try? FileManager.default.contentsOfDirectory(
+                at: payloads,
+                includingPropertiesForKeys: nil,
+                options: .skipsHiddenFiles
+            )) ?? []
+            for file in files where file.pathExtension == "json" {
+                guard let data = try? Data(contentsOf: file),
+                      let payload = try? JSONDecoder().decode(MockSyncPayload.self, from: data) else {
+                    continue
+                }
+                return payload
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        throw NSError(
+            domain: "NoteTakrUITests",
+            code: 4,
+            userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for mock sync payload"]
+        )
+    }
+
+    private func emitMockSyncSummary(localId: String, text: String) throws {
+        let summaries = mockSyncRoot()
+            .appendingPathComponent("Summaries", isDirectory: true)
+        try FileManager.default.createDirectory(at: summaries, withIntermediateDirectories: true)
+        let update = MockSyncSummary(localId: localId, text: text)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(update)
+        try data.write(
+            to: summaries.appendingPathComponent("\(localId).json"),
+            options: .atomic
+        )
+    }
+
+    private func waitForPersistedSummary(
+        localId: String,
+        text: String,
+        timeout: TimeInterval = 10
+    ) throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        let sessions = appSupportRoot
+            .appendingPathComponent("NoteTakr", isDirectory: true)
+            .appendingPathComponent("Sessions", isDirectory: true)
+        while Date() < deadline {
+            let folders = (try? FileManager.default.contentsOfDirectory(
+                at: sessions,
+                includingPropertiesForKeys: nil,
+                options: .skipsHiddenFiles
+            )) ?? []
+            for folder in folders {
+                let file = folder.appendingPathComponent("session.json")
+                guard let data = try? Data(contentsOf: file),
+                      let snapshot = try? JSONDecoder().decode(SummarySessionSnapshot.self, from: data),
+                      snapshot.id.uuidString == localId,
+                      snapshot.summary == text else {
+                    continue
+                }
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        throw NSError(
+            domain: "NoteTakrUITests",
+            code: 5,
+            userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for persisted mock summary"]
+        )
+    }
+
+    private func mockSyncRoot() -> URL {
+        appSupportRoot
+            .appendingPathComponent("NoteTakr", isDirectory: true)
+            .appendingPathComponent("MockSyncBackend", isDirectory: true)
     }
 
     private func element(_ identifier: String) -> XCUIElement {
@@ -345,6 +456,20 @@ final class NoteTakrUITests: XCTestCase {
 private struct SessionSnapshot: Decodable {
     let inPerson: Bool
     let systemAudioEnabled: Bool
+}
+
+private struct SummarySessionSnapshot: Decodable {
+    let id: UUID
+    let summary: String?
+}
+
+private struct MockSyncPayload: Decodable {
+    let localId: String
+}
+
+private struct MockSyncSummary: Encodable {
+    let localId: String
+    let text: String
 }
 
 private struct SeedParticipant {

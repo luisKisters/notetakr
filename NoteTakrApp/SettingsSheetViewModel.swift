@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import NoteTakrKit
+import NoteTakrSync
 
 // MARK: - Tab
 
@@ -28,6 +29,8 @@ final class SettingsSheetViewModel: ObservableObject {
     @Published var currentAppearance: Appearance
     @Published private(set) var hotkeyConflictMessage: String?
     @Published private(set) var hotkeyRegistrationMessages: [String] = []
+    @Published var accountState: AccountState = .signedOut
+    @Published private(set) var accountMessage: String?
 
     let frontmatterBridge: FrontmatterPresenterBridge
     let appSettings: AppSettingsStore
@@ -42,6 +45,8 @@ final class SettingsSheetViewModel: ObservableObject {
     var onAutoCheckForUpdatesChange: ((Bool) -> Void)?
     /// Called when the user toggles auto-download-updates so the live updater can be updated.
     var onAutoDownloadUpdatesChange: ((Bool) -> Void)?
+    var onSignInWithGoogle: (() -> Void)?
+    var onSignOut: (() -> Void)?
 
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
@@ -75,6 +80,10 @@ final class SettingsSheetViewModel: ObservableObject {
         frontmatterBridge.setInPerson(value)
     }
 
+    func setLocalOnlyThisMeeting(_ value: Bool) {
+        frontmatterBridge.setLocalOnly(value)
+    }
+
     func unlinkEvent() {
         frontmatterBridge.unlinkEvent()
     }
@@ -99,6 +108,10 @@ final class SettingsSheetViewModel: ObservableObject {
 
     func setInPersonByDefault(_ value: Bool) {
         appSettings.inPersonByDefault = value
+    }
+
+    func setLocalOnlyByDefault(_ value: Bool) {
+        appSettings.localOnlyByDefault = value
     }
 
     func setLaunchAtLogin(_ value: Bool) {
@@ -169,6 +182,20 @@ final class SettingsSheetViewModel: ObservableObject {
     func setAutoDownloadUpdates(_ value: Bool) {
         appSettings.autoDownloadUpdates = value
         onAutoDownloadUpdatesChange?(value)
+    }
+
+    func signInWithGoogle() {
+        accountMessage = nil
+        onSignInWithGoogle?()
+    }
+
+    func signOut() {
+        accountMessage = nil
+        onSignOut?()
+    }
+
+    func setAccountMessage(_ message: String?) {
+        accountMessage = message
     }
 
     // MARK: - Sheet lifecycle

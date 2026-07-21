@@ -27,6 +27,11 @@ struct SummaryView: View {
                     onGenerate()
                 }
             }
+        case .waiting:
+            centeredContent {
+                generateButton(label: "Waiting for cloud summary…", isDisabled: true, spinning: true) {}
+                    .accessibilityIdentifier("summaryWaitingText")
+            }
         case .generating:
             centeredContent {
                 generateButton(label: "Generating…", isDisabled: true, spinning: true) {}
@@ -34,6 +39,9 @@ struct SummaryView: View {
         case .ready(let text):
             MarkdownBodyView(parsed: MarkdownBodyParser.parse(text))
                 .environment(\.themeColors, theme)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(text)
+                .accessibilityIdentifier("summaryReadyText")
         case .failed(let message):
             centeredContent {
                 VStack(spacing: 12) {

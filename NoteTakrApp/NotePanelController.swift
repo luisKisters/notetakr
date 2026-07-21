@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import NoteTakrKit
 import NoteTakrCore
+import NoteTakrSync
 
 /// Floating note panel (420×620). Owns the Kit NoteStore + all bridges.
 /// AppDelegate calls `show()`, `recordingStarted(sessionID:)`, `recordingStopped()`.
@@ -30,11 +31,19 @@ final class NotePanelController {
     private var pillTickTimer: Timer?
     private var pillPipelineCancellables = Set<AnyCancellable>()
     private var calendarCancellables = Set<AnyCancellable>()
+    private var syncCancellables = Set<AnyCancellable>()
     private weak var appModelRef: AppModel?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
-        bridge = NoteEditorBridge(store: store)
+        bridge = NoteEditorBridge(
+            store: store,
+            onDidSave: { [weak appModel] noteID in
+                Task { @MainActor [weak appModel] in
+                    appModel?.markSyncDirty(localId: noteID)
+                }
+            }
+        )
         frontmatterBridge = FrontmatterPresenterBridge(store: store)
         recordPillMachine = RecordPillStateMachine()
 
@@ -54,7 +63,18 @@ final class NotePanelController {
                 sessionStore: appModel.store,
                 settingsStore: appModel.summarizationSettingsStore,
                 templateStore: appModel.summaryTemplateStore,
-                keychainStore: appModel.keychainStore
+                keychainStore: appModel.keychainStore,
+                shouldUseCloudSummary: { [weak appModel] noteID in
+                    await MainActor.run {
+                        appModel?.canUseCloudSummary(for: noteID) ?? false
+                    }
+                },
+                cloudGenerator: { [weak appModel] noteID in
+                    guard let appModel else {
+                        throw SummaryGeneratingAdapter.AdapterError.sessionNotFound
+                    }
+                    return try await appModel.generateServerSummary(for: noteID)
+                }
             )
             generator = adapter
             sessionStoreRef = appModel.store
@@ -100,6 +120,7 @@ final class NotePanelController {
         wireSwitcher()
         wireRecordPill(appModel: appModel)
         wireCalendarSync(appModel: appModel)
+        wireSync(appModel: appModel)
     }
 
     /// Updates calendar events in the switcher from an external snapshot.
@@ -132,7 +153,8 @@ final class NotePanelController {
                 participants: session.participants.map {
                     NoteTakrKit.Participant(name: $0.name, email: $0.email, crm: $0.crm)
                 },
-                inPerson: session.inPerson
+                inPerson: session.inPerson,
+                localOnly: session.localOnly ?? (appSettings.localOnlyByDefault ? true : nil)
             )
             try? store.save(note)
         }
@@ -362,7 +384,7 @@ final class NotePanelController {
         if let first = notes.first {
             note = first
         } else {
-            note = try? store.create(title: "Untitled meeting", date: Date())
+            note = try? createBlankNote()
         }
         guard let note else { return }
         loadNote(id: note.id)
@@ -370,11 +392,22 @@ final class NotePanelController {
 
     /// Creates a blank note and loads it into the editor. Used by local ⌘N commands.
     func createNewNote() {
-        if let note = try? store.create(title: "Untitled meeting", date: Date()) {
+        if let note = try? createBlankNote() {
             loadNote(id: note.id)
             // Keep the panel up front and key — creating a note must never look like the window closed.
             ensurePanelKey()
         }
+    }
+
+    private func createBlankNote() throws -> MeetingNote {
+        let note = MeetingNote(
+            id: UUID().uuidString,
+            title: "Untitled meeting",
+            date: Date(),
+            localOnly: appSettings.localOnlyByDefault ? true : nil
+        )
+        try store.save(note)
+        return note
     }
 
     private func wireRecordPill(appModel: AppModel?) {
@@ -624,6 +657,46 @@ final class NotePanelController {
             .store(in: &calendarCancellables)
     }
 
+    private func wireSync(appModel: AppModel?) {
+        guard let appModel else { return }
+        settingsBridge.accountState = appModel.syncAccountState
+        settingsBridge.setAccountMessage(appModel.syncAccountMessage)
+        settingsBridge.onSignInWithGoogle = { [weak appModel] in
+            Task { @MainActor [weak appModel] in
+                await appModel?.signInWithGoogle()
+            }
+        }
+        settingsBridge.onSignOut = { [weak appModel] in
+            Task { @MainActor [weak appModel] in
+                await appModel?.signOut()
+            }
+        }
+
+        appModel.$syncAccountState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.settingsBridge.accountState = state
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$syncAccountMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                self?.settingsBridge.setAccountMessage(message)
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$syncSummaryStates
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] states in
+                guard let self else { return }
+                for (noteID, state) in states {
+                    self.tabsBridge.presenter.setSummaryState(state, for: noteID)
+                }
+            }
+            .store(in: &syncCancellables)
+    }
+
     #if DEBUG
     private static func e2eActiveRecording(now: Date = Date()) -> ActiveRecordingInfo? {
         guard ProcessInfo.processInfo.environment["NOTETAKR_E2E_ACTIVE_RECORDING"] == "1" else {
@@ -723,7 +796,7 @@ final class NotePanelController {
         }
         switcherBridge.onCreateBlankNote = { [weak self] in
             guard let self else { return }
-            if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
+            if let note = try? self.createBlankNote() {
                 self.loadNote(id: note.id)
                 // Keep the panel up front and key — creating a note must never look like the window closed.
                 self.ensurePanelKey()
@@ -737,7 +810,7 @@ final class NotePanelController {
             let remaining = (try? self.store.list()) ?? []
             if let next = remaining.first(where: { $0.id != deletedID }) ?? remaining.first {
                 self.loadNote(id: next.id)
-            } else if let blank = try? self.store.create(title: "Untitled meeting", date: Date()) {
+            } else if let blank = try? self.createBlankNote() {
                 self.loadNote(id: blank.id)
             }
             self.ensurePanelKey()
@@ -797,6 +870,9 @@ final class NotePanelController {
             tabsBridge.presenter.setSegments(rawSegments, for: id)
             if let summary = session.summary, !summary.isEmpty {
                 tabsBridge.presenter.setSummary(summary, for: id)
+            }
+            if let syncState = appModelRef?.syncSummaryStates[id] {
+                tabsBridge.presenter.setSummaryState(syncState, for: id)
             }
             frontmatterBridge.audioFileURL = Self.audioFileURL(for: session, store: ss)
             frontmatterBridge.hasCompletedRecording = frontmatterBridge.audioFileURL != nil

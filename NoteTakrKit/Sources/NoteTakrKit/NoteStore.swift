@@ -1,6 +1,6 @@
 import Foundation
 
-public final class NoteStore: NoteStoring, NoteDeleting {
+public final class NoteStore: NoteStoring, NoteDeleting, @unchecked Sendable {
     public let root: URL
     private let fileManager = FileManager.default
 

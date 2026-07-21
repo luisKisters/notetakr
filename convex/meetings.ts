@@ -25,6 +25,12 @@ const meetingPayload = v.object({
   contentHash: v.string(),
 });
 
+const summaryStatus = v.union(
+  v.literal("pending"),
+  v.literal("ready"),
+  v.literal("failed"),
+);
+
 const summarizeMeeting = makeFunctionReference<"action">(
   "summarize:summarizeMeeting",
 );
@@ -133,5 +139,28 @@ export const getByLocalId = query({
         q.eq("userId", userId).eq("localId", localId),
       )
       .unique();
+  },
+});
+
+export const readySummaries = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      localId: v.string(),
+      summary: v.optional(v.string()),
+      summaryStatus: v.optional(summaryStatus),
+    }),
+  ),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const meetings = await ctx.db.query("meetings").collect();
+    return meetings
+      .filter((meeting) => meeting.userId === userId)
+      .filter((meeting) => meeting.summaryStatus === "ready")
+      .map((meeting) => ({
+        localId: meeting.localId,
+        summary: meeting.summary,
+        summaryStatus: meeting.summaryStatus,
+      }));
   },
 });

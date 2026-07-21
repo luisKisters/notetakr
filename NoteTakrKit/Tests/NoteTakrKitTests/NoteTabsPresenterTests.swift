@@ -101,6 +101,12 @@ final class NoteTabsPresenterTests: XCTestCase {
         XCTAssertEqual(count, 1)
     }
 
+    func testSetSummaryStateStoresWaiting() {
+        let p = NoteTabsPresenter()
+        p.setSummaryState(.waiting, for: "n1")
+        XCTAssertEqual(p.summaryState(for: "n1"), .waiting)
+    }
+
     // MARK: - Summary: generation happy path
 
     func testGenerateSummaryHappyPath() {

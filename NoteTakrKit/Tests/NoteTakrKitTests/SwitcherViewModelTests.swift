@@ -696,6 +696,15 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertEqual(note.inPerson, true)
     }
 
+    func testCreateNoteLocalOnlyTrueWhenDefaultIsTrue() throws {
+        var defaults = FixedDefaults(transcribeByDefault: true, defaultLanguage: .auto, inPersonByDefault: false)
+        defaults.localOnlyByDefault = true
+        let event = makeEvent(id: "e1", title: "E", start: utcDate(2026, 6, 11, 10))
+        let (vm, _) = makeVM(defaults: defaults)
+        let note = try vm.createNote(from: event)
+        XCTAssertEqual(note.localOnly, true)
+    }
+
     func testCreatedNoteAppearsInGroups() throws {
         // Event happening now: start < fixedNow < end
         let event = makeEvent(id: "e1", title: "Live Meeting",
@@ -802,4 +811,5 @@ private struct FixedDefaults: NoteDefaultsProviding {
     let transcribeByDefault: Bool
     let defaultLanguage: TranscribeLanguage
     let inPersonByDefault: Bool
+    var localOnlyByDefault: Bool = false
 }

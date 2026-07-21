@@ -10,6 +10,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
     /// Per-note override used by the This Meeting settings toggle. Publishing
     /// it keeps SwiftUI in sync after presenter mutations persist the note.
     @Published private(set) var noteInPerson: Bool?
+    @Published private(set) var noteLocalOnly: Bool?
     @Published var isExpanded: Bool = false
     /// Set by the recording pipeline when a recording completes and audio is available.
     @Published var hasCompletedRecording: Bool = false
@@ -68,6 +69,10 @@ final class FrontmatterPresenterBridge: ObservableObject {
     func setInPerson(_ value: Bool) {
         guard !isRecording else { return }
         try? presenter?.setInPerson(value)
+    }
+
+    func setLocalOnly(_ value: Bool) {
+        try? presenter?.setLocalOnly(value)
     }
 
     func setRecordingActive(_ active: Bool) {
@@ -210,6 +215,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
     var noteLocationText: String? { presenter?.note.locationText }
     var noteMeetingLink: String? { presenter?.note.meetingLink }
     var noteTranscribe: Bool? { presenter?.note.transcribe }
+    var noteLocalOnlyValue: Bool? { presenter?.note.localOnly }
     var noteLanguage: TranscribeLanguage? { presenter?.note.language }
     var noteVocabulary: [String] { presenter?.note.vocabulary ?? [] }
     var noteCalendarEvent: String? { presenter?.note.calendarEvent }
@@ -227,6 +233,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
         chips = p.chips
         propertyRows = p.propertyRows
         noteInPerson = p.note.inPerson
+        noteLocalOnly = p.note.localOnly
         refreshPeopleIndexFromStoreIfPossible()
     }
 
