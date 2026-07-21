@@ -255,6 +255,7 @@ describe("crm mirror", () => {
   });
 
   test("crmConnectionState reflects saved server configuration", async () => {
+    registerMirrorProvider([]);
     const t = authedBackend();
 
     await expect(t.action(crmConnectionState, {})).resolves.toEqual({
@@ -274,6 +275,31 @@ describe("crm mirror", () => {
     await expect(t.action(crmConnectionState, {})).resolves.toEqual({
       connected: true,
       provider: "mirror-test",
+    });
+  });
+
+  test("crmConnectionState reports disconnected when provider verification fails", async () => {
+    registerCrmProvider({
+      providerId: "state-fail",
+      listPeople: vi.fn(async () => {
+        throw new Error("revoked API key");
+      }),
+      upsertMeetingNote: vi.fn(async () => "unused-note-id"),
+    });
+    const t = authedBackend();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userSettings", {
+        userId: "user-a",
+        crm: {
+          provider: "state-fail",
+          baseUrl: "https://crm.test",
+          encryptedApiKey: "test-key",
+        },
+      });
+    });
+
+    await expect(t.action(crmConnectionState, {})).resolves.toEqual({
+      connected: false,
     });
   });
 

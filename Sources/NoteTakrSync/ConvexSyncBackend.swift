@@ -109,6 +109,13 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
         )
     }
 
+    public func deleteMeeting(localId: String) async throws {
+        let _: DeleteResult = try await client.mutation(
+            "meetings:deleteFromDevice",
+            with: ["localId": localId]
+        )
+    }
+
     public func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson] {
         try await client.action("crm/mirror:fetchCurrentPeopleSnapshot")
     }
@@ -241,38 +248,45 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
     }
 
     private func convexPayload(_ payload: MeetingPayload) -> [String: ConvexEncodable?] {
-        [
+        Self.compactObject([
             "localId": payload.localId,
             "title": payload.title,
             "startedAt": Self.iso8601.string(from: payload.startedAt),
             "calendarEventId": payload.calendarEventId,
             "participants": payload.participants.map { participant -> ConvexEncodable? in
-                [
+                Self.compactObject([
                     "name": participant.name,
                     "email": participant.email,
                     "crm": participant.crm,
-                ] as [String: ConvexEncodable?]
+                ])
             },
             "markdownBody": payload.markdownBody,
             "transcriptSegments": payload.transcriptSegments.map { segment -> ConvexEncodable? in
-                [
+                Self.compactObject([
                     "seq": segment.seq,
                     "startMs": segment.startMs,
                     "speaker": segment.speaker,
                     "text": segment.text,
-                ] as [String: ConvexEncodable?]
+                ])
             },
             "crmPushOptOut": payload.crmPushOptOut,
             "contentHash": payload.contentHash,
-        ]
+        ])
     }
 
     private func convexCrmConfiguration(_ configuration: CrmConfiguration) -> [String: ConvexEncodable?] {
-        [
+        Self.compactObject([
             "provider": configuration.provider,
             "baseUrl": configuration.baseURL,
             "apiKey": configuration.apiKey,
-        ]
+        ])
+    }
+
+    private static func compactObject(_ values: [String: ConvexEncodable?]) -> [String: ConvexEncodable?] {
+        values.reduce(into: [String: ConvexEncodable?]()) { result, item in
+            guard let value = item.value else { return }
+            result[item.key] = value
+        }
     }
 
     private static func crmBackendError(from result: CrmConnectionResult) -> CrmBackendError {
@@ -298,6 +312,10 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
 
     private struct UpsertResult: Decodable {
         var scheduledSummary: Bool
+    }
+
+    private struct DeleteResult: Decodable {
+        var deleted: Bool
     }
 
     private struct SaveCrmConfigResult: Decodable {
@@ -343,6 +361,10 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
     public func signOut() async throws {}
 
     public func upsertMeeting(_ payload: MeetingPayload) async throws {
+        throw ConvexSyncBackendError.sdkUnavailable
+    }
+
+    public func deleteMeeting(localId: String) async throws {
         throw ConvexSyncBackendError.sdkUnavailable
     }
 

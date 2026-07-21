@@ -7,6 +7,8 @@ const modules = import.meta.glob("./**/*.*s");
 
 const upsertFromDevice =
   makeFunctionReference<"mutation">("meetings:upsertFromDevice");
+const deleteFromDevice =
+  makeFunctionReference<"mutation">("meetings:deleteFromDevice");
 const getByLocalId = makeFunctionReference<"query">("meetings:getByLocalId");
 const readySummaries =
   makeFunctionReference<"query">("meetings:readySummaries");
@@ -113,6 +115,31 @@ describe("meetings", () => {
 
     await expect(t.query(getByLocalId, { localId: "meeting-1" })).resolves.toMatchObject({
       crmPushOptOut: true,
+    });
+  });
+
+  test("upsert crm push opt-out immediately marks push skipped", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    const { meetingId } = await t.mutation(upsertFromDevice, {
+      payload: payload({ crmPushOptOut: false }),
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(meetingId, {
+        crmNoteId: "note-existing",
+        pushStatus: "pushed",
+      });
+    });
+
+    await t.mutation(upsertFromDevice, {
+      payload: payload({ crmPushOptOut: true }),
+    });
+
+    await expect(t.query(getByLocalId, { localId: "meeting-1" })).resolves.toMatchObject({
+      crmPushOptOut: true,
+      pushStatus: "skipped",
+      unmatchedParticipants: [],
     });
   });
 
@@ -281,6 +308,21 @@ describe("meetings", () => {
       localId: "shared-local-id",
       userId: "user-b",
     });
+  });
+
+  test("deleteFromDevice removes current user meeting and child rows", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    await t.mutation(upsertFromDevice, { payload: payload() });
+
+    await expect(
+      t.mutation(deleteFromDevice, { localId: "meeting-1" }),
+    ).resolves.toEqual({ deleted: true });
+    const rows = await allRows(t);
+    expect(rows.meetings).toHaveLength(0);
+    expect(rows.notes).toHaveLength(0);
+    expect(rows.transcriptSegments).toHaveLength(0);
   });
 
   test("readySummaries returns only the current user's ready summaries", async () => {

@@ -1,4 +1,3 @@
-import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
@@ -41,10 +40,6 @@ const pushStatus = v.union(
   v.literal("skipped"),
 );
 
-const summarizeMeeting = makeFunctionReference<"action">(
-  "summarize:summarizeMeeting",
-);
-
 async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) {
@@ -84,6 +79,7 @@ export const upsertFromDevice = mutation({
       crmPushBecameEnabled &&
       existing?.summaryStatus === "ready" &&
       existing.summary !== undefined;
+    const crmPushDisabled = payload.crmPushOptOut === true;
 
     let meetingId = existing?._id;
     const meetingFields = {
@@ -99,6 +95,8 @@ export const upsertFromDevice = mutation({
         ? ("pending" as const)
         : existing?.summaryStatus,
       summaryError: shouldScheduleSummary ? undefined : existing?.summaryError,
+      pushStatus: crmPushDisabled ? ("skipped" as const) : existing?.pushStatus,
+      unmatchedParticipants: crmPushDisabled ? [] : existing?.unmatchedParticipants,
     };
 
     if (meetingId === undefined) {
@@ -141,7 +139,7 @@ export const upsertFromDevice = mutation({
     }
 
     if (shouldScheduleSummary) {
-      await ctx.scheduler.runAfter(0, summarizeMeeting, { meetingId });
+      await ctx.scheduler.runAfter(0, internal.summarize.summarizeMeeting, { meetingId });
     }
     if (shouldScheduleCrmPush) {
       await ctx.scheduler.runAfter(0, internal.crm.push.pushMeetingToCrm, {
@@ -150,6 +148,46 @@ export const upsertFromDevice = mutation({
     }
 
     return { meetingId, scheduledSummary: shouldScheduleSummary };
+  },
+});
+
+export const deleteFromDevice = mutation({
+  args: {
+    localId: v.string(),
+  },
+  returns: v.object({
+    deleted: v.boolean(),
+  }),
+  handler: async (ctx, { localId }) => {
+    const userId = await requireUserId(ctx);
+    const meeting = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_localId", (q) =>
+        q.eq("userId", userId).eq("localId", localId),
+      )
+      .unique();
+    if (meeting === null) {
+      return { deleted: false };
+    }
+
+    const notes = await ctx.db
+      .query("notes")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", meeting._id))
+      .collect();
+    for (const note of notes) {
+      await ctx.db.delete(note._id);
+    }
+
+    const segments = await ctx.db
+      .query("transcriptSegments")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", meeting._id))
+      .collect();
+    for (const segment of segments) {
+      await ctx.db.delete(segment._id);
+    }
+
+    await ctx.db.delete(meeting._id);
+    return { deleted: true };
   },
 });
 

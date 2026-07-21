@@ -167,6 +167,8 @@ export const crmConnectionState = internalAction({
     try {
       const materialized = await materializeCrmConfig(crm);
       await validateCrmConfig(materialized);
+      const provider = requireCrmProvider(materialized.provider);
+      await provider.listPeople(materialized);
       return { connected: true, provider: materialized.provider };
     } catch {
       return { connected: false };

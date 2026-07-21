@@ -85,6 +85,7 @@ public protocol SyncBackend: Sendable {
     var accountState: AccountState { get }
 
     func upsertMeeting(_ payload: MeetingPayload) async throws
+    func deleteMeeting(localId: String) async throws
     func accountStateUpdates() -> AsyncStream<AccountState>
     func summaryUpdates() -> AsyncStream<SummaryUpdate>
 }
@@ -146,9 +147,12 @@ public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked 
 
     private var _accountState: AccountState
     private var _failuresBeforeSuccess: Int = 0
+    private var _deleteFailuresBeforeSuccess: Int = 0
     private var _upsertedPayloads: [MeetingPayload] = []
+    private var _deletedLocalIds: [String] = []
     private var _summarySubscriptionCount: Int = 0
     private var _upsertHandler: (@Sendable (MeetingPayload) async throws -> Void)?
+    private var _deleteHandler: (@Sendable (String) async throws -> Void)?
     private var _peopleSnapshot: [ConvexCachedPerson] = []
     private var _peopleSnapshotFetchCount: Int = 0
 
@@ -191,6 +195,17 @@ public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked 
         }
     }
 
+    public var deleteFailuresBeforeSuccess: Int {
+        get {
+            locked { _deleteFailuresBeforeSuccess }
+        }
+        set {
+            locked {
+                _deleteFailuresBeforeSuccess = max(0, newValue)
+            }
+        }
+    }
+
     public var upsertHandler: (@Sendable (MeetingPayload) async throws -> Void)? {
         get {
             locked { _upsertHandler }
@@ -202,12 +217,27 @@ public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked 
         }
     }
 
+    public var deleteHandler: (@Sendable (String) async throws -> Void)? {
+        get {
+            locked { _deleteHandler }
+        }
+        set {
+            locked {
+                _deleteHandler = newValue
+            }
+        }
+    }
+
     public var upsertCount: Int {
         locked { _upsertedPayloads.count }
     }
 
     public var upsertedPayloads: [MeetingPayload] {
         locked { _upsertedPayloads }
+    }
+
+    public var deletedLocalIds: [String] {
+        locked { _deletedLocalIds }
     }
 
     public var summarySubscriptionCount: Int {
@@ -247,6 +277,26 @@ public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked 
             return
         }
         try await handler(payload)
+    }
+
+    public func deleteMeeting(localId: String) async throws {
+        let result: (handler: (@Sendable (String) async throws -> Void)?, shouldFail: Bool) = locked {
+            _deletedLocalIds.append(localId)
+            if _deleteFailuresBeforeSuccess > 0 {
+                _deleteFailuresBeforeSuccess -= 1
+                return (nil, true)
+            }
+            return (_deleteHandler, false)
+        }
+
+        if result.shouldFail {
+            throw MockSyncBackendError.configuredFailure
+        }
+
+        guard let handler = result.handler else {
+            return
+        }
+        try await handler(localId)
     }
 
     public func accountStateUpdates() -> AsyncStream<AccountState> {
@@ -319,6 +369,8 @@ public final class UnavailableSyncBackend: SyncBackend, SyncAccountControlling, 
     public func signOut() async throws {}
 
     public func upsertMeeting(_ payload: MeetingPayload) async throws {}
+
+    public func deleteMeeting(localId: String) async throws {}
 
     public func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson] {
         []

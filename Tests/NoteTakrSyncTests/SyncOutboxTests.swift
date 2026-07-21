@@ -65,6 +65,17 @@ final class SyncOutboxTests: XCTestCase {
         XCTAssertTrue(try outbox.pending().isEmpty)
     }
 
+    func testEnqueueDeleteOverwritesPendingPayload() throws {
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let payload = try makePayload(localId: "45454545-4545-4545-4545-454545454545")
+        try outbox.enqueue(payload)
+
+        try outbox.enqueueDelete(localId: payload.localId)
+
+        XCTAssertTrue(try outbox.pending().isEmpty)
+        XCTAssertEqual(try outbox.pendingOperations(), [.delete(localId: payload.localId)])
+    }
+
     func testPathLikeLocalIdStaysInsideOutbox() throws {
         let outbox = SyncOutbox(rootURL: tempDir)
         let payload = MeetingPayload(

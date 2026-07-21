@@ -56,6 +56,12 @@ public final class FileSpoolSyncBackend: SyncBackend, SyncAccountControlling, @u
         try data.write(to: payloadURL(for: payload.localId), options: .atomic)
     }
 
+    public func deleteMeeting(localId: String) async throws {
+        let url = payloadURL(for: localId)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
+    }
+
     public func accountStateUpdates() -> AsyncStream<AccountState> {
         accountStream
     }

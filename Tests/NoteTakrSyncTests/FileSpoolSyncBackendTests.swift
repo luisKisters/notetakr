@@ -32,6 +32,16 @@ final class FileSpoolSyncBackendTests: XCTestCase {
         XCTAssertEqual(decoded, payload)
     }
 
+    func testDeleteRemovesPayloadFromSpool() async throws {
+        let backend = FileSpoolSyncBackend(rootURL: tempDir, pollInterval: 0.01)
+        let payload = try makePayload(localId: "12121212-1212-1212-1212-121212121212")
+        try await backend.upsertMeeting(payload)
+
+        try await backend.deleteMeeting(localId: payload.localId)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: backend.payloadURL(for: payload.localId).path))
+    }
+
     func testSummaryFileEmitsUpdate() async throws {
         let backend = FileSpoolSyncBackend(rootURL: tempDir, pollInterval: 0.01)
         try FileManager.default.createDirectory(at: backend.summariesURL, withIntermediateDirectories: true)

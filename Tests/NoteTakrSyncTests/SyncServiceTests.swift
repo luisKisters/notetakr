@@ -81,6 +81,26 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(try outbox.pending().isEmpty)
     }
 
+    func testLocalOnlyDirtyDeletesAlreadySyncedMeeting() async throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let service = makeService(store: store, backend: backend, outbox: outbox)
+        let id = UUID(uuidString: "13131313-1313-1313-1313-131313131313")!
+        store.put(session: makeSession(id: id))
+        store.put(note: makeNote(id: id, body: "syncable"))
+        try service.markDirty(localId: id.uuidString)
+        await service.runOnce()
+        XCTAssertEqual(backend.upsertedPayloads.map(\.localId), [id.uuidString])
+
+        store.put(note: makeNote(id: id, body: "private", localOnly: true))
+        try service.markDirty(localId: id.uuidString)
+        await service.runOnce()
+
+        XCTAssertEqual(backend.deletedLocalIds, [id.uuidString])
+        XCTAssertTrue(try outbox.pendingOperations().isEmpty)
+    }
+
     func testDrainPushesAllPendingAndCompletes() async throws {
         let store = SyncFixtureStore()
         let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
@@ -133,6 +153,50 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertEqual(sleepRecorder.delays, [1, 2])
         XCTAssertEqual(backend.upsertCount, 3)
         XCTAssertTrue(try outbox.pending().isEmpty)
+    }
+
+    func testFailedPushDoesNotBlockLaterPendingPayload() async throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        let sleepRecorder = SleepRecorder()
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let service = makeService(
+            store: store,
+            backend: backend,
+            outbox: outbox,
+            sleep: { delay in
+                sleepRecorder.record(delay)
+                backend.accountState = .signedOut
+            }
+        )
+        let firstId = UUID(uuidString: "35353535-3535-3535-3535-353535353535")!
+        let secondId = UUID(uuidString: "36363636-3636-3636-3636-363636363636")!
+        let firstSession = makeSession(id: firstId)
+        let firstNote = makeNote(id: firstId, body: "first")
+        let secondSession = makeSession(id: secondId)
+        let secondNote = makeNote(id: secondId, body: "second")
+        store.put(session: firstSession)
+        store.put(note: firstNote)
+        store.put(session: secondSession)
+        store.put(note: secondNote)
+        let firstPayload = try SyncEnvelope.payload(session: firstSession, note: firstNote)
+        let secondPayload = try SyncEnvelope.payload(session: secondSession, note: secondNote)
+        try outbox.enqueue(firstPayload)
+        try outbox.enqueue(secondPayload)
+        backend.upsertHandler = { payload in
+            if payload.localId == firstPayload.localId {
+                throw MockSyncBackendError.configuredFailure
+            }
+        }
+
+        await service.runOnce()
+
+        XCTAssertEqual(
+            backend.upsertedPayloads.map(\.localId),
+            [firstPayload.localId, secondPayload.localId]
+        )
+        XCTAssertEqual(sleepRecorder.delays, [1])
+        XCTAssertEqual(try outbox.pending().map(\.localId), [firstPayload.localId])
     }
 
     func testFailedPushDoesNotRetryAfterMeetingBecomesLocalOnly() async throws {

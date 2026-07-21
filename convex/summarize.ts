@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, env, internalMutation, internalQuery } from "./_generated/server";
+import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 
 const transcriptSegment = v.object({
   seq: v.number(),
@@ -103,7 +103,7 @@ export const writeSummaryFailed = internalMutation({
   },
 });
 
-export const summarizeMeeting = action({
+export const summarizeMeeting = internalAction({
   args: {
     meetingId: v.id("meetings"),
   },

@@ -1,5 +1,19 @@
 import Foundation
 
+public enum SyncOutboxOperation: Equatable, Sendable {
+    case upsert(MeetingPayload)
+    case delete(localId: String)
+
+    public var localId: String {
+        switch self {
+        case .upsert(let payload):
+            return payload.localId
+        case .delete(let localId):
+            return localId
+        }
+    }
+}
+
 public final class SyncOutbox: @unchecked Sendable {
     public let rootURL: URL
     public let outboxURL: URL
@@ -31,7 +45,21 @@ public final class SyncOutbox: @unchecked Sendable {
         try data.write(to: fileURL(for: payload.localId), options: .atomic)
     }
 
+    public func enqueueDelete(localId: String) throws {
+        try FileManager.default.createDirectory(at: outboxURL, withIntermediateDirectories: true)
+        let item = StoredOutboxItem(deleteLocalId: localId, enqueuedAt: Date())
+        let data = try encoder.encode(item)
+        try data.write(to: fileURL(for: localId), options: .atomic)
+    }
+
     public func pending() throws -> [MeetingPayload] {
+        try pendingOperations().compactMap { operation in
+            guard case .upsert(let payload) = operation else { return nil }
+            return payload
+        }
+    }
+
+    public func pendingOperations() throws -> [SyncOutboxOperation] {
         guard FileManager.default.fileExists(atPath: outboxURL.path) else { return [] }
         let files = try FileManager.default.contentsOfDirectory(
             at: outboxURL,
@@ -52,14 +80,14 @@ public final class SyncOutbox: @unchecked Sendable {
                     enqueuedAt: values?.contentModificationDate ?? .distantPast
                 )
             }
-        return items
+        return try items
             .sorted {
                 if $0.enqueuedAt != $1.enqueuedAt {
                     return $0.enqueuedAt < $1.enqueuedAt
                 }
-                return $0.payload.localId < $1.payload.localId
+                return $0.localId < $1.localId
             }
-            .map(\.payload)
+            .map { try $0.operationValue() }
     }
 
     public func complete(localId: String) throws {
@@ -75,7 +103,72 @@ public final class SyncOutbox: @unchecked Sendable {
     }
 }
 
+private enum StoredOutboxOperation: String, Codable {
+    case upsert
+    case delete
+}
+
 private struct StoredOutboxItem: Codable {
-    var payload: MeetingPayload
+    var operation: StoredOutboxOperation
+    var payload: MeetingPayload?
+    var localId: String
     var enqueuedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case operation
+        case payload
+        case localId
+        case enqueuedAt
+    }
+
+    init(payload: MeetingPayload, enqueuedAt: Date) {
+        self.operation = .upsert
+        self.payload = payload
+        self.localId = payload.localId
+        self.enqueuedAt = enqueuedAt
+    }
+
+    init(deleteLocalId localId: String, enqueuedAt: Date) {
+        self.operation = .delete
+        self.payload = nil
+        self.localId = localId
+        self.enqueuedAt = enqueuedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        operation = try container.decodeIfPresent(StoredOutboxOperation.self, forKey: .operation) ?? .upsert
+        payload = try container.decodeIfPresent(MeetingPayload.self, forKey: .payload)
+        if let localId = try container.decodeIfPresent(String.self, forKey: .localId) {
+            self.localId = localId
+        } else if let payload {
+            self.localId = payload.localId
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.localId,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Stored outbox item is missing localId"
+                )
+            )
+        }
+        enqueuedAt = try container.decodeIfPresent(Date.self, forKey: .enqueuedAt) ?? .distantPast
+    }
+
+    func operationValue() throws -> SyncOutboxOperation {
+        switch operation {
+        case .upsert:
+            guard let payload else {
+                throw DecodingError.dataCorrupted(
+                    DecodingError.Context(
+                        codingPath: [],
+                        debugDescription: "Stored upsert item is missing payload"
+                    )
+                )
+            }
+            return .upsert(payload)
+        case .delete:
+            return .delete(localId: localId)
+        }
+    }
 }

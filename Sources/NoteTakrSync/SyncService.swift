@@ -26,9 +26,22 @@ public final class SyncService: @unchecked Sendable {
     private let lock = NSLock()
     private var inFlight: Set<String> = []
     private var dirtyWhileInFlight: [String: MeetingPayload] = [:]
+    private var deleteWhileInFlight: Set<String> = []
+    private var retryFailureCounts: [String: Int] = [:]
     private var summaryUpdatesTask: Task<Void, Never>?
     private var summaryUpdatesGeneration = 0
     private var lastPeopleCacheRefreshAt: Date?
+
+    private enum PayloadState {
+        case syncable(MeetingPayload)
+        case deleteRemote
+        case missing
+    }
+
+    private struct FinishedInFlight {
+        var dirty: MeetingPayload?
+        var deleteRequested: Bool
+    }
 
     public init(
         backend: any SyncBackend,
@@ -64,19 +77,27 @@ public final class SyncService: @unchecked Sendable {
     @discardableResult
     public func markDirty(localId: String) throws -> Bool {
         guard backend.accountState.isSignedIn else { return false }
-        guard let payload = try currentSyncablePayload(localId: localId) else {
+        switch try currentPayloadState(localId: localId) {
+        case .syncable(let payload):
+            if isInFlight(localId: localId) {
+                recordDirtyWhileInFlight(payload)
+                return false
+            }
+
+            try outbox.enqueue(payload)
+            return true
+        case .deleteRemote:
+            discardPending(localId: localId)
+            try outbox.enqueueDelete(localId: localId)
+            if isInFlight(localId: localId) {
+                recordDeleteWhileInFlight(localId: localId)
+            }
+            return true
+        case .missing:
             discardPending(localId: localId)
             try outbox.complete(localId: localId)
             return false
         }
-
-        if isInFlight(localId: localId) {
-            recordDirtyWhileInFlight(payload)
-            return false
-        }
-
-        try outbox.enqueue(payload)
-        return true
     }
 
     public func run() async {
@@ -105,24 +126,30 @@ public final class SyncService: @unchecked Sendable {
         await refreshPeopleCacheIfPossible()
 
         while !Task.isCancelled, backend.accountState.isSignedIn {
-            let pending: [MeetingPayload]
+            let pending: [SyncOutboxOperation]
             do {
-                pending = try outbox.pending()
+                pending = try outbox.pendingOperations()
             } catch {
                 return
             }
 
             guard !pending.isEmpty else { return }
             var startedWork = false
-            for payload in pending {
+            var retryDelays: [TimeInterval] = []
+            for operation in pending {
                 guard backend.accountState.isSignedIn else { return }
-                guard beginInFlight(localId: payload.localId) else { continue }
+                guard beginInFlight(localId: operation.localId) else { continue }
                 startedWork = true
-                await pushWithRetry(payload)
+                if let delay = await process(operation) {
+                    retryDelays.append(delay)
+                }
             }
 
             if !startedWork {
                 return
+            }
+            if let delay = retryDelays.min() {
+                await sleep(delay)
             }
         }
     }
@@ -191,49 +218,64 @@ public final class SyncService: @unchecked Sendable {
         task?.cancel()
     }
 
-    private func pushWithRetry(_ initialPayload: MeetingPayload) async {
-        var payload = takeDirty(localId: initialPayload.localId) ?? initialPayload
-        var failureCount = 0
-
-        while !Task.isCancelled, backend.accountState.isSignedIn {
-            if let newer = takeDirty(localId: payload.localId) {
-                payload = newer
-                try? outbox.enqueue(newer)
-            }
-
-            do {
-                guard let currentPayload = try currentSyncablePayload(localId: payload.localId) else {
-                    finishNoLongerSyncable(localId: payload.localId)
-                    return
-                }
-                payload = currentPayload
-                try? outbox.enqueue(currentPayload)
-                try await backend.upsertMeeting(payload)
-                finishSuccessfulPush(localId: payload.localId)
-                return
-            } catch {
-                if let newer = takeDirty(localId: payload.localId) {
-                    payload = newer
-                    try? outbox.enqueue(newer)
-                }
-                let delay = backoffDelay(afterFailureCount: failureCount)
-                failureCount += 1
-                await sleep(delay)
-            }
+    private func process(_ operation: SyncOutboxOperation) async -> TimeInterval? {
+        switch operation {
+        case .upsert(let payload):
+            return await processUpsert(localId: payload.localId)
+        case .delete(let localId):
+            return await processDelete(localId: localId)
         }
-
-        finishInFlight(localId: payload.localId)
     }
 
-    private func currentSyncablePayload(localId: String) throws -> MeetingPayload? {
+    private func processUpsert(localId: String) async -> TimeInterval? {
+        do {
+            switch try currentPayloadState(localId: localId) {
+            case .syncable(let currentPayload):
+                try? outbox.enqueue(currentPayload)
+                try await backend.upsertMeeting(currentPayload)
+                finishSuccessfulPush(localId: localId)
+                return nil
+            case .deleteRemote:
+                try? outbox.enqueueDelete(localId: localId)
+                try await backend.deleteMeeting(localId: localId)
+                finishSuccessfulDelete(localId: localId)
+                return nil
+            case .missing:
+                finishNoLongerSyncable(localId: localId)
+                return nil
+            }
+        } catch {
+            return finishFailedAttempt(localId: localId)
+        }
+    }
+
+    private func processDelete(localId: String) async -> TimeInterval? {
+        do {
+            switch try currentPayloadState(localId: localId) {
+            case .syncable(let currentPayload):
+                try? outbox.enqueue(currentPayload)
+                try await backend.upsertMeeting(currentPayload)
+                finishSuccessfulPush(localId: localId)
+                return nil
+            case .deleteRemote, .missing:
+                try await backend.deleteMeeting(localId: localId)
+                finishSuccessfulDelete(localId: localId)
+                return nil
+            }
+        } catch {
+            return finishFailedAttempt(localId: localId)
+        }
+    }
+
+    private func currentPayloadState(localId: String) throws -> PayloadState {
         guard let session = try loadSession(localId),
               let note = try loadNote(localId) else {
-            return nil
+            return .missing
         }
         guard (note.localOnly ?? session.localOnly) != true else {
-            return nil
+            return .deleteRemote
         }
-        return try SyncEnvelope.payload(session: session, note: note)
+        return .syncable(try SyncEnvelope.payload(session: session, note: note))
     }
 
     private func reservePeopleCacheRefreshIfDue() -> Bool {
@@ -252,18 +294,41 @@ public final class SyncService: @unchecked Sendable {
         discardPending(localId: localId)
         try? outbox.complete(localId: localId)
         _ = finishInFlight(localId: localId)
+        resetRetryFailure(localId: localId)
     }
 
     private func finishSuccessfulPush(localId: String) {
-        if let dirty = takeDirty(localId: localId) {
+        let finished = finishInFlight(localId: localId)
+        resetRetryFailure(localId: localId)
+
+        if finished.deleteRequested {
+            try? outbox.enqueueDelete(localId: localId)
+        } else if let dirty = finished.dirty {
             try? outbox.enqueue(dirty)
         } else {
             try? outbox.complete(localId: localId)
         }
+    }
 
-        if let lateDirty = finishInFlight(localId: localId) {
-            try? outbox.enqueue(lateDirty)
+    private func finishSuccessfulDelete(localId: String) {
+        let finished = finishInFlight(localId: localId)
+        resetRetryFailure(localId: localId)
+
+        if let dirty = finished.dirty {
+            try? outbox.enqueue(dirty)
+        } else {
+            try? outbox.complete(localId: localId)
         }
+    }
+
+    private func finishFailedAttempt(localId: String) -> TimeInterval {
+        let finished = finishInFlight(localId: localId)
+        if finished.deleteRequested {
+            try? outbox.enqueueDelete(localId: localId)
+        } else if let dirty = finished.dirty {
+            try? outbox.enqueue(dirty)
+        }
+        return recordRetryFailure(localId: localId)
     }
 
     private func backoffDelay(afterFailureCount failureCount: Int) -> TimeInterval {
@@ -292,27 +357,47 @@ public final class SyncService: @unchecked Sendable {
 
     private func recordDirtyWhileInFlight(_ payload: MeetingPayload) {
         locked {
+            deleteWhileInFlight.remove(payload.localId)
             dirtyWhileInFlight[payload.localId] = payload
         }
     }
 
-    private func discardPending(localId: String) {
-        _ = locked {
+    private func recordDeleteWhileInFlight(localId: String) {
+        locked {
             dirtyWhileInFlight.removeValue(forKey: localId)
+            deleteWhileInFlight.insert(localId)
         }
     }
 
-    private func takeDirty(localId: String) -> MeetingPayload? {
+    private func discardPending(localId: String) {
         locked {
             dirtyWhileInFlight.removeValue(forKey: localId)
+            deleteWhileInFlight.remove(localId)
+        }
+    }
+
+    private func recordRetryFailure(localId: String) -> TimeInterval {
+        locked {
+            let failureCount = retryFailureCounts[localId, default: 0]
+            retryFailureCounts[localId] = failureCount + 1
+            return backoffDelay(afterFailureCount: failureCount)
+        }
+    }
+
+    private func resetRetryFailure(localId: String) {
+        _ = locked {
+            retryFailureCounts.removeValue(forKey: localId)
         }
     }
 
     @discardableResult
-    private func finishInFlight(localId: String) -> MeetingPayload? {
+    private func finishInFlight(localId: String) -> FinishedInFlight {
         locked {
             inFlight.remove(localId)
-            return dirtyWhileInFlight.removeValue(forKey: localId)
+            return FinishedInFlight(
+                dirty: dirtyWhileInFlight.removeValue(forKey: localId),
+                deleteRequested: deleteWhileInFlight.remove(localId) != nil
+            )
         }
     }
 

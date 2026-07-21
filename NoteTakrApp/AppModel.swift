@@ -30,7 +30,7 @@ final class AppModel: ObservableObject {
     private var syncService: SyncService?
     private var syncRunTask: Task<Void, Never>?
     private var syncAccountTask: Task<Void, Never>?
-    private var syncedSummaryWaiters: [String: [CheckedContinuation<String, Error>]] = [:]
+    private var syncedSummaryWaiters: [String: [SyncedSummaryWaiter]] = [:]
     private var syncedSummaryContentHashes: [String: String] = [:]
     private var crmConnectionVerified = false
 
@@ -67,6 +67,11 @@ final class AppModel: ObservableObject {
     private var summarizingIDs: Set<UUID> = []
     private var recordingActivity: NSObjectProtocol?
     private static let cloudSummaryTimeoutNanoseconds: UInt64 = 120_000_000_000
+
+    private struct SyncedSummaryWaiter {
+        var contentHash: String?
+        var continuation: CheckedContinuation<String, Error>
+    }
 
     /// Called when recording starts; argument is the session ID string.
     var onRecordingStarted: ((String) -> Void)?
@@ -343,15 +348,22 @@ final class AppModel: ObservableObject {
     func markSyncDirty(localId: String) -> Bool {
         guard let syncService else { return false }
         do {
+            let canUseCloud = canUseCloudSummary(for: localId)
+            if !canUseCloud {
+                syncSummaryStates.removeValue(forKey: localId)
+                syncedSummaryContentHashes.removeValue(forKey: localId)
+                resumeSyncedSummaryWaiters(for: localId, throwing: CloudSummaryError.unavailable)
+            }
             let didEnqueue = try syncService.markDirty(localId: localId)
             guard didEnqueue else {
-                if !canUseCloudSummary(for: localId) {
-                    syncSummaryStates.removeValue(forKey: localId)
-                    syncedSummaryContentHashes.removeValue(forKey: localId)
-                }
                 return false
             }
-            if canUseCloudSummary(for: localId), hasTranscriptContent(for: localId) {
+            if canUseCloud, hasTranscriptContent(for: localId) {
+                resumeSyncedSummaryWaiters(
+                    for: localId,
+                    notMatching: currentSyncContentHash(for: localId),
+                    throwing: CloudSummaryError.unavailable
+                )
                 syncSummaryStates[localId] = .generating
                 syncedSummaryContentHashes.removeValue(forKey: localId)
             }
@@ -401,7 +413,7 @@ final class AppModel: ObservableObject {
                 }
             }
         }
-        return try await waitForSyncedSummary(noteID: noteID)
+        return try await waitForSyncedSummary(noteID: noteID, contentHash: currentHash)
     }
 
     func signInWithGoogle() async {
@@ -582,30 +594,37 @@ final class AppModel: ObservableObject {
         return try? SyncEnvelope.payload(session: session, note: note).contentHash
     }
 
-    private func waitForSyncedSummary(noteID: String) async throws -> String {
-        if case .ready(let text) = syncSummaryStates[noteID], !text.isEmpty {
+    private func waitForSyncedSummary(noteID: String, contentHash: String?) async throws -> String {
+        if case .ready(let text) = syncSummaryStates[noteID],
+           !text.isEmpty,
+           syncedSummaryContentHashes[noteID] == contentHash {
             return text
         }
         if case .failed(let message) = syncSummaryStates[noteID] {
             throw CloudSummaryError.failed(message)
         }
         try await withCheckedThrowingContinuation { continuation in
-            syncedSummaryWaiters[noteID, default: []].append(continuation)
-            scheduleSyncedSummaryTimeout(noteID: noteID)
+            syncedSummaryWaiters[noteID, default: []].append(
+                SyncedSummaryWaiter(contentHash: contentHash, continuation: continuation)
+            )
+            scheduleSyncedSummaryTimeout(noteID: noteID, contentHash: contentHash)
         }
     }
 
-    private func scheduleSyncedSummaryTimeout(noteID: String) {
+    private func scheduleSyncedSummaryTimeout(noteID: String, contentHash: String?) {
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: Self.cloudSummaryTimeoutNanoseconds)
             guard let self,
-                  self.syncedSummaryWaiters[noteID]?.isEmpty == false else {
+                  self.syncedSummaryWaiters[noteID]?.contains(where: {
+                      Self.summaryContentHash($0.contentHash, matches: contentHash)
+                  }) == true,
+                  self.currentSyncContentHash(for: noteID) == contentHash else {
                 return
             }
             self.handleSyncedSummaryFailure(
                 localId: noteID,
                 message: "Cloud summary generation timed out.",
-                contentHash: nil
+                contentHash: contentHash
             )
         }
     }
@@ -621,8 +640,16 @@ final class AppModel: ObservableObject {
             syncedSummaryContentHashes[localId] = contentHash
         }
         let waiters = syncedSummaryWaiters.removeValue(forKey: localId) ?? []
+        var remaining: [SyncedSummaryWaiter] = []
         for waiter in waiters {
-            waiter.resume(returning: text)
+            if Self.summaryContentHash(waiter.contentHash, matches: contentHash) {
+                waiter.continuation.resume(returning: text)
+            } else {
+                remaining.append(waiter)
+            }
+        }
+        if !remaining.isEmpty {
+            syncedSummaryWaiters[localId] = remaining
         }
     }
 
@@ -634,9 +661,17 @@ final class AppModel: ObservableObject {
         syncSummaryStates[localId] = .failed(message)
         syncedSummaryContentHashes.removeValue(forKey: localId)
         let waiters = syncedSummaryWaiters.removeValue(forKey: localId) ?? []
+        var remaining: [SyncedSummaryWaiter] = []
         let error = CloudSummaryError.failed(message)
         for waiter in waiters {
-            waiter.resume(throwing: error)
+            if Self.summaryContentHash(waiter.contentHash, matches: contentHash) {
+                waiter.continuation.resume(throwing: error)
+            } else {
+                remaining.append(waiter)
+            }
+        }
+        if !remaining.isEmpty {
+            syncedSummaryWaiters[localId] = remaining
         }
     }
 
@@ -649,9 +684,40 @@ final class AppModel: ObservableObject {
         syncedSummaryWaiters.removeAll()
         for noteWaiters in waiters.values {
             for waiter in noteWaiters {
-                waiter.resume(throwing: error)
+                waiter.continuation.resume(throwing: error)
             }
         }
+    }
+
+    private func resumeSyncedSummaryWaiters(for localId: String, throwing error: Error) {
+        let waiters = syncedSummaryWaiters.removeValue(forKey: localId) ?? []
+        for waiter in waiters {
+            waiter.continuation.resume(throwing: error)
+        }
+    }
+
+    private func resumeSyncedSummaryWaiters(
+        for localId: String,
+        notMatching contentHash: String?,
+        throwing error: Error
+    ) {
+        let waiters = syncedSummaryWaiters.removeValue(forKey: localId) ?? []
+        var remaining: [SyncedSummaryWaiter] = []
+        for waiter in waiters {
+            if waiter.contentHash == contentHash {
+                remaining.append(waiter)
+            } else {
+                waiter.continuation.resume(throwing: error)
+            }
+        }
+        if !remaining.isEmpty {
+            syncedSummaryWaiters[localId] = remaining
+        }
+    }
+
+    private static func summaryContentHash(_ waiterHash: String?, matches updateHash: String?) -> Bool {
+        guard let updateHash else { return true }
+        return waiterHash == nil || waiterHash == updateHash
     }
 
     private static func syncErrorMessage(_ error: Error) -> String {
