@@ -4,10 +4,16 @@ import NoteTakrKit
 public final class TranscriptionService: @unchecked Sendable {
     private let engine: any TranscriptionEngine
     private let store: SessionStore
+    private let markDirty: @Sendable (String) -> Void
 
-    public init(engine: any TranscriptionEngine, store: SessionStore) {
+    public init(
+        engine: any TranscriptionEngine,
+        store: SessionStore,
+        markDirty: @escaping @Sendable (String) -> Void = { _ in }
+    ) {
         self.engine = engine
         self.store = store
+        self.markDirty = markDirty
     }
 
     /// Transcribes every captured audio stream in the session (microphone +
@@ -26,6 +32,7 @@ public final class TranscriptionService: @unchecked Sendable {
         updated.transcriptSegments = segments
         try store.save(updated)
         generateNote(for: updated)
+        markDirty(updated.id.uuidString)
         return updated
     }
 

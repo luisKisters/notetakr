@@ -10,8 +10,12 @@ final class NoteEditorBridge: ObservableObject {
 
     let viewModel: NoteEditorViewModel
 
-    init(store: any NoteStoring) {
-        viewModel = NoteEditorViewModel(store: store, scheduler: FoundationScheduler())
+    init(store: any NoteStoring, onDidSave: ((String) -> Void)? = nil) {
+        viewModel = NoteEditorViewModel(
+            store: store,
+            scheduler: FoundationScheduler(),
+            onDidSave: onDidSave
+        )
         viewModel.onChange = { [weak self] in
             guard let self else { return }
             DispatchQueue.main.async { [weak self] in

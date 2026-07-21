@@ -7,6 +7,7 @@ public protocol NoteStoring {
 
 public final class NoteEditorViewModel {
     public var onChange: (() -> Void)?
+    public var onDidSave: ((String) -> Void)?
 
     private let store: any NoteStoring
     private let scheduler: any Scheduler
@@ -15,9 +16,14 @@ public final class NoteEditorViewModel {
     private var currentNote: MeetingNote?
     var isDirty: Bool = false
 
-    public init(store: any NoteStoring, scheduler: any Scheduler) {
+    public init(
+        store: any NoteStoring,
+        scheduler: any Scheduler,
+        onDidSave: ((String) -> Void)? = nil
+    ) {
         self.store = store
         self.scheduler = scheduler
+        self.onDidSave = onDidSave
     }
 
     // MARK: - Accessors
@@ -57,6 +63,7 @@ public final class NoteEditorViewModel {
         try store.save(note)
         currentNote = note
         isDirty = false
+        onDidSave?(note.id)
     }
 
     // MARK: - Private
@@ -68,6 +75,7 @@ public final class NoteEditorViewModel {
             guard (try? self.store.save(note)) != nil else { return }
             self.currentNote = note
             self.isDirty = false
+            self.onDidSave?(note.id)
         }
     }
 

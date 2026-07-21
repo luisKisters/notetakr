@@ -54,6 +54,25 @@ final class TranscriptionServiceTests: XCTestCase {
         XCTAssertEqual(reloaded?.transcriptSegments.count, 3)
     }
 
+    func testTranscribeMarksSessionDirtyAfterPersistingTranscript() async throws {
+        let engine = MockTranscriptionEngine()
+        let dirty = DirtyIDRecorder()
+        let service = TranscriptionService(
+            engine: engine,
+            store: store,
+            markDirty: { dirty.record($0) }
+        )
+        var session = MeetingSession(title: "Meeting", date: Date())
+        session.audioFilePaths = [audioFile.path]
+        try store.save(session)
+
+        let updated = try await service.transcribe(session: session, vocabulary: [])
+        let reloaded = try XCTUnwrap(store.load(id: session.id))
+
+        XCTAssertEqual(reloaded.transcriptSegments, updated.transcriptSegments)
+        XCTAssertEqual(dirty.ids, [session.id.uuidString])
+    }
+
     func testTranscribePassesVocabulary() async throws {
         let engine = MockTranscriptionEngine()
         let service = TranscriptionService(engine: engine, store: store)
@@ -260,6 +279,23 @@ private final class SourceCapturingTranscriptionEngine: TranscriptionEngine, @un
     func transcribe(sources: [TranscriptionSource], vocabulary: [VocabularyEntry]) async throws -> [TranscriptSegment] {
         lastSources = sources
         return [TranscriptSegment(timestamp: 0, speaker: "Speaker 1", text: "multi")]
+    }
+}
+
+private final class DirtyIDRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedIDs: [String] = []
+
+    var ids: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedIDs
+    }
+
+    func record(_ id: String) {
+        lock.lock()
+        recordedIDs.append(id)
+        lock.unlock()
     }
 }
 

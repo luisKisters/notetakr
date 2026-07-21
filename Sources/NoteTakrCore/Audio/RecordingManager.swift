@@ -11,15 +11,21 @@ public enum RecordingManagerError: Error, Sendable, Equatable {
 public final class RecordingManager: @unchecked Sendable {
     public let store: SessionStore
     public let recorder: any AudioRecorder
+    public var markDirty: @Sendable (String) -> Void
     private var _activeSession: MeetingSession?
     private var _recordingStartedAt: Date?
 
     public var activeSession: MeetingSession? { _activeSession }
     public var isRecording: Bool { recorder.isRecording }
 
-    public init(store: SessionStore, recorder: any AudioRecorder) {
+    public init(
+        store: SessionStore,
+        recorder: any AudioRecorder,
+        markDirty: @escaping @Sendable (String) -> Void = { _ in }
+    ) {
         self.store = store
         self.recorder = recorder
+        self.markDirty = markDirty
     }
 
     /// Creates a new session in .recording state, starts the recorder, and persists the session.
@@ -92,6 +98,7 @@ public final class RecordingManager: @unchecked Sendable {
             )
             session.status = .stopped
             try store.save(session)
+            markDirty(session.id.uuidString)
             let persisted = (try? store.load(id: session.id)) ?? session
             _activeSession = nil
             _recordingStartedAt = nil
