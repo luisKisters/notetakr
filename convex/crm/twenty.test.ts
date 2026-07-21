@@ -281,6 +281,42 @@ describe("twenty provider", () => {
     expect(deleteInit?.method).toBe("DELETE");
   });
 
+  test("upsertMeetingNote with stale existingNoteId creates a fresh note", async () => {
+    const fetch = fetchMock(
+      jsonResponse({ errors: [{ message: "Not found" }] }, 404),
+      jsonResponse({
+        data: { createNote: { id: "note-replacement" } },
+      }, 201),
+      jsonResponse({ data: { createNoteTarget: { id: "target-1" } } }, 201),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      twentyProvider.upsertMeetingNote(
+        cfg,
+        ["person-1"],
+        "Weekly Review",
+        "Updated markdown",
+        "stale-note-id",
+      ),
+    ).resolves.toBe("note-replacement");
+
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const [patchUrl, patchInit] = fetch.mock.calls[0];
+    const [createUrl, createInit] = fetch.mock.calls[1];
+    const [targetUrl, targetInit] = fetch.mock.calls[2];
+    expect(patchUrl).toBe("https://twenty.test/rest/notes/stale-note-id");
+    expect(patchInit?.method).toBe("PATCH");
+    expect(createUrl).toBe("https://twenty.test/rest/notes");
+    expect(createInit?.method).toBe("POST");
+    expect(targetUrl).toBe("https://twenty.test/rest/noteTargets");
+    expect(targetInit?.method).toBe("POST");
+    expect(JSON.parse(targetInit?.body as string)).toEqual({
+      noteId: "note-replacement",
+      personId: "person-1",
+    });
+  });
+
   test("api error surfaces as typed CrmError, not a throw-through", async () => {
     vi.stubGlobal(
       "fetch",

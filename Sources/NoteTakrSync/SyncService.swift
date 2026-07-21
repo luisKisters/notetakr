@@ -19,6 +19,8 @@ public final class SyncService: @unchecked Sendable {
     private let persistCrmPushStatus: CrmPushStatusPersister?
     private let peopleCacheSource: ConvexPeopleCacheSource?
     private let peopleCacheDidRefresh: (@Sendable () -> Void)?
+    private let peopleCacheRefreshInterval: TimeInterval
+    private let now: @Sendable () -> Date
     private let sleep: Sleep
 
     private let lock = NSLock()
@@ -26,6 +28,7 @@ public final class SyncService: @unchecked Sendable {
     private var dirtyWhileInFlight: [String: MeetingPayload] = [:]
     private var summaryUpdatesTask: Task<Void, Never>?
     private var summaryUpdatesGeneration = 0
+    private var lastPeopleCacheRefreshAt: Date?
 
     public init(
         backend: any SyncBackend,
@@ -37,6 +40,8 @@ public final class SyncService: @unchecked Sendable {
         persistCrmPushStatus: CrmPushStatusPersister? = nil,
         peopleCacheSource: ConvexPeopleCacheSource? = nil,
         peopleCacheDidRefresh: (@Sendable () -> Void)? = nil,
+        peopleCacheRefreshInterval: TimeInterval = 60,
+        now: @escaping @Sendable () -> Date = { Date() },
         sleep: @escaping Sleep = { seconds in
             let nanoseconds = UInt64(max(0, seconds) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
@@ -51,6 +56,8 @@ public final class SyncService: @unchecked Sendable {
         self.persistCrmPushStatus = persistCrmPushStatus
         self.peopleCacheSource = peopleCacheSource
         self.peopleCacheDidRefresh = peopleCacheDidRefresh
+        self.peopleCacheRefreshInterval = max(0, peopleCacheRefreshInterval)
+        self.now = now
         self.sleep = sleep
     }
 
@@ -81,8 +88,15 @@ public final class SyncService: @unchecked Sendable {
                 await runOnce()
             } else {
                 cancelSummaryUpdates()
+                resetPeopleCacheRefreshThrottle()
             }
             await sleep(5)
+        }
+    }
+
+    public func resetPeopleCacheRefreshThrottle() {
+        locked {
+            lastPeopleCacheRefreshAt = nil
         }
     }
 
@@ -116,6 +130,9 @@ public final class SyncService: @unchecked Sendable {
     private func refreshPeopleCacheIfPossible() async {
         guard let peopleCacheSource,
               let peopleFetcher = backend as? any SyncPeopleFetching else {
+            return
+        }
+        guard reservePeopleCacheRefreshIfDue() else {
             return
         }
         guard let people = try? await peopleFetcher.fetchPeopleSnapshot() else {
@@ -213,10 +230,22 @@ public final class SyncService: @unchecked Sendable {
               let note = try loadNote(localId) else {
             return nil
         }
-        guard session.localOnly != true, note.localOnly != true else {
+        guard (note.localOnly ?? session.localOnly) != true else {
             return nil
         }
         return try SyncEnvelope.payload(session: session, note: note)
+    }
+
+    private func reservePeopleCacheRefreshIfDue() -> Bool {
+        locked {
+            let current = now()
+            if let lastPeopleCacheRefreshAt,
+               current.timeIntervalSince(lastPeopleCacheRefreshAt) < peopleCacheRefreshInterval {
+                return false
+            }
+            lastPeopleCacheRefreshAt = current
+            return true
+        }
     }
 
     private func finishNoLongerSyncable(localId: String) {

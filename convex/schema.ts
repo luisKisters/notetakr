@@ -36,9 +36,13 @@ export default defineSchema({
     pushStatus: v.optional(pushStatus),
     unmatchedParticipants: v.optional(v.array(participant)),
     crmPushOptOut: v.optional(v.boolean()),
-  }).index("by_user_localId", {
-    fields: ["userId", "localId"],
-  }),
+  })
+    .index("by_user_localId", {
+      fields: ["userId", "localId"],
+    })
+    .index("by_user_summaryStatus", {
+      fields: ["userId", "summaryStatus"],
+    }),
 
   notes: defineTable({
     userId: v.string(),
@@ -67,9 +71,16 @@ export default defineSchema({
     provider: v.optional(v.string()),
     remoteId: v.optional(v.string()),
     sourceRefs: v.optional(v.array(v.string())),
-  }).index("by_user_email", {
-    fields: ["userId", "email"],
-  }),
+  })
+    .index("by_user_email", {
+      fields: ["userId", "email"],
+    })
+    .index("by_user_provider", {
+      fields: ["userId", "provider"],
+    })
+    .index("by_user_provider_remoteId", {
+      fields: ["userId", "provider", "remoteId"],
+    }),
 
   userSettings: defineTable({
     userId: v.string(),

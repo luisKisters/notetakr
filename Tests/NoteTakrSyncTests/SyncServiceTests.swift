@@ -50,6 +50,20 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(try outbox.pending().isEmpty)
     }
 
+    func testExplicitNoteLocalOnlyFalseOverridesLocalOnlySession() throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let service = makeService(store: store, backend: backend, outbox: outbox)
+        let id = UUID()
+        store.put(session: makeSession(id: id, localOnly: true))
+        store.put(note: makeNote(id: id, localOnly: false))
+
+        try service.markDirty(localId: id.uuidString)
+
+        XCTAssertEqual(try outbox.pending().map(\.localId), [id.uuidString])
+    }
+
     func testLocalOnlyDirtyClearsPendingOutboxItem() throws {
         let store = SyncFixtureStore()
         let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
@@ -270,6 +284,52 @@ final class SyncServiceTests: XCTestCase {
             )
         ])
         XCTAssertEqual(refreshCounter.value, 1)
+    }
+
+    func testPeopleCacheRefreshIsThrottledBetweenSyncLoops() async throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        backend.peopleSnapshot = [
+            ConvexCachedPerson(
+                remoteId: "person-1",
+                name: "Ada Lovelace",
+                emails: ["ada@example.com"]
+            )
+        ]
+        let peopleCache = ConvexPeopleCacheSource(rootURL: tempDir)
+        let service = makeService(
+            store: store,
+            backend: backend,
+            peopleCacheSource: peopleCache
+        )
+
+        await service.runOnce()
+        await service.runOnce()
+
+        XCTAssertEqual(backend.peopleSnapshotFetchCount, 1)
+    }
+
+    func testPeopleCacheRefreshThrottleCanBeReset() async throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        backend.peopleSnapshot = [
+            ConvexCachedPerson(
+                remoteId: "person-1",
+                name: "Ada Lovelace",
+                emails: ["ada@example.com"]
+            )
+        ]
+        let service = makeService(
+            store: store,
+            backend: backend,
+            peopleCacheSource: ConvexPeopleCacheSource(rootURL: tempDir)
+        )
+
+        await service.runOnce()
+        service.resetPeopleCacheRefreshThrottle()
+        await service.runOnce()
+
+        XCTAssertEqual(backend.peopleSnapshotFetchCount, 2)
     }
 
     func testSignedOutDoesNotSubscribeToSummaryUpdates() async {

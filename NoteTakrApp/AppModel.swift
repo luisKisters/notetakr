@@ -241,11 +241,15 @@ final class AppModel: ObservableObject {
                     self?.syncAccountState = state
                     if state.isSignedIn {
                         self?.syncAccountMessage = nil
+                        service.resetPeopleCacheRefreshThrottle()
                         service.startSummaryUpdatesIfNeeded()
                     } else {
                         service.cancelSummaryUpdates()
+                        service.resetPeopleCacheRefreshThrottle()
                         self?.syncSummaryStates.removeAll()
                         self?.syncedSummaryContentHashes.removeAll()
+                        try? self?.crmPeopleCacheSource.refresh(people: [])
+                        self?.crmPeopleCacheRevision &+= 1
                         self?.resumeSyncedSummaryWaiters(throwing: CloudSummaryError.unavailable)
                         self?.crmConnectionVerified = false
                     }
@@ -332,7 +336,7 @@ final class AppModel: ObservableObject {
               let note = try? noteStore.load(id: noteID) else {
             return false
         }
-        return session.localOnly != true && note.localOnly != true
+        return (note.localOnly ?? session.localOnly) != true
     }
 
     @discardableResult

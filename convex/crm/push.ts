@@ -64,13 +64,21 @@ export const loadPushInput = internalQuery({
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", meeting.userId))
       .unique();
-    const people = (await ctx.db.query("people").collect())
-      .filter((person) => person.userId === meeting.userId)
-      .filter((person) => person.provider === settings?.crm?.provider)
-      .map((person) => ({
-        email: person.email,
-        remoteId: person.remoteId,
-      }));
+    const provider = settings?.crm?.provider;
+    const people =
+      provider === undefined
+        ? []
+        : (
+            await ctx.db
+              .query("people")
+              .withIndex("by_user_provider", (q) =>
+                q.eq("userId", meeting.userId).eq("provider", provider),
+              )
+              .collect()
+          ).map((person) => ({
+            email: person.email,
+            remoteId: person.remoteId,
+          }));
     const transcriptSegments = await ctx.db
       .query("transcriptSegments")
       .withIndex("by_meeting", (q) => q.eq("meetingId", meetingId))

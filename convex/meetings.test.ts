@@ -116,6 +116,33 @@ describe("meetings", () => {
     });
   });
 
+  test("re-enabling crm push with ready summary schedules crm push without resummarizing", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    const { meetingId } = await t.mutation(upsertFromDevice, {
+      payload: payload({ crmPushOptOut: true }),
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(meetingId, {
+        summary: "Ready summary",
+        summaryStatus: "ready",
+        pushStatus: "skipped",
+      });
+    });
+
+    const result = await t.mutation(upsertFromDevice, {
+      payload: payload({ crmPushOptOut: false }),
+    });
+
+    const rows = await allRows(t);
+    expect(result.scheduledSummary).toBe(false);
+    expect(rows.scheduled.map((job) => job.name)).toEqual([
+      "summarize:summarizeMeeting",
+      "crm/push:pushMeetingToCrm",
+    ]);
+  });
+
   test("upsert persists participant crm remote ids from device payload", async () => {
     vi.useFakeTimers();
     const t = authedTest();

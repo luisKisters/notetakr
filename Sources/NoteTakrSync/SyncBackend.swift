@@ -150,6 +150,7 @@ public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked 
     private var _summarySubscriptionCount: Int = 0
     private var _upsertHandler: (@Sendable (MeetingPayload) async throws -> Void)?
     private var _peopleSnapshot: [ConvexCachedPerson] = []
+    private var _peopleSnapshotFetchCount: Int = 0
 
     public init(accountState: AccountState = .signedOut) {
         _accountState = accountState
@@ -224,6 +225,10 @@ public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked 
         }
     }
 
+    public var peopleSnapshotFetchCount: Int {
+        locked { _peopleSnapshotFetchCount }
+    }
+
     public func upsertMeeting(_ payload: MeetingPayload) async throws {
         let result: (handler: (@Sendable (MeetingPayload) async throws -> Void)?, shouldFail: Bool) = locked {
             _upsertedPayloads.append(payload)
@@ -264,7 +269,10 @@ public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked 
     }
 
     public func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson] {
-        locked { _peopleSnapshot }
+        locked {
+            _peopleSnapshotFetchCount += 1
+            return _peopleSnapshot
+        }
     }
 
     private func locked<T>(_ body: () throws -> T) rethrows -> T {

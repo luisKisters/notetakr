@@ -1,5 +1,6 @@
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 
 const participant = v.object({
@@ -76,6 +77,13 @@ export const upsertFromDevice = mutation({
     const shouldRetryFailedSummary = existing?.summaryStatus === "failed";
     const shouldScheduleSummary =
       hasTranscript && (contentChanged || shouldRetryFailedSummary);
+    const crmPushBecameEnabled =
+      existing?.crmPushOptOut === true && payload.crmPushOptOut !== true;
+    const shouldScheduleCrmPush =
+      !shouldScheduleSummary &&
+      crmPushBecameEnabled &&
+      existing?.summaryStatus === "ready" &&
+      existing.summary !== undefined;
 
     let meetingId = existing?._id;
     const meetingFields = {
@@ -135,6 +143,11 @@ export const upsertFromDevice = mutation({
     if (shouldScheduleSummary) {
       await ctx.scheduler.runAfter(0, summarizeMeeting, { meetingId });
     }
+    if (shouldScheduleCrmPush) {
+      await ctx.scheduler.runAfter(0, internal.crm.push.pushMeetingToCrm, {
+        meetingId,
+      });
+    }
 
     return { meetingId, scheduledSummary: shouldScheduleSummary };
   },
@@ -169,10 +182,13 @@ export const readySummaries = query({
   ),
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
-    const meetings = await ctx.db.query("meetings").collect();
+    const meetings = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_summaryStatus", (q) =>
+        q.eq("userId", userId).eq("summaryStatus", "ready"),
+      )
+      .collect();
     return meetings
-      .filter((meeting) => meeting.userId === userId)
-      .filter((meeting) => meeting.summaryStatus === "ready")
       .map((meeting) => ({
         localId: meeting.localId,
         contentHash: meeting.contentHash,
@@ -198,10 +214,20 @@ export const summaryUpdates = query({
   ),
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
-    const meetings = await ctx.db.query("meetings").collect();
+    const readyMeetings = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_summaryStatus", (q) =>
+        q.eq("userId", userId).eq("summaryStatus", "ready"),
+      )
+      .collect();
+    const failedMeetings = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_summaryStatus", (q) =>
+        q.eq("userId", userId).eq("summaryStatus", "failed"),
+      )
+      .collect();
+    const meetings = [...readyMeetings, ...failedMeetings];
     return meetings
-      .filter((meeting) => meeting.userId === userId)
-      .filter((meeting) => meeting.summaryStatus === "ready" || meeting.summaryStatus === "failed")
       .map((meeting) => ({
         localId: meeting.localId,
         contentHash: meeting.contentHash,

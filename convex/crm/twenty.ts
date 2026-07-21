@@ -107,34 +107,51 @@ export const twentyProvider: CrmProvider = {
     existingNoteId,
   ) {
     if (existingNoteId !== undefined && existingNoteId.trim() !== "") {
-      const body = await twentyRequest<TwentyNoteResponse>(
-        cfg,
-        `/notes/${encodeURIComponent(existingNoteId)}`,
-        {
-          method: "PATCH",
-          body: noteBody(title, markdown),
-        },
-      );
+      let body: TwentyNoteResponse;
+      try {
+        body = await twentyRequest<TwentyNoteResponse>(
+          cfg,
+          `/notes/${encodeURIComponent(existingNoteId)}`,
+          {
+            method: "PATCH",
+            body: noteBody(title, markdown),
+          },
+        );
+      } catch (error) {
+        if (!(error instanceof CrmError) || error.code !== "not_found") {
+          throw error;
+        }
+        return await createTwentyNote(cfg, personRemoteIds, title, markdown);
+      }
       const noteId = noteIdFromResponse(body, "updateNote");
       await ensureNoteTargets(cfg, noteId, personRemoteIds);
       return noteId;
     }
 
-    const body = await twentyRequest<TwentyNoteResponse>(cfg, "/notes", {
-      method: "POST",
-      body: noteBody(title, markdown),
-    });
-    const noteId = noteIdFromResponse(body, "createNote");
-
-    for (const personRemoteId of uniqueNonEmpty(personRemoteIds)) {
-      await createNoteTarget(cfg, noteId, personRemoteId);
-    }
-
-    return noteId;
+    return await createTwentyNote(cfg, personRemoteIds, title, markdown);
   },
 };
 
 registerCrmProvider(twentyProvider);
+
+async function createTwentyNote(
+  cfg: CrmConfig,
+  personRemoteIds: string[],
+  title: string,
+  markdown: string,
+) {
+  const body = await twentyRequest<TwentyNoteResponse>(cfg, "/notes", {
+    method: "POST",
+    body: noteBody(title, markdown),
+  });
+  const noteId = noteIdFromResponse(body, "createNote");
+
+  for (const personRemoteId of uniqueNonEmpty(personRemoteIds)) {
+    await createNoteTarget(cfg, noteId, personRemoteId);
+  }
+
+  return noteId;
+}
 
 function noteBody(title: string, markdown: string) {
   return {

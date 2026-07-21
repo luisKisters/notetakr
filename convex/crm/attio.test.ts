@@ -199,8 +199,8 @@ describe("attio provider", () => {
 
   test("upsertMeetingNote with existingNoteId updates instead of creating", async () => {
     const fetch = fetchMock(
-      jsonResponse({ data: { id: { note_id: "note-replacement" } } }),
       jsonResponse({ data: null }),
+      jsonResponse({ data: { id: { note_id: "note-replacement" } } }),
     );
     vi.stubGlobal("fetch", fetch);
 
@@ -215,8 +215,10 @@ describe("attio provider", () => {
     ).resolves.toBe("note-replacement");
 
     expect(fetch).toHaveBeenCalledTimes(2);
-    const [createUrl, createInit] = fetch.mock.calls[0];
-    const [deleteUrl, deleteInit] = fetch.mock.calls[1];
+    const [deleteUrl, deleteInit] = fetch.mock.calls[0];
+    const [createUrl, createInit] = fetch.mock.calls[1];
+    expect(deleteUrl).toBe("https://attio.test/v2/notes/note-existing");
+    expect(deleteInit?.method).toBe("DELETE");
     expect(createUrl).toBe("https://attio.test/v2/notes");
     expect(createInit?.method).toBe("POST");
     expect(JSON.parse(createInit?.body as string)).toMatchObject({
@@ -228,13 +230,10 @@ describe("attio provider", () => {
         content: "Updated markdown",
       },
     });
-    expect(deleteUrl).toBe("https://attio.test/v2/notes/note-existing");
-    expect(deleteInit?.method).toBe("DELETE");
   });
 
-  test("upsertMeetingNote fails when existing note cleanup fails", async () => {
+  test("upsertMeetingNote does not create replacement when existing note cleanup fails", async () => {
     const fetch = fetchMock(
-      jsonResponse({ data: { id: { note_id: "note-replacement" } } }),
       jsonResponse({ message: "Temporarily unavailable" }, 503),
     );
     vi.stubGlobal("fetch", fetch);
@@ -253,13 +252,36 @@ describe("attio provider", () => {
       status: 503,
     });
 
-    expect(fetch).toHaveBeenCalledTimes(2);
-    const [createUrl, createInit] = fetch.mock.calls[0];
-    const [deleteUrl, deleteInit] = fetch.mock.calls[1];
-    expect(createUrl).toBe("https://attio.test/v2/notes");
-    expect(createInit?.method).toBe("POST");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [deleteUrl, deleteInit] = fetch.mock.calls[0];
     expect(deleteUrl).toBe("https://attio.test/v2/notes/note-existing");
     expect(deleteInit?.method).toBe("DELETE");
+  });
+
+  test("upsertMeetingNote treats missing existing note as already cleaned up", async () => {
+    const fetch = fetchMock(
+      jsonResponse({ message: "Not found" }, 404),
+      jsonResponse({ data: { id: { note_id: "note-replacement" } } }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      attioProvider.upsertMeetingNote(
+        cfg,
+        ["person-1"],
+        "Weekly Review",
+        "Updated markdown",
+        "note-existing",
+      ),
+    ).resolves.toBe("note-replacement");
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const [deleteUrl, deleteInit] = fetch.mock.calls[0];
+    const [createUrl, createInit] = fetch.mock.calls[1];
+    expect(deleteUrl).toBe("https://attio.test/v2/notes/note-existing");
+    expect(deleteInit?.method).toBe("DELETE");
+    expect(createUrl).toBe("https://attio.test/v2/notes");
+    expect(createInit?.method).toBe("POST");
   });
 
   test("api error surfaces as typed CrmError, not a throw-through", async () => {

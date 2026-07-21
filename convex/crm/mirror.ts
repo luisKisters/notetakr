@@ -166,9 +166,12 @@ export const applyMirror = internalMutation({
       }
     }
 
-    const existingProviderRows = (await ctx.db.query("people").collect())
-      .filter((row) => row.userId === userId)
-      .filter((row) => row.provider === provider);
+    const existingProviderRows = await ctx.db
+      .query("people")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider),
+      )
+      .collect();
     for (const row of existingProviderRows) {
       if (
         row.remoteId === undefined ||
@@ -238,9 +241,10 @@ export const currentPeopleSnapshot = query({
   returns: v.array(cachedPerson),
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
-    const rows = (await ctx.db.query("people").collect())
-      .filter((row) => row.userId === userId)
-      .filter((row) => row.remoteId !== undefined);
+    const rows = (await ctx.db
+      .query("people")
+      .withIndex("by_user_email", (q) => q.eq("userId", userId))
+      .collect()).filter((row) => row.remoteId !== undefined);
 
     const grouped = new Map<
       string,
@@ -291,10 +295,12 @@ export const peopleSnapshotForUser = internalQuery({
       return [];
     }
 
-    const rows = (await ctx.db.query("people").collect())
-      .filter((row) => row.userId === userId)
-      .filter((row) => row.provider === provider)
-      .filter((row) => row.remoteId !== undefined);
+    const rows = (await ctx.db
+      .query("people")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider),
+      )
+      .collect()).filter((row) => row.remoteId !== undefined);
 
     const grouped = new Map<
       string,
