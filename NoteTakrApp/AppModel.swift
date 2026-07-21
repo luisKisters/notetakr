@@ -580,7 +580,7 @@ final class AppModel: ObservableObject {
         return Self.currentSyncContentHash(session: session, noteStore: noteStore)
     }
 
-    private static func currentSyncContentHash(
+    nonisolated private static func currentSyncContentHash(
         session: MeetingSession,
         noteStore: NoteStore
     ) -> String? {
