@@ -6,6 +6,7 @@ import {
   internalQuery,
 } from "../_generated/server";
 import { requireCrmProvider } from "./provider";
+import "./attio";
 import "./twenty";
 
 const participant = v.object({

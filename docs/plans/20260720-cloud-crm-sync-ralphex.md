@@ -150,10 +150,10 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 
 ### Task 15: Attio adapter behind the proven interface (tests first)
 
-- [ ] Write `convex/crm/attio.test.ts` first: the same five mocked cases as Twenty, mapped to Attio API shapes, plus `provider registry resolves by userSettings.crm.provider`.
-- [ ] Implement `convex/crm/attio.ts` until the tests pass as written. No Swift, UI, or pipeline changes — if any seem required, that is a spec violation: record it as a blocker instead of changing the pipeline.
-- [ ] Add `convex/crm/attio.integration.test.ts` (same five live cases, gated on `ATTIO_TEST_API_KEY`, `[nt-test]` prefix + `finally` cleanup, self-skip warning when unset).
-- [ ] Run `cd convex && npm test`; all green.
+- [x] Write `convex/crm/attio.test.ts` first: the same five mocked cases as Twenty, mapped to Attio API shapes, plus `provider registry resolves by userSettings.crm.provider`. (added all six mocked/registry tests; focused run failed before implementation because `./attio` was missing, then passed after implementation)
+- [x] Implement `convex/crm/attio.ts` until the tests pass as written. No Swift, UI, or pipeline changes — if any seem required, that is a spec violation: record it as a blocker instead of changing the pipeline. (implemented Attio `CrmProvider` with `/objects/people/records/query` pagination, lowercased email mapping, `/notes` creation per person target, replacement of prior Attio note IDs via delete+recreate because Attio OpenAPI exposes no note update endpoint, typed `CrmError` mapping, registry registration, and provider side-effect imports in the existing CRM action modules)
+- [x] Add `convex/crm/attio.integration.test.ts` (same five live cases, gated on `ATTIO_TEST_API_KEY`, `[nt-test]` prefix + `finally` cleanup, self-skip warning when unset). (added the five exact live cases with `[nt-test]` entities and `finally` cleanup; CI now passes `ATTIO_TEST_API_KEY` into the Convex test job and prints an explicit skip warning when the secret is absent)
+- [x] Run `cd convex && npm test`; all green. (`cd convex && npm test` passed: 6 files passed, 2 skipped; 30 tests passed, 10 skipped; Twenty live suite skipped because `TWENTY_TEST_BASE_URL`/`TWENTY_TEST_API_KEY` are not present and Attio live suite skipped because `ATTIO_TEST_API_KEY` is not present; `cd convex && npm run typecheck` passed; `cd NoteTakrKit && swift test` passed: 620 tests, 0 failures)
 
 ## Success Criteria
 

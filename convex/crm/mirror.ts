@@ -15,6 +15,7 @@ import {
   type CrmPerson,
   requireCrmProvider,
 } from "./provider";
+import "./attio";
 import "./twenty";
 
 const crmConfig = v.object({

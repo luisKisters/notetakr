@@ -83,11 +83,17 @@ jobs:
         env:
           TWENTY_TEST_BASE_URL: ${{ secrets.TWENTY_TEST_BASE_URL }}
           TWENTY_TEST_API_KEY: ${{ secrets.TWENTY_TEST_API_KEY }}
+          ATTIO_TEST_API_KEY: ${{ secrets.ATTIO_TEST_API_KEY }}
         run: |
           if [[ -z "${TWENTY_TEST_BASE_URL}" || -z "${TWENTY_TEST_API_KEY}" ]]; then
             echo "::warning::Skipping Twenty live integration tests because TWENTY_TEST_BASE_URL or TWENTY_TEST_API_KEY repo secret is missing."
           else
             echo "Twenty live integration secrets are present; npm test will run the live suite."
+          fi
+          if [[ -z "${ATTIO_TEST_API_KEY}" ]]; then
+            echo "::warning::Skipping Attio live integration tests because ATTIO_TEST_API_KEY repo secret is missing."
+          else
+            echo "Attio live integration secret is present; npm test will run the live suite."
           fi
           cd convex && npm test
 
