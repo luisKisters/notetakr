@@ -599,7 +599,7 @@ final class AppModel: ObservableObject {
         if case .failed(let message) = syncSummaryStates[noteID] {
             throw CloudSummaryError.failed(message)
         }
-        try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { continuation in
             syncedSummaryWaiters[noteID, default: []].append(
                 SyncedSummaryWaiter(contentHash: contentHash, continuation: continuation)
             )
