@@ -268,6 +268,29 @@ final class RecordingNoteBridgeTests: XCTestCase {
         XCTAssertEqual(spy.callCount, 1)
     }
 
+    func testDiscardClearsLiveStateWithoutStartingTranscription() {
+        let note = makeNote()
+        let fp = makePresenter(note: note)
+        let tabs = NoteTabsPresenter()
+        let spy = SpyTranscriptionService(
+            behavior: .succeed([RawSegment(speaker: nil, timestamp: 0, text: "discarded")])
+        )
+        let bridge = RecordingNoteBridge(
+            frontmatterPresenter: fp,
+            tabsPresenter: tabs,
+            settings: makeSettings(),
+            transcriptionService: spy
+        )
+
+        bridge.startRecording()
+        bridge.discardRecording()
+
+        XCTAssertEqual(bridge.state, .idle)
+        XCTAssertNil(fp.recordingStartedAt)
+        XCTAssertEqual(spy.callCount, 0)
+        XCTAssertEqual(tabs.transcriptState(for: note.id), .empty)
+    }
+
     // MARK: - Failure path
 
     func testTranscriptionFailureSurfacesMessage() {

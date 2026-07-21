@@ -27,3 +27,10 @@ public protocol AudioRecorder: AnyObject, Sendable {
 public protocol ConfigurableAudioRecorder: AudioRecorder {
     func startRecording(into directory: URL, options: AudioRecordingOptions) async throws
 }
+
+/// A recorder whose active capture sources can be changed without ending the
+/// meeting. NoteTakr uses this when an online meeting becomes in-person while
+/// recording, so desktop audio stops immediately while the microphone keeps running.
+public protocol ReconfigurableAudioRecorder: ConfigurableAudioRecorder {
+    func updateRecording(options: AudioRecordingOptions) async throws
+}

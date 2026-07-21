@@ -73,6 +73,16 @@ public final class RecordingNoteBridge {
         beginTranscription(noteID: noteID, service: service)
     }
 
+    /// Clears the live recording state without entering the transcription
+    /// pipeline. Restart and Discard both stop the backing recorder, but that
+    /// stop must not be mistaken for the user's Stop action.
+    public func discardRecording() {
+        frontmatterPresenter.recordingStartedAt = nil
+        pendingNoteID = nil
+        state = .idle
+        onChange?()
+    }
+
     /// Re-triggers transcription for the same note after a `.failed` state.
     public func retryTranscription() {
         guard case .failed = state,

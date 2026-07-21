@@ -180,6 +180,97 @@ final class NoteEditorViewModelTests: XCTestCase {
         XCTAssertEqual(callCount, 1)
     }
 
+    func testGeneratedSessionMarkdownDoesNotAppearInNotes() throws {
+        let generated = """
+        # Recorded meeting
+
+        **Date:** July 20, 2026 at 10:00
+        **Status:** stopped
+
+        ## Audio Sources
+
+        - **Microphone:** Captured
+
+        ## Transcript
+
+        **[0:00] Speaker 1:** Generated words
+        """
+        let (vm, _, _) = makeVM(id: "n1", title: "T", body: generated)
+
+        try vm.load(noteID: "n1")
+
+        XCTAssertEqual(vm.body, "")
+    }
+
+    func testPersonalNotesAreExtractedFromGeneratedSessionMarkdown() throws {
+        let generated = """
+        # Recorded meeting
+
+        **Date:** July 20, 2026 at 10:00
+        **Status:** stopped
+
+        ## Personal Notes
+
+        User-authored thought
+        with a second line
+
+        ## Transcript
+
+        **[0:00] Speaker 1:** Generated words
+        """
+        let (vm, _, _) = makeVM(id: "n1", title: "T", body: generated)
+
+        try vm.load(noteID: "n1")
+
+        XCTAssertEqual(vm.body, "User-authored thought\nwith a second line")
+    }
+
+    func testOrdinaryUserMarkdownRemainsUntouched() throws {
+        let notes = "## My thoughts\n\nOnly I wrote this."
+        let (vm, _, _) = makeVM(id: "n1", title: "T", body: notes)
+
+        try vm.load(noteID: "n1")
+
+        XCTAssertEqual(vm.body, notes)
+    }
+
+    func testUserStatusLineIsNotMistakenForGeneratedSessionMarkdown() throws {
+        let notes = """
+        # Project update
+
+        **Status:** blocked
+
+        These are my own notes.
+        """
+        let (vm, _, _) = makeVM(id: "n1", title: "T", body: notes)
+
+        try vm.load(noteID: "n1")
+
+        XCTAssertEqual(vm.body, notes)
+    }
+
+    func testSuccessfulSavePublishesUserAuthoredEditorContent() throws {
+        let generated = """
+        # Recorded meeting
+
+        **Date:** July 20, 2026 at 10:00
+        **Status:** stopped
+
+        ## Transcript
+
+        Generated words
+        """
+        let (vm, _, scheduler) = makeVM(id: "n1", title: "T", body: generated)
+        try vm.load(noteID: "n1")
+        var saved: MeetingNote?
+        vm.onDidSave = { saved = $0 }
+
+        vm.setBody("Private follow-up")
+        scheduler.fireAll()
+
+        XCTAssertEqual(saved?.body, "Private follow-up")
+    }
+
     // MARK: - setBody/setTitle is no-op before load
 
     func testSetBodyBeforeLoadIsNoop() {

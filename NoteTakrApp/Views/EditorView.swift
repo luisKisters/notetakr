@@ -9,8 +9,8 @@ struct EditorView: View {
     @ObservedObject var settingsBridge: SettingsSheetViewModel
     let recordPillMachine: RecordPillStateMachine
     let onRenameSpeaker: ((String, String, String) -> Void)?
+    let onClose: () -> Void
     @State private var pillState: RecordPillState = .idle
-    @State private var isWindowHovered = false
 
     private var themeColors: ThemeColors {
         Theme.colors(for: settingsBridge.currentAppearance)
@@ -29,7 +29,6 @@ struct EditorView: View {
                     appearance: settingsBridge.currentAppearance
                 )
                     .environment(\.themeColors, themeColors)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                     .zIndex(10)
             }
 
@@ -43,11 +42,10 @@ struct EditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 0) {
-                // Window chrome: dimmed traffic lights left, hover-only gear right.
                 WindowChromeView(
-                    isWindowHovered: isWindowHovered,
-                    settingsIsVisible: settingsBridge.isVisible,
-                    onGearTap: {
+                    close: onClose,
+                    openCommandMenu: { switcherBridge.show() },
+                    openSettings: {
                         withAnimation(.easeInOut(duration: 0.22)) {
                             settingsBridge.isVisible.toggle()
                         }
@@ -109,11 +107,12 @@ struct EditorView: View {
                 footerTabs
             }
             .ignoresSafeArea(.container, edges: .top)
+            .allowsHitTesting(!switcherBridge.isVisible && !settingsBridge.isVisible)
         }
         // ⌘K — toggle switcher
         .background(
             Button("") {
-                withAnimation(.easeInOut(duration: 0.15)) { switcherBridge.toggle() }
+                switcherBridge.toggle()
             }
             .keyboardShortcut("k", modifiers: .command)
             .hidden()
@@ -128,7 +127,16 @@ struct EditorView: View {
             .keyboardShortcut(",", modifiers: .command)
             .hidden()
         )
-        .onHover { isWindowHovered = $0 }
+        // SwiftUI/AppKit controls otherwise inherit the Mac's system appearance,
+        // which can disagree with NoteTakr's explicit Light/Dark/Glass setting.
+        .environment(\.colorScheme, settingsBridge.currentAppearance.colorScheme)
+        .environment(\.appAppearance, settingsBridge.currentAppearance)
+        .overlay(alignment: .topLeading) {
+            AppearanceAccessibilityMarker(
+                appearance: settingsBridge.currentAppearance,
+                identifier: "editorAppearance"
+            )
+        }
     }
 
     private var panelBackground: some View {
@@ -198,7 +206,7 @@ struct EditorView: View {
                 .frame(height: 1)
 
             HStack(spacing: 34) {
-                tabButton("Private Notes", tab: .privateNotes)
+                tabButton("Notes", tab: .privateNotes)
                 tabButton("Summary", tab: .summary)
                 tabButton("Transcript", tab: .transcript)
             }

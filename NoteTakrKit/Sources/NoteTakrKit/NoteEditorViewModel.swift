@@ -7,7 +7,7 @@ public protocol NoteStoring {
 
 public final class NoteEditorViewModel {
     public var onChange: (() -> Void)?
-    public var onDidSave: ((String) -> Void)?
+    public var onDidSave: ((MeetingNote) -> Void)?
 
     private let store: any NoteStoring
     private let scheduler: any Scheduler
@@ -16,14 +16,9 @@ public final class NoteEditorViewModel {
     private var currentNote: MeetingNote?
     var isDirty: Bool = false
 
-    public init(
-        store: any NoteStoring,
-        scheduler: any Scheduler,
-        onDidSave: ((String) -> Void)? = nil
-    ) {
+    public init(store: any NoteStoring, scheduler: any Scheduler) {
         self.store = store
         self.scheduler = scheduler
-        self.onDidSave = onDidSave
     }
 
     // MARK: - Accessors
@@ -37,6 +32,10 @@ public final class NoteEditorViewModel {
     public func load(noteID: String) throws {
         try flush()
         currentNote = try store.load(id: noteID)
+        if var loadedNote = currentNote {
+            loadedNote.body = Self.userAuthoredNotes(from: loadedNote.body)
+            currentNote = loadedNote
+        }
         isDirty = false
         onChange?()
     }
@@ -63,7 +62,7 @@ public final class NoteEditorViewModel {
         try store.save(note)
         currentNote = note
         isDirty = false
-        onDidSave?(note.id)
+        onDidSave?(note)
     }
 
     // MARK: - Private
@@ -75,7 +74,7 @@ public final class NoteEditorViewModel {
             guard (try? self.store.save(note)) != nil else { return }
             self.currentNote = note
             self.isDirty = false
-            self.onDidSave?(note.id)
+            self.onDidSave?(note)
         }
     }
 
@@ -85,5 +84,35 @@ public final class NoteEditorViewModel {
         latest.title = currentNote.title
         latest.body = currentNote.body
         return latest
+    }
+
+    /// Older recording folders may use the generated session markdown as the
+    /// note body. The Notes editor must contain only text the user authored;
+    /// summary, audio-source, status, and transcript content have dedicated UI.
+    static func userAuthoredNotes(from body: String) -> String {
+        let lines = body.components(separatedBy: .newlines)
+        let firstContentLine = lines.first {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }?.trimmingCharacters(in: .whitespaces)
+        let hasGeneratedTitle = firstContentLine?.hasPrefix("# ") == true
+        let hasGeneratedDate = lines.contains { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("**Date:**")
+        }
+        let hasGeneratedStatus = lines.contains { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("**Status:**")
+        }
+        guard hasGeneratedTitle, hasGeneratedDate, hasGeneratedStatus else { return body }
+        guard let headingIndex = lines.firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespaces) == "## Personal Notes"
+        }) else { return "" }
+
+        let contentStart = lines.index(after: headingIndex)
+        let following = lines[contentStart...]
+        let contentEnd = following.firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespaces).hasPrefix("## ")
+        }) ?? lines.endIndex
+        return lines[contentStart..<contentEnd]
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

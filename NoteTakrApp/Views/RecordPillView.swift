@@ -241,10 +241,6 @@ struct RecordPillView: View {
         VStack(alignment: .leading, spacing: 0) {
             switch pillState {
             case .recording:
-                menuItem(icon: "pause.fill", label: "Pause") {
-                    menuOpen = false; machine.menuPause()
-                }
-                menuSeparator
                 menuItem(icon: "stop.fill", label: "Stop without summarizing") {
                     menuOpen = false; machine.menuStopOnly()
                 }

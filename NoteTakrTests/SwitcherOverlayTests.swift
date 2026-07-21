@@ -1,10 +1,19 @@
 import XCTest
 import SwiftUI
+import AppKit
 import NoteTakrKit
 @testable import NoteTakr
 
 @MainActor
 final class SwitcherOverlayTests: XCTestCase {
+
+    func testEventSwitchConfirmationUsesOpaqueThemeSurface() {
+        for theme in [Theme.glass, Theme.dark, Theme.light] {
+            XCTAssertEqual(EventSwitchConfirmationPalette.surface(for: theme).a, 1)
+        }
+        XCTAssertEqual(EventSwitchConfirmationPalette.surface(for: Theme.glass), Theme.dark.background)
+        XCTAssertEqual(EventSwitchConfirmationPalette.surface(for: Theme.light), Theme.light.background)
+    }
 
     // MARK: - 1. ⌘K toggles overlay state
 
@@ -199,30 +208,35 @@ final class SwitcherOverlayTests: XCTestCase {
 
     func testSwitcherOverlayDarkAppearanceUsesSolidEditorDarkTokens() {
         XCTAssertEqual(
-            SwitcherOverlayPalette.colors(for: .dark, colorScheme: .light),
+            SwitcherOverlayPalette.colors(for: .dark),
             Theme.dark
         )
-        XCTAssertEqual(SwitcherOverlayPalette.colors(for: .dark, colorScheme: .light).background.a, 1.0)
+        XCTAssertEqual(SwitcherOverlayPalette.colors(for: .dark).background.a, 1.0)
     }
 
     func testSwitcherOverlayLightAppearanceUsesSolidEditorLightTokens() {
         XCTAssertEqual(
-            SwitcherOverlayPalette.colors(for: .light, colorScheme: .dark),
+            SwitcherOverlayPalette.colors(for: .light),
             Theme.light
         )
-        XCTAssertEqual(SwitcherOverlayPalette.colors(for: .light, colorScheme: .dark).background.a, 1.0)
+        XCTAssertEqual(SwitcherOverlayPalette.colors(for: .light).background.a, 1.0)
     }
 
-    func testSwitcherOverlayGlassAppearanceResolvesToSolidSystemPalette() {
-        let lightPalette = SwitcherOverlayPalette.colors(for: .glass, colorScheme: .light)
-        let darkPalette = SwitcherOverlayPalette.colors(for: .glass, colorScheme: .dark)
+    func testSwitcherOverlayGlassAppearanceUsesTheSameGlassTokensAsEditor() {
+        let palette = SwitcherOverlayPalette.colors(for: .glass)
 
-        XCTAssertEqual(lightPalette, Theme.light)
-        XCTAssertEqual(darkPalette, Theme.dark)
-        XCTAssertNotEqual(lightPalette, Theme.glass)
-        XCTAssertNotEqual(darkPalette, Theme.glass)
-        XCTAssertEqual(lightPalette.background.a, 1.0)
-        XCTAssertEqual(darkPalette.background.a, 1.0)
+        XCTAssertEqual(palette, Theme.glass)
+        XCTAssertEqual(palette.background.a, Theme.glass.background.a)
+    }
+
+    func testExplicitAppearancesDriveMatchingNativeControlSchemes() {
+        XCTAssertEqual(Appearance.light.colorScheme, .light)
+        XCTAssertEqual(Appearance.light.nsAppearance.name, .aqua)
+
+        for appearance: Appearance in [.glass, .dark] {
+            XCTAssertEqual(appearance.colorScheme, .dark)
+            XCTAssertEqual(appearance.nsAppearance.name, .darkAqua)
+        }
     }
 
     // MARK: - Helpers

@@ -888,6 +888,33 @@ final class AppModel: ObservableObject {
         onRecordingStopped?(stopped?.id.uuidString)
     }
 
+    /// Applies an in-person change to an active recording without stopping it.
+    /// Turning in-person on disables desktop audio immediately; turning it off
+    /// resumes desktop capture when the configured source and permission allow it.
+    @discardableResult
+    func updateActiveRecordingInPerson(_ inPerson: Bool) async -> Bool {
+        guard recordingManager.isRecording else { return true }
+        recordingError = nil
+        let options = audioOptions(inPerson: inPerson)
+        guard validateRequiredAudioPermissions(for: options) else { return false }
+
+        do {
+            _ = try await recordingManager.updateActiveRecording(
+                inPerson: inPerson,
+                options: options
+            )
+            return true
+        } catch {
+            let message = (error as? AudioRecorderError).map(Self.recorderErrorMessage)
+                ?? error.localizedDescription
+            recordingError = message
+            FluidAudioAdapter.log.error(
+                "recording source update failed: \(message, privacy: .public)"
+            )
+            return false
+        }
+    }
+
     func renameSpeaker(noteID: String, from oldName: String, to newName: String) {
         guard let uuid = UUID(uuidString: noteID) else { return }
         guard let updated = try? store.renameSpeaker(in: uuid, from: oldName, to: newName) else { return }
@@ -1150,6 +1177,19 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Notes
+
+    /// Keeps session.json canonical for private editor content, then restores
+    /// the generated note.md sections from that same session snapshot.
+    func persistEditorChanges(_ note: MeetingNote) {
+        guard let id = UUID(uuidString: note.id),
+              let updated = try? store.updateEditorContent(
+                id: id,
+                title: note.title,
+                personalNotes: note.body
+              ) else { return }
+        regenerateNote(for: updated)
+        _ = markSyncDirty(localId: note.id)
+    }
 
     /// Writes note.md without opening it (used after transcription/summarization updates it).
     private func regenerateNote(for session: MeetingSession) {

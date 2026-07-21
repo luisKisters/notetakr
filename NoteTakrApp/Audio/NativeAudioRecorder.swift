@@ -6,12 +6,13 @@ import AVFoundation
 import CoreGraphics
 import NoteTakrCore
 
-final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter, @unchecked Sendable {
+final class NativeAudioRecorder: ReconfigurableAudioRecorder, AudioCaptureReporter, @unchecked Sendable {
     private(set) var isRecording: Bool = false
     private var micRecorder: AVAudioRecorder?
     private var sysAudioCapturer: SystemAudioCapturer?
     private var capturedMicURL: URL?
     private var capturedSysURL: URL?
+    private var recordingDirectory: URL?
     private var currentOptions: AudioRecordingOptions = .default
     private var _lastMissingReasons: [String: String] = [:]
 
@@ -40,6 +41,7 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
 
         _lastMissingReasons = [:]
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        recordingDirectory = directory
 
         let micURL = directory.appendingPathComponent("microphone.m4a")
         let sysURL = directory.appendingPathComponent("system-audio.m4a")
@@ -89,6 +91,7 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
                 currentOptions = .default
                 capturedMicURL = nil
                 capturedSysURL = nil
+                recordingDirectory = nil
                 throw AudioRecorderError.recordingFailed(reason)
             }
         }
@@ -97,6 +100,7 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
             currentOptions = .default
             capturedMicURL = nil
             capturedSysURL = nil
+            recordingDirectory = nil
             let reason = _lastMissingReasons.values.sorted().joined(separator: "; ")
             throw AudioRecorderError.recordingFailed(reason.isEmpty ? "No audio sources started" : reason)
         }
@@ -136,9 +140,57 @@ final class NativeAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter
             sysAudioCapturer = nil
         }
         capturedSysURL = nil
+        recordingDirectory = nil
         currentOptions = .default
 
         return results
+    }
+
+    func updateRecording(options: AudioRecordingOptions) async throws {
+        guard isRecording else { throw AudioRecorderError.notRecording }
+        guard options.microphoneEnabled || options.systemAudioEnabled else {
+            throw AudioRecorderError.recordingFailed("No audio sources are enabled")
+        }
+        guard options.microphoneEnabled == currentOptions.microphoneEnabled else {
+            throw AudioRecorderError.recordingFailed(
+                "The microphone source cannot be changed during an active recording")
+        }
+        guard options.systemAudioEnabled != currentOptions.systemAudioEnabled else { return }
+
+        if options.systemAudioEnabled {
+            guard CGPreflightScreenCaptureAccess() else {
+                throw AudioRecorderError.recordingFailed(
+                    "Screen & System Audio Recording permission has not been granted")
+            }
+            guard let directory = recordingDirectory else {
+                throw AudioRecorderError.recordingFailed("The active recording folder is unavailable")
+            }
+            let sysURL = directory.appendingPathComponent("system-audio.m4a")
+            try? FileManager.default.removeItem(at: sysURL)
+            let capturer = SystemAudioCapturer()
+            do {
+                try await capturer.startCapture(to: sysURL)
+                sysAudioCapturer = capturer
+                capturedSysURL = sysURL
+                _lastMissingReasons.removeValue(forKey: AudioSourceType.systemAudio.rawValue)
+            } catch {
+                let reason = "Capture start failure: \(error.localizedDescription)"
+                _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = reason
+                throw AudioRecorderError.recordingFailed(reason)
+            }
+        } else {
+            if let capturer = sysAudioCapturer {
+                do {
+                    try await capturer.stopCapture()
+                } catch {
+                    NSLog("NoteTakr system audio capture stop during source change failed: \(error.localizedDescription)")
+                }
+            }
+            sysAudioCapturer = nil
+            capturedSysURL = nil
+            _lastMissingReasons[AudioSourceType.systemAudio.rawValue] = "System audio disabled"
+        }
+        currentOptions = options
     }
 
     private static func isReadableRecordingFile(_ url: URL) async -> Bool {

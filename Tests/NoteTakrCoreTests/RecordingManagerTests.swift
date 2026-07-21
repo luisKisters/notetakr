@@ -249,6 +249,57 @@ final class RecordingManagerTests: XCTestCase {
         }
     }
 
+    func testChangingActiveRecordingToInPersonStopsSystemAudioAndPersistsSession() async throws {
+        let started = try await manager.startRecording(session: MeetingSession(
+            title: "Moves In Person",
+            date: Date(),
+            inPerson: false,
+            microphoneEnabled: true,
+            systemAudioEnabled: true
+        ))
+
+        let updated = try await manager.updateActiveRecording(
+            inPerson: true,
+            options: AudioRecordingOptions(microphoneEnabled: true, systemAudioEnabled: true)
+        )
+
+        XCTAssertTrue(updated.inPerson)
+        XCTAssertFalse(updated.systemAudioEnabled)
+        XCTAssertEqual(
+            recorder.lastUpdateOptions,
+            AudioRecordingOptions(microphoneEnabled: true, systemAudioEnabled: false)
+        )
+        let persisted = try XCTUnwrap(store.load(id: started.id))
+        XCTAssertTrue(persisted.inPerson)
+        XCTAssertFalse(persisted.systemAudioEnabled)
+
+        let stopped = try await manager.stopRecording()
+        XCTAssertEqual(stopped.audioFilePaths.count, 1)
+        XCTAssertTrue(stopped.audioFilePaths[0].hasSuffix("microphone.wav"))
+    }
+
+    func testChangingActiveRecordingBackOnlineResumesConfiguredSystemAudio() async throws {
+        _ = try await manager.startRecording(session: MeetingSession(
+            title: "Hybrid Meeting",
+            date: Date(),
+            inPerson: true,
+            microphoneEnabled: true,
+            systemAudioEnabled: false
+        ))
+
+        let updated = try await manager.updateActiveRecording(
+            inPerson: false,
+            options: AudioRecordingOptions(microphoneEnabled: true, systemAudioEnabled: true)
+        )
+
+        XCTAssertFalse(updated.inPerson)
+        XCTAssertTrue(updated.systemAudioEnabled)
+        XCTAssertEqual(
+            recorder.lastUpdateOptions,
+            AudioRecordingOptions(microphoneEnabled: true, systemAudioEnabled: true)
+        )
+    }
+
     func testStopRecordingCreatesFixtureAudioFiles() async throws {
         _ = try await manager.startRecording(title: "Audio Files")
         let stopped = try await manager.stopRecording()

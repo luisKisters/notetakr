@@ -207,6 +207,7 @@ private struct EventChipValue: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("calendarEventPickerButton")
         .popover(isPresented: $showMenu, arrowEdge: .bottom) {
             EventPickerMenu(
                 availableEvents: availableEvents,
@@ -225,10 +226,16 @@ private struct EventPickerMenu: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let theme: ThemeColors
     let dismiss: () -> Void
+    @Environment(\.appAppearance) private var appearance
 
     @State private var searchQuery = ""
     @State private var loadedWindow: EventPickerWindow?
     @State private var pendingConfirmation: EventLinkConfirmation?
+    @State private var selectedEventID: String?
+    @State private var hoveredEventID: String?
+    @State private var visibleEventIDs: Set<String> = []
+    @State private var eventListViewportHeight: CGFloat = 0
+    @FocusState private var searchFocused: Bool
 
     private var effectiveWindow: EventPickerWindow {
         loadedWindow ?? bridge.availableEventWindow ?? EventPickerWindow.defaultWindow(now: Date())
@@ -242,103 +249,119 @@ private struct EventPickerMenu: View {
         )
     }
 
+    private var filteredEventsSignature: String {
+        filteredEvents.map { "\($0.id):\($0.start.timeIntervalSince1970)" }.joined(separator: "|")
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text("Link a calendar event")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(theme.secondaryText.swiftUIColor)
-                Spacer()
-                if bridge.isLoadingAvailableEvents {
-                    ProgressView()
-                        .controlSize(.small)
-                        .scaleEffect(0.7)
-                }
-            }
-
-            searchField
-
-            HStack(spacing: 6) {
-                windowButton("Load earlier", systemImage: "chevron.up") {
-                    load(effectiveWindow.extendingEarlier())
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text("Link a calendar event")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.secondaryText.swiftUIColor)
+                    Spacer()
+                    if bridge.isLoadingAvailableEvents {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.7)
+                    }
                 }
 
-                Spacer(minLength: 4)
+                searchField(proxy: proxy)
 
-                Text(windowLabel(effectiveWindow))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity)
+                HStack(spacing: 6) {
+                    windowButton("Load earlier", systemImage: "chevron.up") {
+                        load(effectiveWindow.extendingEarlier())
+                    }
 
-                Spacer(minLength: 4)
+                    Spacer(minLength: 4)
 
-                windowButton("Load later", systemImage: "chevron.down") {
-                    load(effectiveWindow.extendingLater())
+                    Text(windowLabel(effectiveWindow))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+
+                    Spacer(minLength: 4)
+
+                    windowButton("Load later", systemImage: "chevron.down") {
+                        load(effectiveWindow.extendingLater())
+                    }
                 }
-            }
 
-            Divider()
-                .overlay(theme.hairline.swiftUIColor)
-
-            eventList
-
-            if isLinked {
                 Divider()
                     .overlay(theme.hairline.swiftUIColor)
 
-                Button {
-                    bridge.unlinkEvent()
-                    dismiss()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11))
-                            .foregroundStyle(theme.tertiaryText.swiftUIColor)
-                            .frame(width: 13)
-                        Text("No event")
-                            .font(.system(size: 12))
-                            .foregroundStyle(theme.secondaryText.swiftUIColor)
-                        Spacer()
+                eventList
+
+                if isLinked {
+                    Divider()
+                        .overlay(theme.hairline.swiftUIColor)
+
+                    Button {
+                        bridge.unlinkEvent()
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11))
+                                .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                                .frame(width: 13)
+                            Text("No event")
+                                .font(.system(size: 12))
+                                .foregroundStyle(theme.secondaryText.swiftUIColor)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
-        }
-        .frame(width: 340, height: 390, alignment: .top)
-        .padding(10)
-        .background(theme.panelFill.swiftUIColor)
-        .onAppear {
-            let window = bridge.availableEventWindow ?? EventPickerWindow.defaultWindow(now: Date())
-            loadedWindow = window
-            if bridge.availableEventWindow == nil {
-                bridge.requestCalendarEvents(window: window)
+            .frame(width: 360, height: 420, alignment: .top)
+            .padding(10)
+            .background {
+                ThemedSurface(appearance: appearance)
             }
-        }
-        .onChange(of: bridge.availableEventWindow) { newWindow in
-            if let newWindow {
-                loadedWindow = newWindow
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .onAppear {
+                let window = bridge.availableEventWindow ?? EventPickerWindow.defaultWindow(now: Date())
+                loadedWindow = window
+                if bridge.availableEventWindow == nil {
+                    bridge.requestCalendarEvents(window: window)
+                }
+                searchFocused = true
+                focusCurrentEvent(proxy: proxy)
             }
-        }
-        .overlay {
-            if let pendingConfirmation {
-                EventSwitchConfirmationOverlay(
-                    confirmation: pendingConfirmation,
-                    theme: theme,
-                    cancel: { self.pendingConfirmation = nil },
-                    confirm: {
-                        applyEvent(pendingConfirmation.event)
-                        self.pendingConfirmation = nil
-                    }
-                )
+            .onChange(of: bridge.availableEventWindow) { _, newWindow in
+                if let newWindow {
+                    loadedWindow = newWindow
+                }
+            }
+            .onChange(of: filteredEventsSignature) { _, _ in
+                focusCurrentEvent(proxy: proxy)
+            }
+            .allowsHitTesting(pendingConfirmation == nil)
+            .accessibilityHidden(pendingConfirmation != nil)
+            .overlay {
+                if let pendingConfirmation {
+                    EventSwitchConfirmationOverlay(
+                        confirmation: pendingConfirmation,
+                        theme: theme,
+                        cancel: { self.pendingConfirmation = nil },
+                        confirm: {
+                            applyEvent(pendingConfirmation.event)
+                            self.pendingConfirmation = nil
+                        }
+                    )
+                }
             }
         }
     }
 
-    private var searchField: some View {
+    private func searchField(proxy: ScrollViewProxy) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
@@ -347,6 +370,20 @@ private struct EventPickerMenu: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(theme.primaryText.swiftUIColor)
+                .focused($searchFocused)
+                .onKeyPress(.upArrow) {
+                    moveSelection(by: -1, proxy: proxy)
+                    return .handled
+                }
+                .onKeyPress(.downArrow) {
+                    moveSelection(by: 1, proxy: proxy)
+                    return .handled
+                }
+                .onKeyPress(.return) {
+                    activateSelectedEvent()
+                    return .handled
+                }
+                .accessibilityIdentifier("eventPickerSearchField")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -356,25 +393,109 @@ private struct EventPickerMenu: View {
 
     private var eventList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4) {
+            // A two-week picker has a bounded number of fixed-height rows.
+            // Keeping them eager makes keyboard viewport ranges deterministic
+            // and avoids LazyVStack rebuilding targets during scrollTo.
+            VStack(alignment: .leading, spacing: 1) {
                 if let error = bridge.availableEventsError {
                     emptyMessage(error)
                 } else if filteredEvents.isEmpty {
                     emptyMessage(searchQuery.isEmpty ? "No events in this range" : "No matching events")
                 } else {
                     ForEach(filteredEvents, id: \.id) { event in
+                        let isSelected = selectedEventID == event.id
+                        let isHovering = hoveredEventID == event.id && !isSelected
                         Button {
                             selectEvent(event)
                         } label: {
-                            EventPickerRow(event: event, theme: theme)
+                            EventPickerRow(
+                                event: event,
+                                dotState: EventPickerSelection.dotState(for: event, now: Date()),
+                                isSelected: isSelected,
+                                isHovering: isHovering,
+                                theme: theme
+                            )
                         }
                         .buttonStyle(.plain)
+                        .id(event.id)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: EventPickerRowFramePreferenceKey.self,
+                                    value: [
+                                        event.id: geometry.frame(in: .named("eventPickerListViewport"))
+                                    ]
+                                )
+                            }
+                        }
+                        .onHover { hovering in
+                            hoveredEventID = hovering ? event.id : (hoveredEventID == event.id ? nil : hoveredEventID)
+                        }
+                        .accessibilityIdentifier("eventPickerRow_\(event.id)")
+                        .accessibilityValue(isSelected ? "Focused" : "")
                     }
                 }
             }
             .padding(.vertical, 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { eventListViewportHeight = geometry.size.height }
+                    .onChange(of: geometry.size.height) { _, height in
+                        eventListViewportHeight = height
+                    }
+            }
+        }
+        .coordinateSpace(name: "eventPickerListViewport")
+        .onPreferenceChange(EventPickerRowFramePreferenceKey.self) { frames in
+            guard eventListViewportHeight > 0 else { return }
+            visibleEventIDs = Set(frames.compactMap { id, frame in
+                frame.minY >= 0 && frame.maxY <= eventListViewportHeight ? id : nil
+            })
+        }
+        .clipped()
+        .accessibilityIdentifier("eventPickerList")
+    }
+
+    private func focusCurrentEvent(proxy: ScrollViewProxy) {
+        guard let index = EventPickerSelection.focusedIndex(in: filteredEvents, now: Date()) else {
+            selectedEventID = nil
+            return
+        }
+        let id = filteredEvents[index].id
+        selectedEventID = id
+        DispatchQueue.main.async {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                proxy.scrollTo(id, anchor: .top)
+            }
+        }
+    }
+
+    private func moveSelection(by offset: Int, proxy: ScrollViewProxy) {
+        guard !filteredEvents.isEmpty else { return }
+        let current = selectedEventID.flatMap { id in
+            filteredEvents.firstIndex(where: { $0.id == id })
+        } ?? EventPickerSelection.focusedIndex(in: filteredEvents, now: Date()) ?? 0
+        let next = min(max(current + offset, filteredEvents.startIndex), filteredEvents.index(before: filteredEvents.endIndex))
+        let id = filteredEvents[next].id
+        selectedEventID = id
+
+        guard !visibleEventIDs.contains(id) else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(id, anchor: offset > 0 ? .bottom : .top)
+        }
+    }
+
+    private func activateSelectedEvent() {
+        guard let selectedEventID,
+              let event = filteredEvents.first(where: { $0.id == selectedEventID }) else { return }
+        selectEvent(event)
     }
 
     private func emptyMessage(_ message: String) -> some View {
@@ -540,6 +661,14 @@ private struct EventPickerMenu: View {
     }
 }
 
+private struct EventPickerRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
 private struct EventLinkConfirmation: Identifiable {
     let id = UUID()
     let event: UpcomingEvent
@@ -553,15 +682,31 @@ private struct EventLinkChange: Identifiable {
     let after: String
 }
 
+enum EventSwitchConfirmationPalette {
+    /// Confirmation content must never inherit the translucent panel token: it
+    /// sits above dense event rows, where translucency makes both layers look
+    /// interactive. Glass intentionally uses the same dark, opaque modal
+    /// surface as its native-control color scheme.
+    static func surface(for theme: ThemeColors) -> RGBA {
+        theme == Theme.light ? Theme.light.background : Theme.dark.background
+    }
+}
+
 private struct EventSwitchConfirmationOverlay: View {
     let confirmation: EventLinkConfirmation
     let theme: ThemeColors
     let cancel: () -> Void
     let confirm: () -> Void
 
+    private var surface: Color {
+        EventSwitchConfirmationPalette.surface(for: theme).swiftUIColor
+    }
+
     var body: some View {
         ZStack {
-            theme.background.swiftUIColor.opacity(0.55)
+            Color.black.opacity(theme == Theme.light ? 0.14 : 0.48)
+                .contentShape(Rectangle())
+                .onTapGesture { }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 8) {
@@ -617,6 +762,7 @@ private struct EventSwitchConfirmationOverlay: View {
                     Spacer()
                     Button("Cancel", action: cancel)
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("eventSwitchConfirmationCancel")
                         .font(.system(size: 12))
                         .foregroundStyle(theme.secondaryText.swiftUIColor)
                         .padding(.horizontal, 10)
@@ -631,82 +777,117 @@ private struct EventSwitchConfirmationOverlay: View {
                             .background(RoundedRectangle(cornerRadius: 7).fill(theme.accent.swiftUIColor))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("eventSwitchConfirmationUpdate")
                 }
             }
             .padding(14)
             .frame(width: 300)
-            .background(theme.panelFill.swiftUIColor)
+            .background(surface)
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.hairline.swiftUIColor, lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .shadow(color: Color.black.opacity(0.22), radius: 18, y: 10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("eventSwitchConfirmation")
         .transition(.opacity)
     }
 }
 
 private struct EventPickerRow: View {
     let event: UpcomingEvent
+    let dotState: DotState
+    let isSelected: Bool
+    let isHovering: Bool
     let theme: ThemeColors
 
     var body: some View {
-        HStack(alignment: .top, spacing: 9) {
-            VStack(spacing: 1) {
-                Text(dayText(event.start))
-                    .font(.system(size: 9.5, weight: .semibold))
+        HStack(spacing: 11) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(theme.elevatedFill.swiftUIColor)
+                    .frame(width: 28, height: 28)
+                Image(systemName: event.meetingLink == nil ? "calendar" : "video")
+                    .font(.system(size: 12.5))
                     .foregroundStyle(theme.secondaryText.swiftUIColor)
-                Text(dateText(event.start))
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(theme.primaryText.swiftUIColor)
             }
-            .frame(width: 42, height: 36)
-            .background(RoundedRectangle(cornerRadius: 6).fill(theme.chipFill.swiftUIColor))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.hairline.swiftUIColor, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(spacing: 7) {
                     Text(event.title)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(theme.primaryText.swiftUIColor)
                         .lineLimit(1)
-                    Spacer(minLength: 4)
-                    Text(timeText(start: event.start, end: event.end))
-                        .font(.system(size: 10.5, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                    if dotState == .current {
+                        Text("NOW")
+                            .font(.system(size: 9.5, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(theme.accent.swiftUIColor)
+                            .padding(.horizontal, 6)
+                            .frame(height: 18)
+                            .background(theme.accent.swiftUIColor.opacity(0.14))
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                            .overlay(RoundedRectangle(cornerRadius: 5)
+                                .stroke(theme.accent.swiftUIColor.opacity(0.38), lineWidth: 1))
+                    }
                 }
 
-                if !event.participants.isEmpty || event.locationText != nil {
-                    Text(detailText)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(theme.tertiaryText.swiftUIColor)
-                        .lineLimit(1)
-                }
+                Text(subtitleText)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(theme.secondaryText.swiftUIColor)
+                    .monospacedDigit()
+                    .lineLimit(1)
             }
-            .padding(.top, 1)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 5) {
+                Image(systemName: "link")
+                    .font(.system(size: 10.5, weight: .semibold))
+                Text("Link")
+                    .font(.system(size: 11.5, weight: .medium))
+            }
+            .foregroundStyle(theme.accent.swiftUIColor)
+            .padding(.horizontal, 9)
+            .frame(height: 26)
+            .background(theme.accent.swiftUIColor.opacity(0.14))
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+            .overlay(RoundedRectangle(cornerRadius: 7)
+                .stroke(theme.accent.swiftUIColor.opacity(0.4), lineWidth: 1))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .contentShape(Rectangle())
-        .background(RoundedRectangle(cornerRadius: 7).fill(Color.clear))
+        .padding(.horizontal, 10)
+        .frame(minHeight: 54)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isSelected
+                      ? theme.accent.swiftUIColor.opacity(0.16)
+                      : (isHovering ? theme.hoverFill.swiftUIColor : Color.clear))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isSelected ? theme.accent.swiftUIColor.opacity(0.45) : Color.clear, lineWidth: 1)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .animation(.easeOut(duration: 0.12), value: isSelected)
     }
 
-    private var detailText: String {
+    private var subtitleText: String {
+        var pieces = [dateAndTimeText]
         let people = event.participants.prefix(2).map(\.name).joined(separator: ", ")
-        if let location = event.locationText, !location.isEmpty, !people.isEmpty {
-            return "\(people) · \(location)"
+        if !people.isEmpty { pieces.append(people) }
+        if let location = event.locationText, !location.isEmpty { pieces.append(location) }
+        return pieces.joined(separator: " · ")
+    }
+
+    private var dateAndTimeText: String {
+        let dayFormatter = DateFormatter()
+        if Calendar.current.isDateInToday(event.start) {
+            dayFormatter.dateFormat = "'Today'"
+        } else if Calendar.current.isDateInTomorrow(event.start) {
+            dayFormatter.dateFormat = "'Tomorrow'"
+        } else {
+            dayFormatter.dateFormat = "EEE, MMM d"
         }
-        return people.isEmpty ? (event.locationText ?? "") : people
-    }
-
-    private func dayText(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date)
-    }
-
-    private func dateText(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
+        return "\(dayFormatter.string(from: event.start)), \(timeText(start: event.start, end: event.end))"
     }
 
     private func timeText(start: Date, end: Date?) -> String {
@@ -783,6 +964,7 @@ private struct DatePickerPopover: View {
     @ObservedObject var bridge: FrontmatterPresenterBridge
     let theme: ThemeColors
     let dismiss: () -> Void
+    @Environment(\.appAppearance) private var appearance
     @State private var selectedDate: Date
     @State private var selectedEnd: Date
     @State private var hasEnd: Bool
@@ -885,9 +1067,14 @@ private struct DatePickerPopover: View {
                 .padding(.vertical, 5)
 
                 Button {
-                    applyStartTimeText()
-                    if hasEnd { applyEndTimeText() }
-                    bridge.setDate(selectedDate, end: hasEnd ? selectedEnd : nil)
+                    guard let resolvedSelection else { return }
+                    selectedDate = resolvedSelection.start
+                    if let end = resolvedSelection.end {
+                        selectedEnd = end
+                    }
+                    startTimeText = Self.timeFormatter.string(from: resolvedSelection.start)
+                    endTimeText = Self.timeFormatter.string(from: resolvedSelection.end ?? selectedEnd)
+                    bridge.setDate(resolvedSelection.start, end: resolvedSelection.end)
                     dismiss()
                 } label: {
                     Text("Done")
@@ -906,11 +1093,24 @@ private struct DatePickerPopover: View {
         }
         .frame(width: 390)
         .padding(12)
-        .background(theme.panelFill.swiftUIColor)
+        .background {
+            ThemedSurface(appearance: appearance)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var canSave: Bool {
-        !hasEnd || selectedEnd >= selectedDate
+        resolvedSelection != nil
+    }
+
+    private var resolvedSelection: ResolvedDateTimeSelection? {
+        DateTimeEditing.resolve(
+            startDate: selectedDate,
+            startTimeText: startTimeText,
+            endDate: selectedEnd,
+            endTimeText: endTimeText,
+            hasEnd: hasEnd
+        )
     }
 
     private var summaryLabel: String {
@@ -931,33 +1131,17 @@ private struct DatePickerPopover: View {
     }
 
     private func applyStartTimeText() {
-        if let adjusted = dateByApplyingTimeText(startTimeText, to: selectedDate) {
+        if let adjusted = DateTimeEditing.applying(timeText: startTimeText, to: selectedDate) {
             selectedDate = adjusted
             startTimeText = Self.timeFormatter.string(from: adjusted)
         }
     }
 
     private func applyEndTimeText() {
-        if let adjusted = dateByApplyingTimeText(endTimeText, to: selectedEnd) {
+        if let adjusted = DateTimeEditing.applying(timeText: endTimeText, to: selectedEnd) {
             selectedEnd = adjusted
             endTimeText = Self.timeFormatter.string(from: adjusted)
         }
-    }
-
-    private func dateByApplyingTimeText(_ text: String, to date: Date) -> Date? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let pieces = trimmed.split(separator: ":")
-        guard pieces.count == 2,
-              let hour = Int(pieces[0]),
-              let minute = Int(pieces[1]),
-              (0...23).contains(hour),
-              (0...59).contains(minute) else { return nil }
-        return Calendar.current.date(
-            bySettingHour: hour,
-            minute: minute,
-            second: 0,
-            of: date
-        )
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -1001,6 +1185,9 @@ private struct DateTimeEditRow: View {
             .opacity(isEnabled ? 1 : 0.45)
             .frame(width: 160, alignment: .leading)
             .tint(theme.accent.swiftUIColor)
+            .onChange(of: date) { newDate in
+                timeText = Self.timeFormatter.string(from: newDate)
+            }
 
             TextField("HH:mm", text: $timeText)
                 .textFieldStyle(.plain)
@@ -1050,6 +1237,12 @@ private struct DateTimeEditRow: View {
                 .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1)
         )
     }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
 
 // MARK: - People circles value
@@ -1603,7 +1796,7 @@ private struct InPersonValue: View {
             .buttonStyle(.plain)
             .popover(isPresented: $showExplainer, arrowEdge: .leading) {
                 Text(bridge.isRecording
-                     ? "Stop the recording before changing audio sources."
+                     ? "In-person meetings are mic-only. Changing this now updates the active audio sources immediately."
                      : "In-person meetings are mic-only — NoteTakr skips system-audio capture.")
                     .font(.system(size: 11.5))
                     .padding(10)
@@ -1617,7 +1810,6 @@ private struct InPersonValue: View {
             ))
             .toggleStyle(ThemedToggleStyle(theme: theme))
             .labelsHidden()
-            .disabled(bridge.isRecording)
         }
     }
 }

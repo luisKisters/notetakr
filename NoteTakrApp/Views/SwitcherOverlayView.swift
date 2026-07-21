@@ -9,15 +9,15 @@ import NoteTakrKit
 struct SwitcherOverlayView: View {
     @ObservedObject var bridge: SwitcherBridge
     let appearance: Appearance
-    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var searchFocused: Bool
     @State private var hoveredIndex: Int?
     @State private var initialScrollApplied = false
     @State private var rowListReady = false
-    @State private var suppressNextSelectionScroll = false
+    @State private var visibleRowIDs: Set<String> = []
+    @State private var rowListViewportHeight: CGFloat = 0
 
     private var paletteColors: ThemeColors {
-        SwitcherOverlayPalette.colors(for: appearance, colorScheme: colorScheme)
+        SwitcherOverlayPalette.colors(for: appearance)
     }
 
     private var paletteBackground: Color {
@@ -36,10 +36,19 @@ struct SwitcherOverlayView: View {
             hintsFooter
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(paletteBackground.ignoresSafeArea())
+        .background {
+            ThemedSurface(appearance: appearance)
+                .ignoresSafeArea()
+        }
         .onAppear { focusSearchField() }
         .background(keyboardButtons)
         .accessibilityIdentifier("switcherOverlay")
+        .overlay(alignment: .topLeading) {
+            AppearanceAccessibilityMarker(
+                appearance: appearance,
+                identifier: "switcherAppearance"
+            )
+        }
     }
 
     // MARK: - Search
@@ -78,7 +87,7 @@ struct SwitcherOverlayView: View {
     private var rowList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(bridge.groups, id: \.switcherOverlayID) { group in
                         rowGroupSection(group: group)
                     }
@@ -98,49 +107,52 @@ struct SwitcherOverlayView: View {
             }
             .accessibilityIdentifier("switcherEventList")
             .background(paletteBackground)
-            .mask(rowListFadeMask)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { rowListViewportHeight = geometry.size.height }
+                        .onChange(of: geometry.size.height) { _, height in
+                            rowListViewportHeight = height
+                        }
+                }
+            }
+            .coordinateSpace(name: "switcherListViewport")
+            .onPreferenceChange(SwitcherRowFramePreferenceKey.self) { frames in
+                guard rowListViewportHeight > 0 else { return }
+                visibleRowIDs = Set(frames.compactMap { id, frame in
+                    frame.minY >= 0 && frame.maxY <= rowListViewportHeight ? id : nil
+                })
+            }
+            .clipped()
             .opacity(rowListReady ? 1 : 0)
             .onAppear {
                 applyInitialScroll(proxy: proxy)
             }
             .onChange(of: groupsSignature) { _, _ in
+                visibleRowIDs = []
                 applyInitialScroll(proxy: proxy)
             }
-            .onChange(of: bridge.selectedIndex) { _, idx in
-                if suppressNextSelectionScroll {
-                    suppressNextSelectionScroll = false
-                    return
-                }
+            .onChange(of: bridge.selectedIndex) { oldIndex, idx in
                 guard let item = bridge.viewModel.selectedItem else { return }
-                withAnimation(.easeOut(duration: 0.1)) {
-                    proxy.scrollTo(rowID(flatIndex: idx, item: item), anchor: .center)
-                }
+                revealSelectionIfNeeded(
+                    rowID: rowID(flatIndex: idx, item: item),
+                    movingDown: idx > oldIndex,
+                    proxy: proxy
+                )
             }
         }
     }
 
-    private var rowListFadeMask: some View {
-        VStack(spacing: 0) {
-            Color.black.frame(height: 34)
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0.00),
-                    .init(color: .black, location: 1.00),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 24)
-            Color.black
-            LinearGradient(
-                stops: [
-                    .init(color: .black, location: 0.00),
-                    .init(color: .clear, location: 1.00),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 34)
+    private func revealSelectionIfNeeded(
+        rowID: String,
+        movingDown: Bool,
+        proxy: ScrollViewProxy
+    ) {
+        guard !visibleRowIDs.contains(rowID) else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(rowID, anchor: movingDown ? .bottom : .top)
         }
     }
 
@@ -176,11 +188,15 @@ struct SwitcherOverlayView: View {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.70))
+            proxy.scrollTo(target, anchor: .center)
         }
     }
 
     private func initialViewportTargetID() -> String? {
+        if let selectedItem = bridge.viewModel.selectedItem {
+            return rowID(flatIndex: bridge.selectedIndex, item: selectedItem)
+        }
+
         guard let upcoming = bridge.groups.first,
               upcoming.label == "Upcoming",
               upcoming.items.count >= 3
@@ -201,6 +217,17 @@ struct SwitcherOverlayView: View {
                 let flatIdx = flatIndex(group: group, itemOffset: offset)
                 twoLineRow(item: item, flatIndex: flatIdx)
                     .id(rowID(flatIndex: flatIdx, item: item))
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: SwitcherRowFramePreferenceKey.self,
+                                value: [
+                                    rowID(flatIndex: flatIdx, item: item):
+                                        geometry.frame(in: .named("switcherListViewport"))
+                                ]
+                            )
+                        }
+                    }
             }
         } header: {
             Text(group.label.uppercased())
@@ -209,8 +236,6 @@ struct SwitcherOverlayView: View {
                 .tracking(0.9)
                 .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
                 .padding(.horizontal, 6)
-                .background(paletteBackground)
-                .zIndex(2)
                 .accessibilityIdentifier("switcherSection_\(group.label)")
         }
         .id(group.switcherOverlayID)
@@ -229,16 +254,13 @@ struct SwitcherOverlayView: View {
             .onHover { isHov in
                 if isHov {
                     hoveredIndex = flatIndex
-                    if bridge.selectedIndex != flatIndex {
-                        suppressNextSelectionScroll = true
-                    }
-                    bridge.selectFromHover(index: flatIndex)
                 } else if hoveredIndex == flatIndex {
                     hoveredIndex = nil
                 }
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
+            .accessibilityValue(isSelected ? "Selected" : (isHovering ? "Hovered" : ""))
             .accessibilityIdentifier("switcherRow_\(item.switcherOverlayID)")
     }
 
@@ -610,16 +632,17 @@ struct SwitcherOverlayView: View {
     }
 }
 
+private struct SwitcherRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
 enum SwitcherOverlayPalette {
-    static func colors(for appearance: Appearance, colorScheme: ColorScheme) -> ThemeColors {
-        switch appearance {
-        case .dark:
-            return Theme.dark
-        case .light:
-            return Theme.light
-        case .glass:
-            return colorScheme == .light ? Theme.light : Theme.dark
-        }
+    static func colors(for appearance: Appearance) -> ThemeColors {
+        Theme.colors(for: appearance)
     }
 }
 

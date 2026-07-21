@@ -95,6 +95,22 @@ public final class SessionStore: @unchecked Sendable {
         try loadAll().first { $0.id == id }
     }
 
+    /// Updates only the user-authored editor fields on the latest session so a
+    /// later transcript/summary regeneration cannot restore stale private notes.
+    /// Generated transcript and summary data remain untouched.
+    @discardableResult
+    public func updateEditorContent(
+        id: UUID,
+        title: String,
+        personalNotes: String
+    ) throws -> MeetingSession? {
+        guard var session = try load(id: id) else { return nil }
+        session.title = title
+        session.personalNotes = personalNotes
+        try save(session)
+        return session
+    }
+
     public func delete(_ session: MeetingSession) throws {
         let dir = sessionURL(for: session)
         guard FileManager.default.fileExists(atPath: dir.path) else { return }

@@ -1,6 +1,6 @@
 import Foundation
 
-public final class MockAudioRecorder: ConfigurableAudioRecorder, AudioCaptureReporter, @unchecked Sendable {
+public final class MockAudioRecorder: ReconfigurableAudioRecorder, AudioCaptureReporter, @unchecked Sendable {
     public private(set) var isRecording: Bool = false
     private var currentDirectory: URL?
     private var currentOptions: AudioRecordingOptions = .default
@@ -11,6 +11,7 @@ public final class MockAudioRecorder: ConfigurableAudioRecorder, AudioCaptureRep
     public private(set) var startCallCount: Int = 0
     public private(set) var stopCallCount: Int = 0
     public private(set) var lastStartOptions: AudioRecordingOptions?
+    public private(set) var lastUpdateOptions: AudioRecordingOptions?
 
     // AudioCaptureReporter
     public var lastMissingReasons: [String: String] { mockMissingReasons }
@@ -74,5 +75,24 @@ public final class MockAudioRecorder: ConfigurableAudioRecorder, AudioCaptureRep
         currentDirectory = nil
         currentOptions = .default
         return results
+    }
+
+    public func updateRecording(options: AudioRecordingOptions) async throws {
+        guard isRecording else { throw AudioRecorderError.notRecording }
+        guard options.microphoneEnabled || options.systemAudioEnabled else {
+            throw AudioRecorderError.recordingFailed("No audio sources are enabled")
+        }
+        currentOptions = options
+        lastUpdateOptions = options
+        if options.microphoneEnabled {
+            mockMissingReasons.removeValue(forKey: AudioSourceType.microphone.rawValue)
+        } else {
+            mockMissingReasons[AudioSourceType.microphone.rawValue] = "Microphone disabled"
+        }
+        if options.systemAudioEnabled {
+            mockMissingReasons.removeValue(forKey: AudioSourceType.systemAudio.rawValue)
+        } else {
+            mockMissingReasons[AudioSourceType.systemAudio.rawValue] = "System audio disabled"
+        }
     }
 }
