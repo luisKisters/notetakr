@@ -131,6 +131,44 @@ final class EventPickerSupportTests: XCTestCase {
         )
     }
 
+    func testDateTimeEditingRejectsUnsubmittedEndBeforeStart() throws {
+        let start = try date(2026, 6, 20, 10, 0)
+        let priorValidEnd = try date(2026, 6, 20, 11, 0)
+
+        let resolved = DateTimeEditing.resolve(
+            startDate: start,
+            startTimeText: "10:00",
+            endDate: priorValidEnd,
+            endTimeText: "09:30",
+            hasEnd: true,
+            calendar: calendar
+        )
+
+        XCTAssertNil(resolved, "Validation must include HH:mm text even before TextField submit")
+    }
+
+    func testDateTimeEditingAppliesBothPendingTimeFieldsAtomically() throws {
+        let resolved = try XCTUnwrap(DateTimeEditing.resolve(
+            startDate: date(2026, 6, 20, 10, 0),
+            startTimeText: "13:15",
+            endDate: date(2026, 6, 20, 11, 0),
+            endTimeText: "14:45",
+            hasEnd: true,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(resolved.start, try date(2026, 6, 20, 13, 15))
+        XCTAssertEqual(resolved.end, try date(2026, 6, 20, 14, 45))
+    }
+
+    func testDateTimeEditingRejectsMalformedTimeText() throws {
+        XCTAssertNil(DateTimeEditing.applying(
+            timeText: "10:",
+            to: try date(2026, 6, 20, 10, 0),
+            calendar: calendar
+        ))
+    }
+
     private func event(
         id: String,
         title: String,
