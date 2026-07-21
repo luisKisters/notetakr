@@ -347,7 +347,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
         guard let person = peopleDirectory.person(forEmail: email) else { return nil }
         return person.sourceRefs.lazy.compactMap { sourceRef in
             guard sourceRef.provider == "crm" else { return nil }
-            return normalizedCrmRemoteId(sourceRef.remoteId)
+            return self.normalizedCrmRemoteId(sourceRef.remoteId)
         }.first
     }
 
@@ -355,7 +355,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
         Set(peopleDirectory.people(fromProvider: "crm").flatMap { person in
             person.sourceRefs.compactMap { sourceRef in
                 guard sourceRef.provider == "crm" else { return nil }
-                return normalizedCrmRemoteId(sourceRef.remoteId)
+                return self.normalizedCrmRemoteId(sourceRef.remoteId)
             }
         })
     }
