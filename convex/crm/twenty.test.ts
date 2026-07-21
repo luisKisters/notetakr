@@ -1,0 +1,213 @@
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { CrmError, getCrmProvider } from "./provider";
+import { twentyProvider } from "./twenty";
+
+const cfg = {
+  provider: "twenty",
+  baseUrl: "https://twenty.test",
+  apiKey: "test-api-key",
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function fetchMock(...responses: Response[]) {
+  return vi.fn(
+    async (
+      _input: RequestInfo | URL,
+      _init?: RequestInit,
+    ): Promise<Response> => {
+      const response = responses.shift();
+      if (response === undefined) {
+        throw new Error("No mocked response left");
+      }
+      return response;
+    },
+  );
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("twenty provider", () => {
+  test("listPeople maps twenty records to CrmPerson with lowercased emails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fetchMock(
+        jsonResponse({
+          data: {
+            people: [
+              {
+                id: "person-1",
+                name: { firstName: "Ada", lastName: "Lovelace" },
+                emails: {
+                  primaryEmail: "ADA@Example.COM",
+                  additionalEmails: ["Analyst@Example.COM"],
+                },
+                company: { name: "Analytical Engines" },
+              },
+              {
+                id: "person-2",
+                name: { firstName: "Grace", lastName: "Hopper" },
+                emails: {
+                  primaryEmail: "",
+                  additionalEmails: ["GRACE@Example.COM"],
+                },
+              },
+            ],
+          },
+          pageInfo: { hasNextPage: false },
+        }),
+      ),
+    );
+
+    await expect(twentyProvider.listPeople(cfg)).resolves.toEqual([
+      {
+        remoteId: "person-1",
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        company: "Analytical Engines",
+      },
+      {
+        remoteId: "person-1",
+        name: "Ada Lovelace",
+        email: "analyst@example.com",
+        company: "Analytical Engines",
+      },
+      {
+        remoteId: "person-2",
+        name: "Grace Hopper",
+        email: "grace@example.com",
+      },
+    ]);
+  });
+
+  test("listPeople follows pagination until exhausted", async () => {
+    const fetch = fetchMock(
+      jsonResponse({
+        data: {
+          people: [
+            {
+              id: "person-1",
+              name: { firstName: "Ada", lastName: "Lovelace" },
+              emails: { primaryEmail: "ada@example.com" },
+            },
+          ],
+        },
+        pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+      }),
+      jsonResponse({
+        data: {
+          people: [
+            {
+              id: "person-2",
+              name: { firstName: "Grace", lastName: "Hopper" },
+              emails: { primaryEmail: "grace@example.com" },
+            },
+          ],
+        },
+        pageInfo: { hasNextPage: false, endCursor: "cursor-2" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(twentyProvider.listPeople(cfg)).resolves.toHaveLength(2);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const firstUrl = new URL(fetch.mock.calls[0][0] as string);
+    const secondUrl = new URL(fetch.mock.calls[1][0] as string);
+    expect(firstUrl.pathname).toBe("/rest/people");
+    expect(firstUrl.searchParams.get("limit")).toBe("60");
+    expect(firstUrl.searchParams.has("starting_after")).toBe(false);
+    expect(secondUrl.searchParams.get("starting_after")).toBe("cursor-1");
+  });
+
+  test("upsertMeetingNote creates note and attaches all person targets", async () => {
+    const fetch = fetchMock(
+      jsonResponse({
+        data: { createNote: { id: "note-1" } },
+      }, 201),
+      jsonResponse({ data: { createNoteTarget: { id: "target-1" } } }, 201),
+      jsonResponse({ data: { createNoteTarget: { id: "target-2" } } }, 201),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      twentyProvider.upsertMeetingNote(
+        cfg,
+        ["person-1", "person-2"],
+        "Weekly Review",
+        "## Summary\nShip it.",
+      ),
+    ).resolves.toBe("note-1");
+
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const [noteUrl, noteInit] = fetch.mock.calls[0];
+    expect(noteUrl).toBe("https://twenty.test/rest/notes");
+    expect(noteInit?.method).toBe("POST");
+    expect(JSON.parse(noteInit?.body as string)).toMatchObject({
+      title: "Weekly Review",
+      body: "## Summary\nShip it.",
+      bodyV2: { markdown: "## Summary\nShip it." },
+    });
+    const targetBodies = fetch.mock.calls
+      .slice(1)
+      .map(([, init]) => JSON.parse(init?.body as string));
+    expect(targetBodies).toEqual([
+      { noteId: "note-1", personId: "person-1" },
+      { noteId: "note-1", personId: "person-2" },
+    ]);
+  });
+
+  test("upsertMeetingNote with existingNoteId updates instead of creating", async () => {
+    const fetch = fetchMock(
+      jsonResponse({
+        data: { updateNote: { id: "note-1" } },
+      }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      twentyProvider.upsertMeetingNote(
+        cfg,
+        ["person-1"],
+        "Weekly Review",
+        "Updated markdown",
+        "note-1",
+      ),
+    ).resolves.toBe("note-1");
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toBe("https://twenty.test/rest/notes/note-1");
+    expect(init?.method).toBe("PATCH");
+    expect(JSON.parse(init?.body as string)).toMatchObject({
+      title: "Weekly Review",
+      body: "Updated markdown",
+      bodyV2: { markdown: "Updated markdown" },
+    });
+  });
+
+  test("api error surfaces as typed CrmError, not a throw-through", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fetchMock(jsonResponse({ errors: [{ message: "Unauthorized" }] }, 401)),
+    );
+
+    await expect(twentyProvider.listPeople(cfg)).rejects.toMatchObject({
+      name: "CrmError",
+      code: "unauthorized",
+      status: 401,
+    });
+    await expect(twentyProvider.listPeople(cfg)).rejects.not.toBeInstanceOf(
+      TypeError,
+    );
+    expect(getCrmProvider("twenty")).toBe(twentyProvider);
+    expect(CrmError.unauthorized(401)).toBeInstanceOf(CrmError);
+  });
+});

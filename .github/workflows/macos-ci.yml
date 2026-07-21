@@ -80,7 +80,16 @@ jobs:
         run: cd convex && npm ci
 
       - name: Run Convex tests
-        run: cd convex && npm test
+        env:
+          TWENTY_TEST_BASE_URL: ${{ secrets.TWENTY_TEST_BASE_URL }}
+          TWENTY_TEST_API_KEY: ${{ secrets.TWENTY_TEST_API_KEY }}
+        run: |
+          if [[ -z "${TWENTY_TEST_BASE_URL}" || -z "${TWENTY_TEST_API_KEY}" ]]; then
+            echo "::warning::Skipping Twenty live integration tests because TWENTY_TEST_BASE_URL or TWENTY_TEST_API_KEY repo secret is missing."
+          else
+            echo "Twenty live integration secrets are present; npm test will run the live suite."
+          fi
+          cd convex && npm test
 
   xcode-build-and-test:
     name: Xcode Build & Test
