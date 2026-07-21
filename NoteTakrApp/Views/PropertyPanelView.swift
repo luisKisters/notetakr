@@ -1063,9 +1063,14 @@ private struct DatePickerPopover: View {
                 .padding(.vertical, 5)
 
                 Button {
-                    applyStartTimeText()
-                    if hasEnd { applyEndTimeText() }
-                    bridge.setDate(selectedDate, end: hasEnd ? selectedEnd : nil)
+                    guard let resolvedSelection else { return }
+                    selectedDate = resolvedSelection.start
+                    if let end = resolvedSelection.end {
+                        selectedEnd = end
+                    }
+                    startTimeText = Self.timeFormatter.string(from: resolvedSelection.start)
+                    endTimeText = Self.timeFormatter.string(from: resolvedSelection.end ?? selectedEnd)
+                    bridge.setDate(resolvedSelection.start, end: resolvedSelection.end)
                     dismiss()
                 } label: {
                     Text("Done")
@@ -1091,7 +1096,17 @@ private struct DatePickerPopover: View {
     }
 
     private var canSave: Bool {
-        !hasEnd || selectedEnd >= selectedDate
+        resolvedSelection != nil
+    }
+
+    private var resolvedSelection: ResolvedDateTimeSelection? {
+        DateTimeEditing.resolve(
+            startDate: selectedDate,
+            startTimeText: startTimeText,
+            endDate: selectedEnd,
+            endTimeText: endTimeText,
+            hasEnd: hasEnd
+        )
     }
 
     private var summaryLabel: String {
@@ -1112,33 +1127,17 @@ private struct DatePickerPopover: View {
     }
 
     private func applyStartTimeText() {
-        if let adjusted = dateByApplyingTimeText(startTimeText, to: selectedDate) {
+        if let adjusted = DateTimeEditing.applying(timeText: startTimeText, to: selectedDate) {
             selectedDate = adjusted
             startTimeText = Self.timeFormatter.string(from: adjusted)
         }
     }
 
     private func applyEndTimeText() {
-        if let adjusted = dateByApplyingTimeText(endTimeText, to: selectedEnd) {
+        if let adjusted = DateTimeEditing.applying(timeText: endTimeText, to: selectedEnd) {
             selectedEnd = adjusted
             endTimeText = Self.timeFormatter.string(from: adjusted)
         }
-    }
-
-    private func dateByApplyingTimeText(_ text: String, to date: Date) -> Date? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let pieces = trimmed.split(separator: ":")
-        guard pieces.count == 2,
-              let hour = Int(pieces[0]),
-              let minute = Int(pieces[1]),
-              (0...23).contains(hour),
-              (0...59).contains(minute) else { return nil }
-        return Calendar.current.date(
-            bySettingHour: hour,
-            minute: minute,
-            second: 0,
-            of: date
-        )
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -1182,6 +1181,9 @@ private struct DateTimeEditRow: View {
             .opacity(isEnabled ? 1 : 0.45)
             .frame(width: 160, alignment: .leading)
             .tint(theme.accent.swiftUIColor)
+            .onChange(of: date) { newDate in
+                timeText = Self.timeFormatter.string(from: newDate)
+            }
 
             TextField("HH:mm", text: $timeText)
                 .textFieldStyle(.plain)
@@ -1231,6 +1233,12 @@ private struct DateTimeEditRow: View {
                 .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1)
         )
     }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
 
 // MARK: - People circles value
