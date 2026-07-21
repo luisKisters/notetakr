@@ -7,6 +7,7 @@ public protocol NoteStoring {
 
 public final class NoteEditorViewModel {
     public var onChange: (() -> Void)?
+    public var onDidSave: ((MeetingNote) -> Void)?
 
     private let store: any NoteStoring
     private let scheduler: any Scheduler
@@ -61,6 +62,7 @@ public final class NoteEditorViewModel {
         try store.save(note)
         currentNote = note
         isDirty = false
+        onDidSave?(note)
     }
 
     // MARK: - Private
@@ -72,6 +74,7 @@ public final class NoteEditorViewModel {
             guard (try? self.store.save(note)) != nil else { return }
             self.currentNote = note
             self.isDirty = false
+            self.onDidSave?(note)
         }
     }
 
@@ -88,10 +91,17 @@ public final class NoteEditorViewModel {
     /// summary, audio-source, status, and transcript content have dedicated UI.
     static func userAuthoredNotes(from body: String) -> String {
         let lines = body.components(separatedBy: .newlines)
-        let isGeneratedSessionDocument = lines.contains { line in
+        let firstContentLine = lines.first {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }?.trimmingCharacters(in: .whitespaces)
+        let hasGeneratedTitle = firstContentLine?.hasPrefix("# ") == true
+        let hasGeneratedDate = lines.contains { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("**Date:**")
+        }
+        let hasGeneratedStatus = lines.contains { line in
             line.trimmingCharacters(in: .whitespaces).hasPrefix("**Status:**")
         }
-        guard isGeneratedSessionDocument else { return body }
+        guard hasGeneratedTitle, hasGeneratedDate, hasGeneratedStatus else { return body }
         guard let headingIndex = lines.firstIndex(where: {
             $0.trimmingCharacters(in: .whitespaces) == "## Personal Notes"
         }) else { return "" }
