@@ -122,6 +122,7 @@ public protocol CrmSettingsManaging: Sendable {
     func saveCrmConfiguration(_ configuration: CrmConfiguration) async throws
     func testCrmConnection(_ configuration: CrmConfiguration) async throws
     func hasSavedCrmConfiguration() async throws -> Bool
+    func refreshCrmPeople() async throws -> [ConvexCachedPerson]
 }
 
 public protocol SyncAccountControlling: Sendable {
@@ -325,6 +326,10 @@ public final class UnavailableSyncBackend: SyncBackend, SyncAccountControlling, 
 
     public func hasSavedCrmConfiguration() async throws -> Bool {
         false
+    }
+
+    public func refreshCrmPeople() async throws -> [ConvexCachedPerson] {
+        []
     }
 
     public func accountStateUpdates() -> AsyncStream<AccountState> {

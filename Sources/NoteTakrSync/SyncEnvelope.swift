@@ -105,7 +105,6 @@ public enum SyncEnvelope {
         var participants: [MeetingPayload.Participant]
         var markdownBody: String
         var transcriptSegments: [MeetingPayload.TranscriptSegment]
-        var crmPushOptOut: Bool?
     }
 
     private static func contentHash(for payload: MeetingPayload) throws -> String {
@@ -116,8 +115,7 @@ public enum SyncEnvelope {
             calendarEventId: payload.calendarEventId,
             participants: payload.participants,
             markdownBody: payload.markdownBody,
-            transcriptSegments: payload.transcriptSegments,
-            crmPushOptOut: payload.crmPushOptOut
+            transcriptSegments: payload.transcriptSegments
         )
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

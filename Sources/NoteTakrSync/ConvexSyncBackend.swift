@@ -137,6 +137,13 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
         return result.connected
     }
 
+    public func refreshCrmPeople() async throws -> [ConvexCachedPerson] {
+        let result: RefreshPeopleResult = try await client.action(
+            "crm/mirror:refreshPeople"
+        )
+        return result.people
+    }
+
     public func accountStateUpdates() -> AsyncStream<AccountState> {
         accountStream
     }
@@ -308,6 +315,10 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
         var provider: String?
     }
 
+    private struct RefreshPeopleResult: Decodable {
+        var people: [ConvexCachedPerson]
+    }
+
     private struct ReadySummary: Decodable {
         var localId: String
         var contentHash: String
@@ -348,6 +359,10 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
     }
 
     public func hasSavedCrmConfiguration() async throws -> Bool {
+        throw ConvexSyncBackendError.sdkUnavailable
+    }
+
+    public func refreshCrmPeople() async throws -> [ConvexCachedPerson] {
         throw ConvexSyncBackendError.sdkUnavailable
     }
 

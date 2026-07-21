@@ -26,9 +26,10 @@ final class SwitcherViewModelTests: XCTestCase {
 
     private func makeEvent(id: String, title: String, start: Date, end: Date? = nil,
                            participants: [Participant] = [],
+                           locationText: String? = nil,
                            meetingLink: String? = nil) -> UpcomingEvent {
         UpcomingEvent(id: id, title: title, start: start, end: end,
-                      participants: participants, meetingLink: meetingLink)
+                      participants: participants, locationText: locationText, meetingLink: meetingLink)
     }
 
     private func makeRecording(noteID: String = "rec-1", title: String = "Client escalation",
@@ -647,7 +648,9 @@ final class SwitcherViewModelTests: XCTestCase {
             title: "Design Sprint",
             start: utcDate(2026, 6, 11, 9),
             end: utcDate(2026, 6, 11, 17),
-            participants: [Participant(name: "Alice", email: "alice@example.com")]
+            participants: [Participant(name: "Alice", email: "alice@example.com")],
+            locationText: "Room 4",
+            meetingLink: "https://zoom.us/j/123"
         )
         let (vm, _) = makeVM()
         let note = try vm.createNote(from: event)
@@ -656,6 +659,8 @@ final class SwitcherViewModelTests: XCTestCase {
         XCTAssertEqual(note.end, utcDate(2026, 6, 11, 17))
         XCTAssertEqual(note.calendarEvent, "cal-42")
         XCTAssertEqual(note.participants, [Participant(name: "Alice", email: "alice@example.com")])
+        XCTAssertEqual(note.locationText, "Room 4")
+        XCTAssertEqual(note.meetingLink, "https://zoom.us/j/123")
     }
 
     func testCreateNoteAppliesDefaultTranscribe() throws {

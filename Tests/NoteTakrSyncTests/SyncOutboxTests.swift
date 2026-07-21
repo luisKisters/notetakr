@@ -65,6 +65,44 @@ final class SyncOutboxTests: XCTestCase {
         XCTAssertTrue(try outbox.pending().isEmpty)
     }
 
+    func testPathLikeLocalIdStaysInsideOutbox() throws {
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let payload = MeetingPayload(
+            localId: "../escape",
+            title: "Unsafe",
+            startedAt: Date(timeIntervalSince1970: 1_774_200_000),
+            markdownBody: "body",
+            contentHash: "hash"
+        )
+        let escapedURL = outbox.outboxURL
+            .appendingPathComponent("../escape.json")
+            .standardizedFileURL
+
+        try outbox.enqueue(payload)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: escapedURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outbox.fileURL(for: payload.localId).path))
+        XCTAssertTrue(
+            outbox.fileURL(for: payload.localId)
+                .standardizedFileURL
+                .path
+                .hasPrefix(outbox.outboxURL.standardizedFileURL.path + "/")
+        )
+    }
+
+    func testCompleteWithPathLikeLocalIdDoesNotRemoveOutsideOutbox() throws {
+        let outbox = SyncOutbox(rootURL: tempDir)
+        try FileManager.default.createDirectory(at: outbox.outboxURL, withIntermediateDirectories: true)
+        let escapedURL = outbox.outboxURL
+            .appendingPathComponent("../escape.json")
+            .standardizedFileURL
+        try Data("sentinel".utf8).write(to: escapedURL)
+
+        try outbox.complete(localId: "../escape")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: escapedURL.path))
+    }
+
     private func makePayload(localId: String, body: String = "body") throws -> MeetingPayload {
         let id = UUID(uuidString: localId)!
         let session = MeetingSession(

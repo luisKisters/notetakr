@@ -70,14 +70,14 @@ final class SyncEnvelopeTests: XCTestCase {
         XCTAssertNotEqual(original.contentHash, changed.contentHash)
     }
 
-    func testContentHashChangesWhenCrmPushOptOutChanges() throws {
+    func testContentHashIgnoresCrmPushOptOutChanges() throws {
         let original = try SyncEnvelope.payload(session: fixtureSession(), note: fixtureNote())
         var edited = fixtureNote()
         edited.crmPushOptOut = true
 
         let changed = try SyncEnvelope.payload(session: fixtureSession(), note: edited)
 
-        XCTAssertNotEqual(original.contentHash, changed.contentHash)
+        XCTAssertEqual(original.contentHash, changed.contentHash)
         XCTAssertEqual(changed.crmPushOptOut, true)
     }
 

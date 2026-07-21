@@ -66,6 +66,11 @@ const mirrorResult = v.object({
   removed: v.number(),
 });
 
+const connectionState = v.object({
+  connected: v.boolean(),
+  provider: v.optional(v.string()),
+});
+
 const pushResult = v.object({
   status: v.union(
     v.literal("pushed"),
@@ -149,6 +154,22 @@ export const testCrmConnection = internalAction({
         code: "api_error",
         message: error instanceof Error ? error.message : "CRM connection failed",
       };
+    }
+  },
+});
+
+export const crmConnectionState = internalAction({
+  args: {
+    crm: crmConfig,
+  },
+  returns: connectionState,
+  handler: async (_ctx, { crm }) => {
+    try {
+      const materialized = await materializeCrmConfig(crm);
+      await validateCrmConfig(materialized);
+      return { connected: true, provider: materialized.provider };
+    } catch {
+      return { connected: false };
     }
   },
 });

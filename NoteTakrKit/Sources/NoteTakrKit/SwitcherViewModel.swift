@@ -310,6 +310,8 @@ public final class SwitcherViewModel {
             end: event.end,
             calendarEvent: event.id,
             participants: event.participants,
+            locationText: event.locationText,
+            meetingLink: event.meetingLink,
             inPerson: defaultsProvider.inPersonByDefault ? true : nil,
             transcribe: defaultsProvider.transcribeByDefault,
             localOnly: defaultsProvider.localOnlyByDefault ? true : nil,

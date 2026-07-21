@@ -23,6 +23,8 @@ const saveCrmConfig =
   makeFunctionReference<"action">("crm/mirror:saveCrmConfig");
 const crmConnectionState =
   makeFunctionReference<"action">("crm/mirror:crmConnectionState");
+const refreshPeople =
+  makeFunctionReference<"action">("crm/mirror:refreshPeople");
 const fetchCurrentPeopleSnapshot = makeFunctionReference<"action">(
   "crm/mirror:fetchCurrentPeopleSnapshot",
 );
@@ -272,6 +274,57 @@ describe("crm mirror", () => {
     await expect(t.action(crmConnectionState, {})).resolves.toEqual({
       connected: true,
       provider: "mirror-test",
+    });
+  });
+
+  test("crmConnectionState reports disconnected when the saved API key cannot be decrypted", async () => {
+    const t = authedBackend();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userSettings", {
+        userId: "user-a",
+        crm: {
+          provider: "mirror-test",
+          baseUrl: "https://crm.test",
+          encryptedApiKey: "enc:v1:malformed",
+        },
+      });
+    });
+
+    await expect(t.action(crmConnectionState, {})).resolves.toEqual({
+      connected: false,
+    });
+  });
+
+  test("refreshPeople mirrors immediately and returns the refreshed snapshot", async () => {
+    registerMirrorProvider([
+      {
+        remoteId: "person-1",
+        name: "Ada Lovelace",
+        email: "ADA@Example.COM",
+      },
+    ]);
+    const t = authedBackend();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userSettings", {
+        userId: "user-a",
+        crm: {
+          provider: "mirror-test",
+          baseUrl: "https://crm.test",
+          encryptedApiKey: "test-key",
+        },
+      });
+    });
+
+    await expect(t.action(refreshPeople, {})).resolves.toMatchObject({
+      skipped: false,
+      inserted: 1,
+      people: [
+        {
+          remoteId: "person-1",
+          name: "Ada Lovelace",
+          emails: ["ada@example.com"],
+        },
+      ],
     });
   });
 

@@ -731,6 +731,13 @@ struct SettingsSheetView: View {
                         .disabled(!crmCanAct)
                         .accessibilityIdentifier("crmTestConnectionButton")
 
+                    Button("Refresh people") { viewModel.refreshCrmPeople() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundColor(viewModel.crmConnected ? textPrimary : textTertiary)
+                        .disabled(!viewModel.crmConnected)
+                        .accessibilityIdentifier("crmRefreshPeopleButton")
+
                     Spacer()
                 }
             }

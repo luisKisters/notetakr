@@ -434,18 +434,10 @@ final class AppModel: ObservableObject {
     }
 
     func saveCrmSettings(baseURL: String, apiKey: String?) async {
-        appSettings.crmTwentyBaseURL = baseURL
-        if let apiKey, !apiKey.isEmpty {
-            do {
-                try crmKeychainStore.save(apiKey)
-            } catch {
-                crmMessage = Self.syncErrorMessage(error)
-                refreshCrmConnectionState()
-                return
-            }
-        }
-
-        guard let configuration = currentCrmConfiguration(apiKeyOverride: apiKey) else {
+        guard let configuration = currentCrmConfiguration(
+            baseURLOverride: baseURL,
+            apiKeyOverride: apiKey
+        ) else {
             crmMessage = "Twenty base URL and API key are required."
             refreshCrmConnectionState()
             return
@@ -457,6 +449,10 @@ final class AppModel: ObservableObject {
             }
             try await manager.testCrmConnection(configuration)
             try await manager.saveCrmConfiguration(configuration)
+            appSettings.crmTwentyBaseURL = baseURL
+            if let apiKey, !apiKey.isEmpty {
+                try crmKeychainStore.save(apiKey)
+            }
             await refreshCrmConnectionStateFromServer()
             crmMessage = "CRM settings saved."
         } catch {
@@ -492,6 +488,27 @@ final class AppModel: ObservableObject {
         } catch {
             crmMessage = Self.syncErrorMessage(error)
             refreshCrmConnectionState()
+        }
+    }
+
+    func refreshCrmPeople() async {
+        guard syncAccountState.isSignedIn else {
+            crmMessage = "Sign in to refresh CRM people."
+            refreshCrmConnectionState()
+            return
+        }
+        do {
+            guard let manager = syncBackend as? any CrmSettingsManaging else {
+                throw CrmBackendError.configuration("Cloud sync is not configured.")
+            }
+            let people = try await manager.refreshCrmPeople()
+            try crmPeopleCacheSource.refresh(people: people)
+            crmPeopleCacheRevision &+= 1
+            await refreshCrmConnectionStateFromServer()
+            crmMessage = "CRM people refreshed."
+        } catch {
+            crmMessage = Self.syncErrorMessage(error)
+            await refreshCrmConnectionStateFromServer()
         }
     }
 

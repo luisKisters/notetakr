@@ -232,7 +232,7 @@ describe("attio provider", () => {
     expect(deleteInit?.method).toBe("DELETE");
   });
 
-  test("upsertMeetingNote returns replacement when existing note cleanup fails", async () => {
+  test("upsertMeetingNote fails when existing note cleanup fails", async () => {
     const fetch = fetchMock(
       jsonResponse({ data: { id: { note_id: "note-replacement" } } }),
       jsonResponse({ message: "Temporarily unavailable" }, 503),
@@ -247,7 +247,11 @@ describe("attio provider", () => {
         "Updated markdown",
         "note-existing",
       ),
-    ).resolves.toBe("note-replacement");
+    ).rejects.toMatchObject({
+      name: "CrmError",
+      code: "api_error",
+      status: 503,
+    });
 
     expect(fetch).toHaveBeenCalledTimes(2);
     const [createUrl, createInit] = fetch.mock.calls[0];

@@ -5,7 +5,6 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
-  mutation,
   query,
 } from "../_generated/server";
 import type { CrmPerson } from "./provider";
@@ -41,6 +40,19 @@ const cachedPerson = v.object({
   name: v.string(),
   emails: v.array(v.string()),
   company: v.optional(v.string()),
+});
+
+const connectionState = v.object({
+  connected: v.boolean(),
+  provider: v.optional(v.string()),
+});
+
+const refreshPeopleResult = v.object({
+  skipped: v.boolean(),
+  inserted: v.number(),
+  updated: v.number(),
+  removed: v.number(),
+  people: v.array(cachedPerson),
 });
 
 async function requireUserId(ctx: {
@@ -331,35 +343,33 @@ export const fetchCurrentPeopleSnapshot = action({
 
 export const crmConnectionState = action({
   args: {},
-  returns: v.object({
-    connected: v.boolean(),
-    provider: v.optional(v.string()),
-  }),
+  returns: connectionState,
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
     const crm = await ctx.runQuery(internal.crm.mirror.crmSettingsForUser, {
       userId,
     });
-    const provider = normalizedString(crm?.provider);
-    const encryptedApiKey = normalizedString(crm?.encryptedApiKey);
-    return {
-      connected: provider !== undefined && encryptedApiKey !== undefined,
-      ...(provider === undefined ? {} : { provider }),
-    };
+    if (crm === null) {
+      return { connected: false };
+    }
+    return await ctx.runAction(internal.crm.network.crmConnectionState, {
+      crm,
+    });
   },
 });
 
-export const refreshPeople = mutation({
+export const refreshPeople = action({
   args: {},
-  returns: v.object({
-    scheduled: v.boolean(),
-  }),
+  returns: refreshPeopleResult,
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
-    await ctx.scheduler.runAfter(0, internal.crm.mirror.mirrorUser, {
+    const result = await ctx.runAction(internal.crm.network.mirrorUser, {
       userId,
     });
-    return { scheduled: true };
+    const people = await ctx.runQuery(internal.crm.mirror.peopleSnapshotForUser, {
+      userId,
+    });
+    return { ...result, people };
   },
 });
 

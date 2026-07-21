@@ -701,6 +701,11 @@ final class NotePanelController {
                 await appModel?.testCrmConnection(baseURL: baseURL, apiKey: apiKey)
             }
         }
+        settingsBridge.onRefreshCrmPeople = { [weak appModel] in
+            Task { @MainActor [weak appModel] in
+                await appModel?.refreshCrmPeople()
+            }
+        }
 
         appModel.$syncAccountState
             .receive(on: DispatchQueue.main)

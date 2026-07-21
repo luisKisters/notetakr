@@ -21,7 +21,7 @@ public final class SyncOutbox: @unchecked Sendable {
     }
 
     public func fileURL(for localId: String) -> URL {
-        outboxURL.appendingPathComponent("\(localId).json")
+        outboxURL.appendingPathComponent("\(Self.filenameComponent(for: localId)).json")
     }
 
     public func enqueue(_ payload: MeetingPayload) throws {
@@ -66,6 +66,12 @@ public final class SyncOutbox: @unchecked Sendable {
         let url = fileURL(for: localId)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try FileManager.default.removeItem(at: url)
+    }
+
+    private static func filenameComponent(for localId: String) -> String {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+        let encoded = localId.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+        return encoded.isEmpty ? "_" : encoded
     }
 }
 

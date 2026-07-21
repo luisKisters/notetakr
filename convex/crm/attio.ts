@@ -104,7 +104,7 @@ export const attioProvider: CrmProvider = {
     }
 
     for (const noteId of oldNoteIds) {
-      await deleteAttioNoteBestEffort(cfg, noteId);
+      await deleteAttioNote(cfg, noteId);
     }
 
     return remoteNoteIdFromRefs(noteRefs);
@@ -125,14 +125,10 @@ function noteBody(personRemoteId: string, title: string, markdown: string) {
   };
 }
 
-async function deleteAttioNoteBestEffort(cfg: CrmConfig, noteId: string) {
-  try {
-    await attioRequest<unknown>(cfg, `/notes/${encodeURIComponent(noteId)}`, {
-      method: "DELETE",
-    });
-  } catch {
-    return;
-  }
+async function deleteAttioNote(cfg: CrmConfig, noteId: string) {
+  await attioRequest<unknown>(cfg, `/notes/${encodeURIComponent(noteId)}`, {
+    method: "DELETE",
+  });
 }
 
 async function attioRequest<T>(

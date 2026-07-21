@@ -54,6 +54,7 @@ final class SettingsSheetViewModel: ObservableObject {
     var onSignOut: (() -> Void)?
     var onSaveCrmSettings: ((String, String?) -> Void)?
     var onTestCrmConnection: ((String, String?) -> Void)?
+    var onRefreshCrmPeople: (() -> Void)?
 
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
@@ -225,6 +226,11 @@ final class SettingsSheetViewModel: ObservableObject {
             crmBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines),
             crmAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         )
+    }
+
+    func refreshCrmPeople() {
+        crmMessage = nil
+        onRefreshCrmPeople?()
     }
 
     func setCrmMessage(_ message: String?) {
