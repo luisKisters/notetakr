@@ -319,7 +319,7 @@ final class NotePanelController {
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.center()
-        p.contentView = HoverTrackingHostingView(
+        let hostingView = HoverTrackingHostingView(
             rootView: EditorView(
                 bridge: bridge,
                 frontmatterBridge: frontmatterBridge,
@@ -335,6 +335,13 @@ final class NotePanelController {
                 p?.hideNativeTrafficLights()
             }
         )
+        // The panel owns its size. Allowing NSHostingView to publish the editor's
+        // intrinsic size makes tall AppKit-backed content expand the window beyond
+        // the visible screen instead of letting the editor fill the 420×620 panel.
+        hostingView.sizingOptions = []
+        p.contentView = hostingView
+        p.setContentSize(NSSize(width: 420, height: 620))
+        p.center()
         p.hideNativeTrafficLights()
         // Wire ESC precedence: settings → switcher → hide panel.
         // This is a safety-net in case SwiftUI keyboard shortcuts don't consume the event

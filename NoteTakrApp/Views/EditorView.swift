@@ -265,5 +265,6 @@ private struct CrmUnmatchedBanner: View {
                 .fill(theme.hairline.swiftUIColor)
                 .frame(height: 1)
         }
+        .accessibilityElement(children: .contain)
     }
 }
