@@ -90,3 +90,56 @@ public enum EventPickerSelection {
         return event.start > now ? .upcoming : .past
     }
 }
+
+public struct ResolvedDateTimeSelection: Equatable {
+    public let start: Date
+    public let end: Date?
+
+    public init(start: Date, end: Date?) {
+        self.start = start
+        self.end = end
+    }
+}
+
+/// Resolves the editable date/time fields as one atomic value. The UI keeps the
+/// date picker and the HH:mm fields separate, so validation must include text
+/// that has not yet produced a TextField submit event.
+public enum DateTimeEditing {
+    public static func resolve(
+        startDate: Date,
+        startTimeText: String,
+        endDate: Date,
+        endTimeText: String,
+        hasEnd: Bool,
+        calendar: Calendar = .current
+    ) -> ResolvedDateTimeSelection? {
+        guard let start = applying(timeText: startTimeText, to: startDate, calendar: calendar) else {
+            return nil
+        }
+        guard hasEnd else {
+            return ResolvedDateTimeSelection(start: start, end: nil)
+        }
+        guard let end = applying(timeText: endTimeText, to: endDate, calendar: calendar),
+              end >= start else {
+            return nil
+        }
+        return ResolvedDateTimeSelection(start: start, end: end)
+    }
+
+    public static func applying(
+        timeText: String,
+        to date: Date,
+        calendar: Calendar = .current
+    ) -> Date? {
+        let trimmed = timeText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pieces = trimmed.split(separator: ":", omittingEmptySubsequences: false)
+        guard pieces.count == 2,
+              let hour = Int(pieces[0]),
+              let minute = Int(pieces[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute) else {
+            return nil
+        }
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date)
+    }
+}
