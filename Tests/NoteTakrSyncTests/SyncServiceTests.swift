@@ -50,6 +50,23 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(try outbox.pending().isEmpty)
     }
 
+    func testLocalOnlyDirtyClearsPendingOutboxItem() throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let service = makeService(store: store, backend: backend, outbox: outbox)
+        let id = UUID(uuidString: "12121212-1212-1212-1212-121212121212")!
+        store.put(session: makeSession(id: id))
+        store.put(note: makeNote(id: id, body: "syncable"))
+        try service.markDirty(localId: id.uuidString)
+        XCTAssertFalse(try outbox.pending().isEmpty)
+
+        store.put(note: makeNote(id: id, body: "private", localOnly: true))
+        try service.markDirty(localId: id.uuidString)
+
+        XCTAssertTrue(try outbox.pending().isEmpty)
+    }
+
     func testDrainPushesAllPendingAndCompletes() async throws {
         let store = SyncFixtureStore()
         let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
@@ -131,11 +148,49 @@ final class SyncServiceTests: XCTestCase {
         let listener = Task {
             await service.consumeSummaryUpdates()
         }
-        backend.emitSummaryUpdate(SummaryUpdate(localId: localId, text: "Server summary"))
+        backend.emitSummaryUpdate(
+            SummaryUpdate(localId: localId, text: "Server summary", crmPushStatus: .pushed)
+        )
         backend.finishSummaryUpdates()
         await listener.value
 
         XCTAssertEqual(store.persistedSummaries, [localId: "Server summary"])
+        XCTAssertEqual(store.persistedCrmPushStatuses, [localId: .pushed])
+    }
+
+    func testSummaryFailureIsPersistedWithoutWritingSummary() async {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        let service = makeService(store: store, backend: backend)
+        let localId = "56565656-5656-5656-5656-565656565656"
+
+        let listener = Task {
+            await service.consumeSummaryUpdates()
+        }
+        backend.emitSummaryUpdate(
+            SummaryUpdate(
+                localId: localId,
+                status: .failed,
+                message: "OpenRouter summary request failed: 502"
+            )
+        )
+        backend.finishSummaryUpdates()
+        await listener.value
+
+        XCTAssertTrue(store.persistedSummaries.isEmpty)
+        XCTAssertEqual(store.persistedSummaryFailures, [
+            localId: "OpenRouter summary request failed: 502"
+        ])
+    }
+
+    func testSignedOutDoesNotSubscribeToSummaryUpdates() async {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedOut)
+        let service = makeService(store: store, backend: backend)
+
+        await service.consumeSummaryUpdates()
+
+        XCTAssertEqual(backend.summarySubscriptionCount, 0)
     }
 
     private func makeService(
@@ -150,8 +205,9 @@ final class SyncServiceTests: XCTestCase {
             loadSession: { try store.loadSession(localId: $0) },
             loadNote: { try store.loadNote(localId: $0) },
             persistSummary: { localId, text in try store.persistSummary(localId: localId, text: text) },
-            sleep: sleep ?? { _ in },
-            now: { Date(timeIntervalSince1970: 1_800_000_000) }
+            persistSummaryFailure: { localId, message in store.persistSummaryFailure(localId: localId, message: message) },
+            persistCrmPushStatus: { localId, status in try store.persistCrmPushStatus(localId: localId, status: status) },
+            sleep: sleep ?? { _ in }
         )
     }
 
@@ -203,6 +259,8 @@ private final class SyncFixtureStore: @unchecked Sendable {
     private var sessions: [String: MeetingSession] = [:]
     private var notes: [String: MeetingNote] = [:]
     private(set) var persistedSummaries: [String: String] = [:]
+    private(set) var persistedSummaryFailures: [String: String] = [:]
+    private(set) var persistedCrmPushStatuses: [String: CrmPushStatus] = [:]
 
     func put(session: MeetingSession) {
         lock.withLock {
@@ -231,6 +289,18 @@ private final class SyncFixtureStore: @unchecked Sendable {
     func persistSummary(localId: String, text: String) throws {
         lock.withLock {
             persistedSummaries[localId] = text
+        }
+    }
+
+    func persistSummaryFailure(localId: String, message: String) {
+        lock.withLock {
+            persistedSummaryFailures[localId] = message
+        }
+    }
+
+    func persistCrmPushStatus(localId: String, status: CrmPushStatus) throws {
+        lock.withLock {
+            persistedCrmPushStatuses[localId] = status
         }
     }
 }

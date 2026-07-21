@@ -40,15 +40,17 @@ final class FileSpoolSyncBackendTests: XCTestCase {
             var iterator = backend.summaryUpdates().makeAsyncIterator()
             return await iterator.next()
         }
+        defer { listener.cancel() }
 
         let update = SummaryUpdate(
             localId: "22222222-2222-2222-2222-222222222222",
-            text: "Server summary"
+            text: "Server summary",
+            crmPushStatus: .pushed
         )
         let encoder = JSONEncoder()
         try encoder.encode(update).write(to: backend.summaryURL(for: update.localId), options: .atomic)
 
-        let received = await listener.value
+        let received = try await valueWithTimeout(listener, seconds: 2)
         XCTAssertEqual(received, update)
     }
 
@@ -94,4 +96,27 @@ final class FileSpoolSyncBackendTests: XCTestCase {
         )
         return try SyncEnvelope.payload(session: session, note: note)
     }
+
+    private func valueWithTimeout<T>(
+        _ task: Task<T, Never>,
+        seconds: TimeInterval
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                await task.value
+            }
+            group.addTask {
+                let nanoseconds = UInt64(max(0, seconds) * 1_000_000_000)
+                try await Task.sleep(nanoseconds: nanoseconds)
+                throw TimeoutError()
+            }
+            guard let value = try await group.next() else {
+                throw TimeoutError()
+            }
+            group.cancelAll()
+            return value
+        }
+    }
+
+    private struct TimeoutError: Error {}
 }

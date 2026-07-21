@@ -6,23 +6,25 @@ public final class SyncService: @unchecked Sendable {
     public typealias SessionLoader = @Sendable (String) throws -> MeetingSession?
     public typealias NoteLoader = @Sendable (String) throws -> MeetingNote?
     public typealias SummaryPersister = @Sendable (String, String) throws -> Void
+    public typealias SummaryFailurePersister = @Sendable (String, String) -> Void
     public typealias CrmPushStatusPersister = @Sendable (String, CrmPushStatus) throws -> Void
     public typealias Sleep = @Sendable (TimeInterval) async -> Void
-    public typealias Clock = @Sendable () -> Date
 
     private let backend: any SyncBackend
     public let outbox: SyncOutbox
     private let loadSession: SessionLoader
     private let loadNote: NoteLoader
     private let persistSummary: SummaryPersister
+    private let persistSummaryFailure: SummaryFailurePersister?
     private let persistCrmPushStatus: CrmPushStatusPersister?
     private let peopleCacheSource: ConvexPeopleCacheSource?
     private let sleep: Sleep
-    private let now: Clock
 
     private let lock = NSLock()
     private var inFlight: Set<String> = []
     private var dirtyWhileInFlight: [String: MeetingPayload] = [:]
+    private var summaryUpdatesTask: Task<Void, Never>?
+    private var summaryUpdatesGeneration = 0
 
     public init(
         backend: any SyncBackend,
@@ -30,32 +32,35 @@ public final class SyncService: @unchecked Sendable {
         loadSession: @escaping SessionLoader,
         loadNote: @escaping NoteLoader,
         persistSummary: @escaping SummaryPersister,
+        persistSummaryFailure: SummaryFailurePersister? = nil,
         persistCrmPushStatus: CrmPushStatusPersister? = nil,
         peopleCacheSource: ConvexPeopleCacheSource? = nil,
         sleep: @escaping Sleep = { seconds in
             let nanoseconds = UInt64(max(0, seconds) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
-        },
-        now: @escaping Clock = { Date() }
+        }
     ) {
         self.backend = backend
         self.outbox = outbox
         self.loadSession = loadSession
         self.loadNote = loadNote
         self.persistSummary = persistSummary
+        self.persistSummaryFailure = persistSummaryFailure
         self.persistCrmPushStatus = persistCrmPushStatus
         self.peopleCacheSource = peopleCacheSource
         self.sleep = sleep
-        self.now = now
     }
 
     @discardableResult
     public func markDirty(localId: String) throws -> Bool {
-        _ = now()
         guard backend.accountState.isSignedIn else { return false }
         guard let session = try loadSession(localId),
               let note = try loadNote(localId) else { return false }
-        guard session.localOnly != true, note.localOnly != true else { return false }
+        guard session.localOnly != true, note.localOnly != true else {
+            discardPending(localId: localId)
+            try outbox.complete(localId: localId)
+            return false
+        }
 
         let payload = try SyncEnvelope.payload(session: session, note: note)
         if isInFlight(localId: localId) {
@@ -68,13 +73,15 @@ public final class SyncService: @unchecked Sendable {
     }
 
     public func run() async {
-        let summaryTask = Task {
-            await consumeSummaryUpdates()
-        }
-        defer { summaryTask.cancel() }
+        defer { cancelSummaryUpdates() }
 
         while !Task.isCancelled {
-            await runOnce()
+            if backend.accountState.isSignedIn {
+                startSummaryUpdatesIfNeeded()
+                await runOnce()
+            } else {
+                cancelSummaryUpdates()
+            }
             await sleep(5)
         }
     }
@@ -118,13 +125,46 @@ public final class SyncService: @unchecked Sendable {
     }
 
     public func consumeSummaryUpdates() async {
+        guard backend.accountState.isSignedIn else { return }
         for await update in backend.summaryUpdates() {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, backend.accountState.isSignedIn else { return }
+            if update.status == .failed {
+                let message = update.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+                persistSummaryFailure?(update.localId, message?.isEmpty == false ? message! : "Cloud summary generation failed.")
+                continue
+            }
+            guard !update.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                continue
+            }
             try? persistSummary(update.localId, update.text)
             if let status = update.crmPushStatus {
                 try? persistCrmPushStatus?(update.localId, status)
             }
         }
+    }
+
+    public func startSummaryUpdatesIfNeeded() {
+        guard backend.accountState.isSignedIn else { return }
+        _ = locked {
+            guard summaryUpdatesTask == nil else { return false }
+            summaryUpdatesGeneration += 1
+            let generation = summaryUpdatesGeneration
+            summaryUpdatesTask = Task { [weak self] in
+                await self?.consumeSummaryUpdates()
+                self?.clearFinishedSummaryTask(generation: generation)
+            }
+            return true
+        }
+    }
+
+    public func cancelSummaryUpdates() {
+        let task = locked {
+            let task = summaryUpdatesTask
+            summaryUpdatesTask = nil
+            summaryUpdatesGeneration += 1
+            return task
+        }
+        task?.cancel()
     }
 
     private func pushWithRetry(_ initialPayload: MeetingPayload) async {
@@ -197,6 +237,12 @@ public final class SyncService: @unchecked Sendable {
         }
     }
 
+    private func discardPending(localId: String) {
+        _ = locked {
+            dirtyWhileInFlight.removeValue(forKey: localId)
+        }
+    }
+
     private func takeDirty(localId: String) -> MeetingPayload? {
         locked {
             dirtyWhileInFlight.removeValue(forKey: localId)
@@ -215,5 +261,12 @@ public final class SyncService: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return try body()
+    }
+
+    private func clearFinishedSummaryTask(generation: Int) {
+        locked {
+            guard summaryUpdatesGeneration == generation else { return }
+            summaryUpdatesTask = nil
+        }
     }
 }

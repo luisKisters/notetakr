@@ -10,6 +10,8 @@ const upsertFromDevice =
 const getByLocalId = makeFunctionReference<"query">("meetings:getByLocalId");
 const readySummaries =
   makeFunctionReference<"query">("meetings:readySummaries");
+const summaryUpdates =
+  makeFunctionReference<"query">("meetings:summaryUpdates");
 
 type Segment = {
   seq: number;
@@ -27,6 +29,7 @@ function payload(
     participants: Array<{ name: string; email?: string }>;
     markdownBody: string;
     transcriptSegments: Segment[];
+    crmPushOptOut: boolean;
     contentHash: string;
   }> = {},
 ) {
@@ -44,6 +47,7 @@ function payload(
       { seq: 0, startMs: 0, speaker: "Ada", text: "Hello." },
       { seq: 1, startMs: 1200, speaker: "Grace", text: "Hi." },
     ],
+    crmPushOptOut: false,
     contentHash: "hash-1",
     ...overrides,
   };
@@ -94,8 +98,22 @@ describe("meetings", () => {
     expect(rows.meetings).toHaveLength(1);
     expect(rows.meetings[0].title).toBe("Updated Weekly Review");
     expect(rows.meetings[0].contentHash).toBe("hash-2");
+    expect(rows.meetings[0].crmPushOptOut).toBe(false);
     expect(rows.notes).toHaveLength(1);
     expect(rows.notes[0].markdownBody).toBe("Updated meeting notes");
+  });
+
+  test("upsert persists crmPushOptOut from device payload", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    await t.mutation(upsertFromDevice, {
+      payload: payload({ crmPushOptOut: true }),
+    });
+
+    await expect(t.query(getByLocalId, { localId: "meeting-1" })).resolves.toMatchObject({
+      crmPushOptOut: true,
+    });
   });
 
   test("upsert replaces transcript segments, never duplicates", async () => {
@@ -234,6 +252,47 @@ describe("meetings", () => {
         localId: "ready-a",
         summary: "Ready for A",
         summaryStatus: "ready",
+      },
+    ]);
+  });
+
+  test("summaryUpdates returns failed summaries for the current user", async () => {
+    vi.useFakeTimers();
+    const backend = convexTest({ schema, modules });
+    const userA = backend.withIdentity({
+      issuer: "https://clerk.test",
+      subject: "user-a",
+      tokenIdentifier: "user-a",
+    });
+    const userB = backend.withIdentity({
+      issuer: "https://clerk.test",
+      subject: "user-b",
+      tokenIdentifier: "user-b",
+    });
+
+    const failed = await userA.mutation(upsertFromDevice, {
+      payload: payload({ localId: "failed-a" }),
+    });
+    const other = await userB.mutation(upsertFromDevice, {
+      payload: payload({ localId: "failed-b" }),
+    });
+
+    await backend.run(async (ctx) => {
+      await ctx.db.patch(failed.meetingId, {
+        summaryStatus: "failed",
+        summaryError: "OpenRouter summary request failed: 502",
+      });
+      await ctx.db.patch(other.meetingId, {
+        summaryStatus: "failed",
+        summaryError: "Other user failure",
+      });
+    });
+
+    await expect(userA.query(summaryUpdates, {})).resolves.toEqual([
+      {
+        localId: "failed-a",
+        summaryStatus: "failed",
+        summaryError: "OpenRouter summary request failed: 502",
       },
     ]);
   });

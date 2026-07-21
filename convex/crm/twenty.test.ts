@@ -169,6 +169,10 @@ describe("twenty provider", () => {
       jsonResponse({
         data: { updateNote: { id: "note-1" } },
       }),
+      jsonResponse({
+        data: { noteTargets: [{ noteId: "note-1", personId: "person-1" }] },
+        pageInfo: { hasNextPage: false },
+      }),
     );
     vi.stubGlobal("fetch", fetch);
 
@@ -182,7 +186,7 @@ describe("twenty provider", () => {
       ),
     ).resolves.toBe("note-1");
 
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("https://twenty.test/rest/notes/note-1");
     expect(init?.method).toBe("PATCH");
@@ -190,6 +194,44 @@ describe("twenty provider", () => {
       title: "Weekly Review",
       body: "Updated markdown",
       bodyV2: { markdown: "Updated markdown" },
+    });
+    const [targetsUrl, targetsInit] = fetch.mock.calls[1];
+    expect(targetsUrl).toBe(
+      "https://twenty.test/rest/noteTargets?limit=60&depth=1",
+    );
+    expect(targetsInit?.method).toBe("GET");
+  });
+
+  test("upsertMeetingNote with existingNoteId attaches newly matched targets", async () => {
+    const fetch = fetchMock(
+      jsonResponse({
+        data: { updateNote: { id: "note-1" } },
+      }),
+      jsonResponse({
+        data: { noteTargets: [{ noteId: "note-1", personId: "person-1" }] },
+        pageInfo: { hasNextPage: false },
+      }),
+      jsonResponse({ data: { createNoteTarget: { id: "target-2" } } }, 201),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      twentyProvider.upsertMeetingNote(
+        cfg,
+        ["person-1", "person-2"],
+        "Weekly Review",
+        "Updated markdown",
+        "note-1",
+      ),
+    ).resolves.toBe("note-1");
+
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const [targetUrl, targetInit] = fetch.mock.calls[2];
+    expect(targetUrl).toBe("https://twenty.test/rest/noteTargets");
+    expect(targetInit?.method).toBe("POST");
+    expect(JSON.parse(targetInit?.body as string)).toEqual({
+      noteId: "note-1",
+      personId: "person-2",
     });
   });
 
@@ -199,14 +241,18 @@ describe("twenty provider", () => {
       fetchMock(jsonResponse({ errors: [{ message: "Unauthorized" }] }, 401)),
     );
 
-    await expect(twentyProvider.listPeople(cfg)).rejects.toMatchObject({
+    let error: unknown;
+    try {
+      await twentyProvider.listPeople(cfg);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({
       name: "CrmError",
       code: "unauthorized",
       status: 401,
     });
-    await expect(twentyProvider.listPeople(cfg)).rejects.not.toBeInstanceOf(
-      TypeError,
-    );
+    expect(error).not.toBeInstanceOf(TypeError);
     expect(getCrmProvider("twenty")).toBe(twentyProvider);
     expect(CrmError.unauthorized(401)).toBeInstanceOf(CrmError);
   });

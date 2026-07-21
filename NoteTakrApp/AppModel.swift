@@ -31,6 +31,7 @@ final class AppModel: ObservableObject {
     private var syncRunTask: Task<Void, Never>?
     private var syncAccountTask: Task<Void, Never>?
     private var syncedSummaryWaiters: [String: [CheckedContinuation<String, Error>]] = [:]
+    private var crmConnectionVerified = false
 
     private let runtime = FluidAudioRuntime()
     private let audioLoader = FluidAudioSampleLoader()
@@ -62,6 +63,7 @@ final class AppModel: ObservableObject {
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
     private var recordingActivity: NSObjectProtocol?
+    private static let cloudSummaryTimeoutNanoseconds: UInt64 = 120_000_000_000
 
     /// Called when recording starts; argument is the session ID string.
     var onRecordingStarted: ((String) -> Void)?
@@ -171,14 +173,19 @@ final class AppModel: ObservableObject {
             loadNote: { localId in
                 try notes.load(id: localId)
             },
-            persistSummary: { [weak self, sessionStore] localId, text in
+            persistSummary: { [weak self, sessionStore, notes] localId, text in
                 guard let uuid = UUID(uuidString: localId),
                       var session = try sessionStore.load(id: uuid) else { return }
                 session.summary = text
                 try sessionStore.save(session)
-                Self.regenerateNote(for: session, store: sessionStore)
+                Self.regenerateNote(for: session, store: sessionStore, noteStore: notes)
                 Task { @MainActor [weak self] in
                     self?.handleSyncedSummary(localId: localId, text: text)
+                }
+            },
+            persistSummaryFailure: { [weak self] localId, message in
+                Task { @MainActor [weak self] in
+                    self?.handleSyncedSummaryFailure(localId: localId, message: message)
                 }
             },
             persistCrmPushStatus: { [notes] localId, status in
@@ -205,7 +212,14 @@ final class AppModel: ObservableObject {
                     self?.syncAccountState = state
                     if state.isSignedIn {
                         self?.syncAccountMessage = nil
+                        service.startSummaryUpdatesIfNeeded()
+                    } else {
+                        service.cancelSummaryUpdates()
+                        self?.syncSummaryStates.removeAll()
+                        self?.resumeSyncedSummaryWaiters(throwing: CloudSummaryError.unavailable)
+                        self?.crmConnectionVerified = false
                     }
+                    self?.refreshCrmConnectionState()
                 }
                 if state.isSignedIn {
                     await service.runOnce()
@@ -295,8 +309,13 @@ final class AppModel: ObservableObject {
         guard let syncService else { return false }
         do {
             let didEnqueue = try syncService.markDirty(localId: localId)
-            guard didEnqueue else { return false }
-            if canUseCloudSummary(for: localId) {
+            guard didEnqueue else {
+                if !canUseCloudSummary(for: localId) {
+                    syncSummaryStates.removeValue(forKey: localId)
+                }
+                return false
+            }
+            if canUseCloudSummary(for: localId), hasTranscriptContent(for: localId) {
                 syncSummaryStates[localId] = .generating
             }
             Task { [syncService] in
@@ -311,6 +330,9 @@ final class AppModel: ObservableObject {
 
     func generateServerSummary(for noteID: String) async throws -> String {
         guard canUseCloudSummary(for: noteID) else {
+            throw CloudSummaryError.unavailable
+        }
+        guard hasTranscriptContent(for: noteID) else {
             throw CloudSummaryError.unavailable
         }
         if case .ready(let text) = syncSummaryStates[noteID], !text.isEmpty {
@@ -359,6 +381,10 @@ final class AppModel: ObservableObject {
             try await syncBackend.signOut()
             syncAccountState = syncBackend.accountState
             syncSummaryStates.removeAll()
+            syncService?.cancelSummaryUpdates()
+            resumeSyncedSummaryWaiters(throwing: CloudSummaryError.unavailable)
+            crmConnectionVerified = false
+            refreshCrmConnectionState(forceConnected: false)
             syncAccountMessage = nil
         } catch {
             syncAccountMessage = Self.syncErrorMessage(error)
@@ -384,14 +410,20 @@ final class AppModel: ObservableObject {
         }
 
         do {
-            if let manager = syncBackend as? any CrmSettingsManaging {
-                try await manager.saveCrmConfiguration(configuration)
+            guard let manager = syncBackend as? any CrmSettingsManaging else {
+                throw CrmBackendError.configuration("Cloud sync is not configured.")
             }
+            try await manager.testCrmConnection(configuration)
+            try await manager.saveCrmConfiguration(configuration)
+            crmConnectionVerified = true
             crmMessage = "CRM settings saved."
+            refreshCrmConnectionState(forceConnected: true)
         } catch {
             crmMessage = Self.syncErrorMessage(error)
+            crmConnectionVerified = false
+            refreshCrmConnectionState(forceConnected: false)
+            return
         }
-        refreshCrmConnectionState()
     }
 
     func testCrmConnection(baseURL: String, apiKey: String?) async {
@@ -415,10 +447,12 @@ final class AppModel: ObservableObject {
                 throw CrmBackendError.configuration("Cloud sync is not configured.")
             }
             try await manager.testCrmConnection(configuration)
+            crmConnectionVerified = true
             crmMessage = "CRM connection succeeded."
             refreshCrmConnectionState(forceConnected: true)
         } catch {
             crmMessage = Self.syncErrorMessage(error)
+            crmConnectionVerified = false
             refreshCrmConnectionState(forceConnected: false)
         }
     }
@@ -436,15 +470,42 @@ final class AppModel: ObservableObject {
     private func refreshCrmConnectionState(forceConnected: Bool? = nil) {
         crmAPIKeyConfigured = crmKeychainStore.hasValue
         let locallyConfigured = Self.firstNonEmpty(appSettings.crmTwentyBaseURL) != nil && crmAPIKeyConfigured
-        crmConnected = forceConnected ?? Self.usesE2EMockCrmConnected || locallyConfigured
+        let confirmed = crmConnectionVerified && locallyConfigured && syncAccountState.isSignedIn
+        crmConnected = forceConnected ?? (Self.usesE2EMockCrmConnected || confirmed)
+    }
+
+    private func hasTranscriptContent(for localId: String) -> Bool {
+        guard let uuid = UUID(uuidString: localId),
+              let session = try? store.load(id: uuid) else {
+            return false
+        }
+        return !session.transcriptSegments.isEmpty
     }
 
     private func waitForSyncedSummary(noteID: String) async throws -> String {
         if case .ready(let text) = syncSummaryStates[noteID], !text.isEmpty {
             return text
         }
+        if case .failed(let message) = syncSummaryStates[noteID] {
+            throw CloudSummaryError.failed(message)
+        }
         try await withCheckedThrowingContinuation { continuation in
             syncedSummaryWaiters[noteID, default: []].append(continuation)
+            scheduleSyncedSummaryTimeout(noteID: noteID)
+        }
+    }
+
+    private func scheduleSyncedSummaryTimeout(noteID: String) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: Self.cloudSummaryTimeoutNanoseconds)
+            guard let self,
+                  self.syncedSummaryWaiters[noteID]?.isEmpty == false else {
+                return
+            }
+            self.handleSyncedSummaryFailure(
+                localId: noteID,
+                message: "Cloud summary generation timed out."
+            )
         }
     }
 
@@ -456,15 +517,40 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func handleSyncedSummaryFailure(localId: String, message: String) {
+        syncSummaryStates[localId] = .failed(message)
+        let waiters = syncedSummaryWaiters.removeValue(forKey: localId) ?? []
+        let error = CloudSummaryError.failed(message)
+        for waiter in waiters {
+            waiter.resume(throwing: error)
+        }
+    }
+
+    private func resumeSyncedSummaryWaiters(throwing error: Error) {
+        let waiters = syncedSummaryWaiters
+        syncedSummaryWaiters.removeAll()
+        for noteWaiters in waiters.values {
+            for waiter in noteWaiters {
+                waiter.resume(throwing: error)
+            }
+        }
+    }
+
     private static func syncErrorMessage(_ error: Error) -> String {
         (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 
     private enum CloudSummaryError: LocalizedError {
         case unavailable
+        case failed(String)
 
         var errorDescription: String? {
-            "Cloud summaries are unavailable for this meeting."
+            switch self {
+            case .unavailable:
+                return "Cloud summaries are unavailable for this meeting."
+            case .failed(let message):
+                return message
+            }
         }
     }
 
@@ -872,11 +958,22 @@ final class AppModel: ObservableObject {
 
     /// Writes note.md without opening it (used after transcription/summarization updates it).
     private func regenerateNote(for session: MeetingSession) {
-        Self.regenerateNote(for: session, store: store)
+        Self.regenerateNote(for: session, store: store, noteStore: noteStore)
     }
 
-    private static func regenerateNote(for session: MeetingSession, store: SessionStore) {
+    private static func regenerateNote(
+        for session: MeetingSession,
+        store: SessionStore,
+        noteStore: NoteStore? = nil
+    ) {
         let markdown = MarkdownNoteRenderer.render(session: session)
+        if let noteStore,
+           var note = try? noteStore.load(id: session.id.uuidString) {
+            note.body = markdown
+            try? noteStore.save(note)
+            return
+        }
+
         let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
         try? markdown.write(to: noteURL, atomically: true, encoding: .utf8)
     }

@@ -15,13 +15,24 @@ import {
   type CrmPerson,
   requireCrmProvider,
 } from "./provider";
+import {
+  materializeCrmConfig,
+  storedCrmConfigFromInput,
+  type StoredCrmConfig,
+} from "./secrets";
 import "./attio";
 import "./twenty";
 
-const crmConfig = v.object({
+const crmInputConfig = v.object({
   provider: v.string(),
   baseUrl: v.optional(v.string()),
   apiKey: v.optional(v.string()),
+});
+
+const storedCrmConfig = v.object({
+  provider: v.string(),
+  baseUrl: v.optional(v.string()),
+  encryptedApiKey: v.optional(v.string()),
 });
 
 const crmPerson = v.object({
@@ -59,7 +70,7 @@ export const crmSettingsForUser = internalQuery({
   args: {
     userId: v.string(),
   },
-  returns: v.union(v.null(), crmConfig),
+  returns: v.union(v.null(), storedCrmConfig),
   handler: async (ctx, { userId }) => {
     const settings = await ctx.db
       .query("userSettings")
@@ -74,7 +85,7 @@ export const usersWithCrmSettings = internalQuery({
   returns: v.array(
     v.object({
       userId: v.string(),
-      crm: crmConfig,
+      crm: storedCrmConfig,
     }),
   ),
   handler: async (ctx) => {
@@ -345,15 +356,17 @@ export const refreshPeople = mutation({
 
 export const testCrmConnection = action({
   args: {
-    crm: crmConfig,
+    crm: crmInputConfig,
   },
   returns: v.object({
     ok: v.boolean(),
     code: v.optional(v.string()),
     message: v.optional(v.string()),
   }),
-  handler: async (_ctx, { crm }) => {
+  handler: async (ctx, { crm }) => {
+    await requireUserId(ctx);
     try {
+      validateCrmConfig(crm);
       const provider = requireCrmProvider(crm.provider);
       await provider.listPeople(crm);
       return { ok: true };
@@ -374,15 +387,35 @@ export const testCrmConnection = action({
   },
 });
 
-export const saveCrmConfig = mutation({
+export const saveCrmConfig = action({
   args: {
-    crm: crmConfig,
+    crm: crmInputConfig,
   },
   returns: v.object({
     scheduledMirror: v.boolean(),
   }),
   handler: async (ctx, { crm }) => {
     const userId = await requireUserId(ctx);
+    validateCrmConfig(crm);
+    const provider = requireCrmProvider(crm.provider);
+    await provider.listPeople(crm);
+    const storedCrm = await storedCrmConfigFromInput(crm);
+
+    await ctx.runMutation(internal.crm.mirror.writeCrmConfig, {
+      userId,
+      crm: storedCrm,
+    });
+    return { scheduledMirror: true };
+  },
+});
+
+export const writeCrmConfig = internalMutation({
+  args: {
+    userId: v.string(),
+    crm: storedCrmConfig,
+  },
+  returns: v.null(),
+  handler: async (ctx, { userId, crm }) => {
     const existing = await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -397,15 +430,17 @@ export const saveCrmConfig = mutation({
     await ctx.scheduler.runAfter(0, internal.crm.mirror.mirrorUser, {
       userId,
     });
-    return { scheduledMirror: true };
+    return null;
   },
 });
 
 async function mirrorUserWithConfig(
   ctx: ActionCtx,
   userId: string,
-  crm: CrmConfig,
+  storedCrm: StoredCrmConfig,
 ) {
+  const crm = await materializeCrmConfig(storedCrm);
+  validateCrmConfig(crm);
   const provider = requireCrmProvider(crm.provider);
   const people = await provider.listPeople(crm);
   const result = await ctx.runMutation(internal.crm.mirror.applyMirror, {
@@ -430,4 +465,58 @@ function normalizedString(value: unknown) {
   }
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
+}
+
+function validateCrmConfig(crm: CrmConfig) {
+  if (normalizedString(crm.apiKey) === undefined) {
+    throw CrmError.configuration("CRM API key is not configured");
+  }
+  const baseUrl = normalizedString(crm.baseUrl);
+  if (baseUrl !== undefined) {
+    validatePublicHttpsUrl(baseUrl);
+  }
+}
+
+function validatePublicHttpsUrl(value: string) {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw CrmError.configuration("CRM base URL is not valid");
+  }
+
+  if (url.protocol !== "https:") {
+    throw CrmError.configuration("CRM base URL must use https");
+  }
+  if (isPrivateHost(url.hostname)) {
+    throw CrmError.configuration("CRM base URL must be publicly reachable");
+  }
+}
+
+function isPrivateHost(hostname: string) {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost")) {
+    return true;
+  }
+  if (host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
+    return true;
+  }
+
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4 === null) {
+    return false;
+  }
+  const octets = ipv4.slice(1).map((part) => Number(part));
+  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return true;
+  }
+  const [a, b] = octets;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
 }

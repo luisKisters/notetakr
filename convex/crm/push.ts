@@ -6,6 +6,7 @@ import {
   internalQuery,
 } from "../_generated/server";
 import { requireCrmProvider } from "./provider";
+import { materializeCrmConfig, type StoredCrmConfig } from "./secrets";
 import "./attio";
 import "./twenty";
 
@@ -31,7 +32,7 @@ const pushStatus = v.union(
 const crmConfig = v.object({
   provider: v.string(),
   baseUrl: v.optional(v.string()),
-  apiKey: v.optional(v.string()),
+  encryptedApiKey: v.optional(v.string()),
 });
 
 const pushInput = v.object({
@@ -66,7 +67,7 @@ type PushInput = {
   crm?: {
     provider: string;
     baseUrl?: string;
-    apiKey?: string;
+    encryptedApiKey?: string;
   };
   people: Array<{
     email: string;
@@ -217,9 +218,10 @@ export const pushMeetingToCrm = internalAction({
     }
 
     try {
-      const provider = requireCrmProvider(input.crm.provider);
+      const crm = await materializeCrmConfig(input.crm as StoredCrmConfig);
+      const provider = requireCrmProvider(crm.provider);
       const crmNoteId = await provider.upsertMeetingNote(
-        input.crm,
+        crm,
         match.personRemoteIds,
         input.title,
         meetingMarkdown(input),

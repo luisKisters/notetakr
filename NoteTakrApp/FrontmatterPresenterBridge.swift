@@ -42,6 +42,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
     private var indexedNotes: [MeetingNote] = []
     private var crmStatusPresenter = CrmStatusPresenter()
     var onRequestCalendarEvents: ((EventPickerWindow) -> Void)?
+    var onDidSave: ((String) -> Void)?
 
     init(store: any NoteStoring, crmPeopleSource: (any PeopleSource)? = nil) {
         self.store = store
@@ -50,6 +51,9 @@ final class FrontmatterPresenterBridge: ObservableObject {
 
     func load(note: MeetingNote) {
         let p = FrontmatterPresenter(note: note, store: store, now: { Date() })
+        p.onDidSave = { [weak self] savedNote in
+            self?.onDidSave?(savedNote.id)
+        }
         p.onChange = { [weak self] in
             guard let self else { return }
             if Thread.isMainThread {

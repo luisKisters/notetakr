@@ -10,7 +10,7 @@ const transcriptSegment = v.object({
 });
 
 const summaryResult = v.object({
-  status: v.union(v.literal("ready"), v.literal("failed")),
+  status: v.union(v.literal("ready"), v.literal("failed"), v.literal("stale")),
   summary: v.optional(v.string()),
 });
 
@@ -32,6 +32,7 @@ export const loadSummaryInput = internalQuery({
     v.null(),
     v.object({
       title: v.string(),
+      contentHash: v.string(),
       transcriptSegments: v.array(transcriptSegment),
     }),
   ),
@@ -48,6 +49,7 @@ export const loadSummaryInput = internalQuery({
 
     return {
       title: meeting.title,
+      contentHash: meeting.contentHash,
       transcriptSegments: segments
         .map((segment) => ({
           seq: segment.seq,
@@ -63,24 +65,41 @@ export const loadSummaryInput = internalQuery({
 export const writeSummaryReady = internalMutation({
   args: {
     meetingId: v.id("meetings"),
+    expectedContentHash: v.string(),
     summary: v.string(),
   },
-  handler: async (ctx, { meetingId, summary }) => {
+  returns: v.boolean(),
+  handler: async (ctx, { meetingId, expectedContentHash, summary }) => {
+    const meeting = await ctx.db.get(meetingId);
+    if (meeting === null || meeting.contentHash !== expectedContentHash) {
+      return false;
+    }
     await ctx.db.patch(meetingId, {
       summary,
       summaryStatus: "ready",
+      summaryError: undefined,
     });
+    return true;
   },
 });
 
 export const writeSummaryFailed = internalMutation({
   args: {
     meetingId: v.id("meetings"),
+    expectedContentHash: v.string(),
+    message: v.string(),
   },
-  handler: async (ctx, { meetingId }) => {
+  returns: v.boolean(),
+  handler: async (ctx, { meetingId, expectedContentHash, message }) => {
+    const meeting = await ctx.db.get(meetingId);
+    if (meeting === null || meeting.contentHash !== expectedContentHash) {
+      return false;
+    }
     await ctx.db.patch(meetingId, {
       summaryStatus: "failed",
+      summaryError: message,
     });
+    return true;
   },
 });
 
@@ -106,19 +125,28 @@ export const summarizeMeeting = action({
         transcriptSegments: input.transcriptSegments,
       });
 
-      await ctx.runMutation(internal.summarize.writeSummaryReady, {
+      const wroteSummary = await ctx.runMutation(internal.summarize.writeSummaryReady, {
         meetingId,
+        expectedContentHash: input.contentHash,
         summary,
       });
+      if (!wroteSummary) {
+        return { status: "stale" as const };
+      }
       await ctx.scheduler.runAfter(0, internal.crm.push.pushMeetingToCrm, {
         meetingId,
       });
 
       return { status: "ready" as const, summary };
-    } catch {
-      await ctx.runMutation(internal.summarize.writeSummaryFailed, {
+    } catch (error) {
+      const wroteFailure = await ctx.runMutation(internal.summarize.writeSummaryFailed, {
         meetingId,
+        expectedContentHash: input.contentHash,
+        message: summaryErrorMessage(error),
       });
+      if (!wroteFailure) {
+        return { status: "stale" as const };
+      }
       return { status: "failed" as const };
     }
   },
@@ -196,4 +224,11 @@ function formatTranscript(segments: TranscriptSegment[]) {
       return `${segment.speaker.trim()}: ${text}`;
     })
     .join("\n");
+}
+
+function summaryErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim() !== "") {
+    return error.message;
+  }
+  return "Cloud summary generation failed.";
 }

@@ -30,6 +30,7 @@ export default defineSchema({
     contentHash: v.string(),
     summary: v.optional(v.string()),
     summaryStatus: v.optional(summaryStatus),
+    summaryError: v.optional(v.string()),
     crmNoteId: v.optional(v.string()),
     pushStatus: v.optional(pushStatus),
     unmatchedParticipants: v.optional(v.array(participant)),
@@ -76,7 +77,7 @@ export default defineSchema({
       v.object({
         provider: v.string(),
         baseUrl: v.optional(v.string()),
-        apiKey: v.optional(v.string()),
+        encryptedApiKey: v.optional(v.string()),
       }),
     ),
   }).index("by_user", {

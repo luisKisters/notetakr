@@ -1,6 +1,6 @@
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import crons from "../crons";
 import schema from "../schema";
 import { type CrmPerson, registerCrmProvider } from "./provider";
@@ -17,6 +17,10 @@ const modules = {
 };
 
 const mirrorUser = makeFunctionReference<"action">("crm/mirror:mirrorUser");
+const testCrmConnection =
+  makeFunctionReference<"action">("crm/mirror:testCrmConnection");
+const saveCrmConfig =
+  makeFunctionReference<"action">("crm/mirror:saveCrmConfig");
 
 function backend() {
   return convexTest({ schema, modules });
@@ -40,7 +44,7 @@ async function insertSettings(t: ReturnType<typeof backend>, userId = "user-a") 
       crm: {
         provider: "mirror-test",
         baseUrl: "https://crm.test",
-        apiKey: "test-key",
+        encryptedApiKey: "test-key",
       },
     });
   });
@@ -74,6 +78,18 @@ async function peopleRows(t: ReturnType<typeof backend>) {
     return await ctx.db.query("people").collect();
   });
 }
+
+function authedBackend() {
+  return backend().withIdentity({
+    issuer: "https://clerk.test",
+    subject: "user-a",
+    tokenIdentifier: "user-a",
+  });
+}
+
+afterEach(() => {
+  delete process.env.CRM_SECRET_ENCRYPTION_KEY;
+});
 
 describe("crm mirror", () => {
   test("mirror inserts new people and updates changed names", async () => {
@@ -198,5 +214,64 @@ describe("crm mirror", () => {
         minuteUTC: 0,
       },
     });
+  });
+
+  test("testCrmConnection requires authentication", async () => {
+    const t = backend();
+
+    await expect(
+      t.action(testCrmConnection, {
+        crm: {
+          provider: "mirror-test",
+          baseUrl: "https://crm.test",
+          apiKey: "test-key",
+        },
+      }),
+    ).rejects.toThrow("Authentication required");
+  });
+
+  test("testCrmConnection rejects private CRM base URLs", async () => {
+    const t = authedBackend();
+
+    await expect(
+      t.action(testCrmConnection, {
+        crm: {
+          provider: "mirror-test",
+          baseUrl: "https://127.0.0.1",
+          apiKey: "test-key",
+        },
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      code: "configuration",
+    });
+  });
+
+  test("saveCrmConfig verifies the provider and stores an encrypted API key", async () => {
+    process.env.CRM_SECRET_ENCRYPTION_KEY = "unit-test-secret";
+    const provider = registerMirrorProvider([]);
+    const t = authedBackend();
+
+    await expect(
+      t.action(saveCrmConfig, {
+        crm: {
+          provider: "mirror-test",
+          baseUrl: "https://crm.test",
+          apiKey: "test-key",
+        },
+      }),
+    ).resolves.toEqual({ scheduledMirror: true });
+
+    const settings = await t.run(async (ctx) => {
+      return await ctx.db.query("userSettings").unique();
+    });
+    expect(provider.listPeople).toHaveBeenCalledOnce();
+    expect(settings?.crm).toMatchObject({
+      provider: "mirror-test",
+      baseUrl: "https://crm.test",
+    });
+    expect(settings?.crm?.encryptedApiKey).toMatch(/^enc:v1:/);
+    expect(settings?.crm?.encryptedApiKey).not.toContain("test-key");
+    expect(settings?.crm).not.toHaveProperty("apiKey");
   });
 });

@@ -87,6 +87,7 @@ export const upsertFromDevice = mutation({
       summaryStatus: shouldScheduleSummary
         ? ("pending" as const)
         : existing?.summaryStatus,
+      summaryError: shouldScheduleSummary ? undefined : existing?.summaryError,
     };
 
     if (meetingId === undefined) {
@@ -158,6 +159,7 @@ export const readySummaries = query({
       localId: v.string(),
       summary: v.optional(v.string()),
       summaryStatus: v.optional(summaryStatus),
+      summaryError: v.optional(v.string()),
       pushStatus: v.optional(pushStatus),
     }),
   ),
@@ -171,6 +173,34 @@ export const readySummaries = query({
         localId: meeting.localId,
         summary: meeting.summary,
         summaryStatus: meeting.summaryStatus,
+        ...(meeting.summaryError === undefined ? {} : { summaryError: meeting.summaryError }),
+        ...(meeting.pushStatus === undefined ? {} : { pushStatus: meeting.pushStatus }),
+      }));
+  },
+});
+
+export const summaryUpdates = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      localId: v.string(),
+      summary: v.optional(v.string()),
+      summaryStatus: v.optional(summaryStatus),
+      summaryError: v.optional(v.string()),
+      pushStatus: v.optional(pushStatus),
+    }),
+  ),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const meetings = await ctx.db.query("meetings").collect();
+    return meetings
+      .filter((meeting) => meeting.userId === userId)
+      .filter((meeting) => meeting.summaryStatus === "ready" || meeting.summaryStatus === "failed")
+      .map((meeting) => ({
+        localId: meeting.localId,
+        summary: meeting.summary,
+        summaryStatus: meeting.summaryStatus,
+        ...(meeting.summaryError === undefined ? {} : { summaryError: meeting.summaryError }),
         ...(meeting.pushStatus === undefined ? {} : { pushStatus: meeting.pushStatus }),
       }));
   },

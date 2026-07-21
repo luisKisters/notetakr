@@ -158,3 +158,9 @@ Run the commands relevant to what the task changed, plus `cd NoteTakrKit && swif
 ## Success Criteria
 
 Signed out, the app is byte-for-byte behaviorally identical to today. Signed in with Google, a finished meeting appears in Convex with a Kimi-generated summary shown in the Summary tab, and — with Twenty connected — exactly one note (summary + transcript) lands on each matched person, idempotently, with unmatched participants surfaced in the banner and `local_only` meetings never leaving the Mac. Every spec-listed test exists verbatim and passes; CI is green across kit-tests, swift-package-tests, convex-tests, and xcode-build-and-test.
+
+## Validation Status
+
+- Passed on the Linux executor: `cd NoteTakrKit && swift test`, `swift build --target NoteTakrSyncTests`, `swift build --target NoteTakrCoreTests`, `cd convex && npm test`, and `cd convex && npm run typecheck`.
+- Skipped on the Linux executor: root `swift test` where FluidAudio compiles macOS-only `mach/mach.h`, and `xcodebuild test` because Xcode is unavailable.
+- Not live-validated in this environment: Clerk/Convex sign-in smoke, live Twenty smoke, and live Attio smoke because the required deployment URLs, Clerk key, and CRM API test secrets were not present.

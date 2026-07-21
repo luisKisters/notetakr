@@ -114,7 +114,7 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
     }
 
     public func saveCrmConfiguration(_ configuration: CrmConfiguration) async throws {
-        let _: SaveCrmConfigResult = try await client.mutation(
+        let _: SaveCrmConfigResult = try await client.action(
             "crm/mirror:saveCrmConfig",
             with: ["crm": convexCrmConfiguration(configuration)]
         )
@@ -139,15 +139,17 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
             let lock = NSLock()
             var seen: [String: String] = [:]
             let cancellable = client
-                .subscribe(to: "meetings:readySummaries", yielding: [ReadySummary].self)
+                .subscribe(to: "meetings:summaryUpdates", yielding: [ReadySummary].self)
                 .sink(
                     receiveCompletion: { _ in },
                     receiveValue: { rows in
-                        for row in rows where row.summaryStatus == "ready" {
-                            guard let summary = row.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
-                                  !summary.isEmpty else { continue }
+                        for row in rows {
+                            let status = SummaryUpdateStatus(rawValue: row.summaryStatus ?? "ready") ?? .ready
+                            let summary = row.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                            guard status == .failed || !summary.isEmpty else { continue }
                             let crmPushStatus = row.pushStatus.flatMap(CrmPushStatus.init(rawValue:))
-                            let seenValue = "\(summary)\n\(row.pushStatus ?? "")"
+                            let message = row.summaryError?.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let seenValue = "\(status.rawValue)\n\(summary)\n\(message ?? "")\n\(row.pushStatus ?? "")"
                             let shouldYield: Bool = {
                                 lock.lock()
                                 defer { lock.unlock() }
@@ -159,7 +161,9 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
                                 continuation.yield(
                                     SummaryUpdate(
                                         localId: row.localId,
+                                        status: status,
                                         text: summary,
+                                        message: message?.isEmpty == false ? message : nil,
                                         crmPushStatus: crmPushStatus
                                     )
                                 )
@@ -294,6 +298,7 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
         var localId: String
         var summary: String?
         var summaryStatus: String?
+        var summaryError: String?
         var pushStatus: String?
     }
 }

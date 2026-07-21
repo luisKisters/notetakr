@@ -66,6 +66,20 @@ final class PeoplePickerPresenterTests: XCTestCase {
             Participant(name: "Ada Lovelace", email: "a@x.com")
         )
     }
+
+    func testSelectingCrmPersonProducesParticipantWithRemoteId() {
+        let ada = Person(
+            name: "Ada Lovelace",
+            emails: ["ada@example.com"],
+            sourceRefs: [SourceRef(provider: "crm", remoteId: "person-1")]
+        )
+        let presenter = PeoplePickerPresenter(directory: PeopleDirectory(sources: []))
+
+        XCTAssertEqual(
+            presenter.participant(from: .person(ada)),
+            Participant(name: "Ada Lovelace", email: "ada@example.com", crm: "person-1")
+        )
+    }
 }
 
 private struct StaticPeopleSource: PeopleSource {

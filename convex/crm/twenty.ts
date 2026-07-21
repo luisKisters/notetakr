@@ -36,6 +36,19 @@ type TwentyNoteTargetResponse = {
   };
 };
 
+type TwentyNoteTargetsResponse = {
+  data?: {
+    noteTargets?: Array<{
+      noteId?: unknown;
+      personId?: unknown;
+    }>;
+  };
+  pageInfo?: {
+    hasNextPage?: boolean;
+    endCursor?: string;
+  };
+};
+
 export const twentyProvider: CrmProvider = {
   providerId: "twenty",
 
@@ -98,7 +111,9 @@ export const twentyProvider: CrmProvider = {
           body: noteBody(title, markdown),
         },
       );
-      return noteIdFromResponse(body, "updateNote");
+      const noteId = noteIdFromResponse(body, "updateNote");
+      await ensureNoteTargets(cfg, noteId, personRemoteIds);
+      return noteId;
     }
 
     const body = await twentyRequest<TwentyNoteResponse>(cfg, "/notes", {
@@ -108,13 +123,7 @@ export const twentyProvider: CrmProvider = {
     const noteId = noteIdFromResponse(body, "createNote");
 
     for (const personRemoteId of uniqueNonEmpty(personRemoteIds)) {
-      await twentyRequest<TwentyNoteTargetResponse>(cfg, "/noteTargets", {
-        method: "POST",
-        body: {
-          noteId,
-          personId: personRemoteId,
-        },
-      });
+      await createNoteTarget(cfg, noteId, personRemoteId);
     }
 
     return noteId;
@@ -132,6 +141,84 @@ function noteBody(title: string, markdown: string) {
       markdown,
     },
   };
+}
+
+async function ensureNoteTargets(
+  cfg: CrmConfig,
+  noteId: string,
+  personRemoteIds: string[],
+) {
+  const wanted = uniqueNonEmpty(personRemoteIds);
+  if (wanted.length === 0) {
+    return;
+  }
+  const existing = await noteTargetPersonIdsForNote(cfg, noteId);
+  for (const personRemoteId of wanted) {
+    if (existing.has(personRemoteId)) {
+      continue;
+    }
+    await createNoteTarget(cfg, noteId, personRemoteId);
+  }
+}
+
+async function noteTargetPersonIdsForNote(cfg: CrmConfig, noteId: string) {
+  const personIds = new Set<string>();
+  let startingAfter: string | undefined;
+
+  while (true) {
+    const body = await twentyRequest<TwentyNoteTargetsResponse>(
+      cfg,
+      "/noteTargets",
+      {
+        method: "GET",
+        query: {
+          limit: "60",
+          depth: "1",
+          ...(startingAfter === undefined
+            ? {}
+            : { starting_after: startingAfter }),
+        },
+      },
+    );
+
+    const records = body.data?.noteTargets;
+    if (!Array.isArray(records)) {
+      throw CrmError.apiError(
+        200,
+        "Twenty note targets response did not include data.noteTargets",
+      );
+    }
+    for (const target of records) {
+      const targetNoteId = normalizedString(target.noteId);
+      const personId = normalizedString(target.personId);
+      if (targetNoteId === noteId && personId !== undefined) {
+        personIds.add(personId);
+      }
+    }
+
+    const hasNextPage = body.pageInfo?.hasNextPage === true;
+    const endCursor = normalizedString(body.pageInfo?.endCursor);
+    if (!hasNextPage || endCursor === undefined) {
+      break;
+    }
+    startingAfter = endCursor;
+  }
+
+  return personIds;
+}
+
+async function createNoteTarget(
+  cfg: CrmConfig,
+  noteId: string,
+  personRemoteId: string,
+) {
+  await twentyRequest<TwentyNoteTargetResponse>(cfg, "/noteTargets", {
+    method: "POST",
+    body: {
+      noteId,
+      personId: personRemoteId,
+    },
+  });
 }
 
 async function twentyRequest<T>(

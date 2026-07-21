@@ -78,7 +78,7 @@ async function seedMeeting(
         crm: {
           provider: "push-test",
           baseUrl: "https://crm.test",
-          apiKey: "test-key",
+          encryptedApiKey: "test-key",
         },
       });
     }

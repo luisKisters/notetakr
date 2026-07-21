@@ -146,7 +146,56 @@ describe("summarize", () => {
     expect(meeting).toMatchObject({
       summary: "Previous summary",
       summaryStatus: "failed",
+      summaryError: "OpenRouter summary request failed: 502",
     });
+  });
+
+  test("stale summary response does not overwrite changed content", async () => {
+    vi.useFakeTimers();
+    process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+    let releaseFetch: ((response: Response) => void) | undefined;
+    const fetchStarted = new Promise<void>((resolve) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            await new Promise<Response>((release) => {
+              releaseFetch = release;
+              resolve();
+            }),
+        ),
+      );
+    });
+    const t = authedTest();
+
+    const { meetingId } = await t.mutation(upsertFromDevice, {
+      payload: payload({ contentHash: "hash-old" }),
+    });
+
+    const actionResult = t.action(summarizeMeeting, { meetingId });
+    await fetchStarted;
+    await t.mutation(upsertFromDevice, {
+      payload: payload({
+        contentHash: "hash-new",
+        markdownBody: "Newer content",
+      }),
+    });
+    releaseFetch?.(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "Stale summary" } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    await expect(actionResult).resolves.toEqual({ status: "stale" });
+    await expect(meetingById(t, meetingId)).resolves.toMatchObject({
+      contentHash: "hash-new",
+      summaryStatus: "pending",
+    });
+    const meeting = await meetingById(t, meetingId);
+    expect((meeting as { summary?: string } | null)?.summary).toBeUndefined();
   });
 
   test("schedules crm push after ready", async () => {

@@ -18,15 +18,55 @@ public enum AccountState: Equatable, Sendable {
     }
 }
 
+public enum SummaryUpdateStatus: String, Codable, Equatable, Sendable {
+    case ready
+    case failed
+}
+
 public struct SummaryUpdate: Codable, Equatable, Sendable {
     public var localId: String
     public var text: String
+    public var status: SummaryUpdateStatus
+    public var message: String?
     public var crmPushStatus: CrmPushStatus?
 
     public init(localId: String, text: String, crmPushStatus: CrmPushStatus? = nil) {
         self.localId = localId
         self.text = text
+        self.status = .ready
+        self.message = nil
         self.crmPushStatus = crmPushStatus
+    }
+
+    public init(
+        localId: String,
+        status: SummaryUpdateStatus,
+        text: String = "",
+        message: String? = nil,
+        crmPushStatus: CrmPushStatus? = nil
+    ) {
+        self.localId = localId
+        self.text = text
+        self.status = status
+        self.message = message
+        self.crmPushStatus = crmPushStatus
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case localId
+        case text
+        case status
+        case message
+        case crmPushStatus
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        localId = try container.decode(String.self, forKey: .localId)
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        status = try container.decodeIfPresent(SummaryUpdateStatus.self, forKey: .status) ?? .ready
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        crmPushStatus = try container.decodeIfPresent(CrmPushStatus.self, forKey: .crmPushStatus)
     }
 }
 
@@ -94,6 +134,7 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
     private var _accountState: AccountState
     private var _failuresBeforeSuccess: Int = 0
     private var _upsertedPayloads: [MeetingPayload] = []
+    private var _summarySubscriptionCount: Int = 0
     private var _upsertHandler: (@Sendable (MeetingPayload) async throws -> Void)?
 
     public init(accountState: AccountState = .signedOut) {
@@ -154,6 +195,10 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
         locked { _upsertedPayloads }
     }
 
+    public var summarySubscriptionCount: Int {
+        locked { _summarySubscriptionCount }
+    }
+
     public func upsertMeeting(_ payload: MeetingPayload) async throws {
         let result: (handler: (@Sendable (MeetingPayload) async throws -> Void)?, shouldFail: Bool) = locked {
             _upsertedPayloads.append(payload)
@@ -179,7 +224,10 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
     }
 
     public func summaryUpdates() -> AsyncStream<SummaryUpdate> {
-        summaryStream
+        locked {
+            _summarySubscriptionCount += 1
+        }
+        return summaryStream
     }
 
     public func emitSummaryUpdate(_ update: SummaryUpdate) {

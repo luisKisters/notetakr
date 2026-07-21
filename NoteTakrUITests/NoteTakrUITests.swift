@@ -182,7 +182,11 @@ final class NoteTakrUITests: XCTestCase {
         recordButton.click()
         let payload = try waitForMockSyncPayload()
         let summaryText = "Server summary from the mock sync backend."
-        try emitMockSyncSummary(localId: payload.localId, text: summaryText)
+        try emitMockSyncSummary(
+            localId: payload.localId,
+            text: summaryText,
+            crmPushStatus: "pushed"
+        )
 
         app.buttons["Summary"].click()
         let readySummary = element("summaryReadyText")
@@ -195,6 +199,7 @@ final class NoteTakrUITests: XCTestCase {
                 || ((readySummary.value as? String)?.contains(summaryText) ?? false)
         )
         try waitForPersistedSummary(localId: payload.localId, text: summaryText)
+        try waitForPersistedCrmPushStatus(localId: payload.localId, status: "pushed")
     }
 
     func testUnmatchedCrmBannerAppearsAboveFooter() throws {
@@ -287,17 +292,58 @@ final class NoteTakrUITests: XCTestCase {
         )
     }
 
-    private func emitMockSyncSummary(localId: String, text: String) throws {
+    private func emitMockSyncSummary(
+        localId: String,
+        text: String,
+        crmPushStatus: String? = nil
+    ) throws {
         let summaries = mockSyncRoot()
             .appendingPathComponent("Summaries", isDirectory: true)
         try FileManager.default.createDirectory(at: summaries, withIntermediateDirectories: true)
-        let update = MockSyncSummary(localId: localId, text: text)
+        let update = MockSyncSummary(
+            localId: localId,
+            text: text,
+            crmPushStatus: crmPushStatus
+        )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(update)
         try data.write(
             to: summaries.appendingPathComponent("\(localId).json"),
             options: .atomic
+        )
+    }
+
+    private func waitForPersistedCrmPushStatus(
+        localId: String,
+        status: String,
+        timeout: TimeInterval = 10
+    ) throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        let sessions = appSupportRoot
+            .appendingPathComponent("NoteTakr", isDirectory: true)
+            .appendingPathComponent("Sessions", isDirectory: true)
+        while Date() < deadline {
+            let folders = (try? FileManager.default.contentsOfDirectory(
+                at: sessions,
+                includingPropertiesForKeys: nil,
+                options: .skipsHiddenFiles
+            )) ?? []
+            for folder in folders {
+                let file = folder.appendingPathComponent("note.md")
+                guard let text = try? String(contentsOf: file, encoding: .utf8),
+                      text.contains("id: \(localId)"),
+                      text.contains("crm_push_status: \(status)") else {
+                    continue
+                }
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        throw NSError(
+            domain: "NoteTakrUITests",
+            code: 6,
+            userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for persisted CRM push status"]
         )
     }
 
@@ -499,6 +545,7 @@ private struct MockSyncPayload: Decodable {
 private struct MockSyncSummary: Encodable {
     let localId: String
     let text: String
+    let crmPushStatus: String?
 }
 
 private struct SeedParticipant {

@@ -234,14 +234,18 @@ describe("attio provider", () => {
       fetchMock(jsonResponse({ message: "Unauthorized" }, 401)),
     );
 
-    await expect(attioProvider.listPeople(cfg)).rejects.toMatchObject({
+    let error: unknown;
+    try {
+      await attioProvider.listPeople(cfg);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({
       name: "CrmError",
       code: "unauthorized",
       status: 401,
     });
-    await expect(attioProvider.listPeople(cfg)).rejects.not.toBeInstanceOf(
-      TypeError,
-    );
+    expect(error).not.toBeInstanceOf(TypeError);
     expect(getCrmProvider("attio")).toBe(attioProvider);
     expect(CrmError.unauthorized(401)).toBeInstanceOf(CrmError);
   });
@@ -250,7 +254,7 @@ describe("attio provider", () => {
     const userSettings = {
       crm: {
         provider: "attio",
-        apiKey: "test-api-key",
+        encryptedApiKey: "test-api-key",
       },
     };
 

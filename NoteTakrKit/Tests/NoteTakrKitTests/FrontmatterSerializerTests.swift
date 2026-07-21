@@ -74,6 +74,73 @@ final class FrontmatterSerializerTests: XCTestCase {
         XCTAssertNil(absent.localOnly)
     }
 
+    func testCrmPushOptOutRoundTripsThroughFrontmatter() {
+        let note = MeetingNote(
+            id: "CRMOPT1",
+            title: "CRM Private",
+            date: makeDate(2026, 7, 20, 10, 0),
+            crmPushOptOut: true
+        )
+
+        let rendered = FrontmatterSerializer.render(note: note)
+        let parsed = FrontmatterSerializer.parse(fileText: rendered)
+
+        XCTAssertTrue(rendered.contains("crm_push_opt_out: true"))
+        XCTAssertEqual(parsed.crmPushOptOut, true)
+
+        let explicitFalse = FrontmatterSerializer.parse(fileText: """
+        ---
+        id: CRMOPT2
+        title: CRM Enabled
+        date: 2026-07-20T10:00:00Z
+        crm_push_opt_out: false
+        ---
+        Body.
+        """)
+        XCTAssertEqual(explicitFalse.crmPushOptOut, false)
+
+        let absent = FrontmatterSerializer.parse(fileText: """
+        ---
+        id: CRMOPT3
+        title: CRM Default
+        date: 2026-07-20T10:00:00Z
+        ---
+        Body.
+        """)
+        XCTAssertNil(absent.crmPushOptOut)
+    }
+
+    func testCrmPushStatusRoundTripsThroughFrontmatter() {
+        for status in CrmPushStatus.allCases {
+            let note = MeetingNote(
+                id: "CRMSTATUS-\(status.rawValue)",
+                title: "CRM Status",
+                date: makeDate(2026, 7, 20, 10, 30),
+                crmPushStatus: status
+            )
+
+            let rendered = FrontmatterSerializer.render(note: note)
+            let parsed = FrontmatterSerializer.parse(fileText: rendered)
+
+            XCTAssertTrue(rendered.contains("crm_push_status: \(status.rawValue)"))
+            XCTAssertEqual(parsed.crmPushStatus, status)
+        }
+    }
+
+    func testInvalidCrmPushStatusParsesAsNil() {
+        let parsed = FrontmatterSerializer.parse(fileText: """
+        ---
+        id: CRMSTATUSBAD
+        title: Bad CRM Status
+        date: 2026-07-20T10:30:00Z
+        crm_push_status: not-a-status
+        ---
+        Body.
+        """)
+
+        XCTAssertNil(parsed.crmPushStatus)
+    }
+
     // MARK: - Title edge cases
 
     func testTitleWithUmlauts() {

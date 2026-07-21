@@ -1,6 +1,13 @@
 # Cloud Sync, Server Summaries & CRM Push — Solidified Implementation Plan
 
-Date: 2026-07-13 · Status: **ready to implement** · Condensed visual version: `20260713-cloud-crm-sync.html`
+Date: 2026-07-13 · Status: **implemented in `20260720-cloud-crm-sync-ralphex.md`, partially live-validated** · Condensed visual version: `20260713-cloud-crm-sync.html`
+
+Implementation note: the Ralphex execution plan at
+`docs/plans/20260720-cloud-crm-sync-ralphex.md` covers the shipped work for
+people picker, Convex sync, OpenRouter server summaries, Twenty CRM push, Mac CRM
+surfaces, and the Attio adapter. Linux validation passed for Kit/Core/Sync target
+builds and Convex tests; macOS XCUITest and live Twenty/Attio smoke checks still
+require a macOS runner and live credentials.
 
 Stack: Swift/macOS (this repo) · Clerk (Google OAuth) · Convex (backend, TypeScript in new top-level `convex/`) · OpenRouter **Kimi K2.7** (summaries, server-side) · Twenty CRM first (self-hosted, publicly reachable), Attio second.
 

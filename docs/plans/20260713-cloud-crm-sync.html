@@ -233,10 +233,10 @@
     <li>Clerk (Google OAuth) via <code>clerk-convex-swift</code>; signed-out = app unchanged (“no cloud, no account” stays true)</li>
     <li>Convex project: schema above; outbox in Swift pushing idempotent upserts (~small; no merge logic)</li>
     <li><code>localOnly</code> toggle per meeting, respected by the outbox</li>
-    <li>Summary action (Claude API) + <code>summaryStatus</code> states in the note UI</li>
-    <li>Restore-from-cloud = one-shot bulk import on a fresh Mac (backup value, zero sync complexity)</li>
+    <li>Summary action (OpenRouter Kimi K2.7 via Convex action) + <code>summaryStatus</code> states in the note UI</li>
+    <li>Restore-from-cloud remains deferred/out of scope; shipped pull data is limited to summaries, CRM push status, and the CRM people cache</li>
   </ul>
-  <div class="ship">Ships: <b>backup + server summaries</b>. Mac can sleep once the transcript is uploaded.</div>
+  <div class="ship">Ships: <b>server summaries + narrow pullback</b>. Mac can sleep once the transcript is uploaded.</div>
 </div>
 
 <div class="phase">

@@ -48,6 +48,11 @@ final class NotePanelController {
             store: store,
             crmPeopleSource: appModel?.crmPeopleCacheSource
         )
+        frontmatterBridge.onDidSave = { [weak appModel] noteID in
+            Task { @MainActor [weak appModel] in
+                appModel?.markSyncDirty(localId: noteID)
+            }
+        }
         recordPillMachine = RecordPillStateMachine()
 
         let settingsRoot = notesRoot.deletingLastPathComponent()

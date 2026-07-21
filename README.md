@@ -1,7 +1,9 @@
 # NoteTakr
 
 A native, local-first macOS menu-bar app that records meeting audio and
-generates structured notes — no cloud, no account required.
+generates structured notes. Local recording and local summaries require no
+account; optional Google sign-in enables Convex sync, server summaries, and CRM
+push.
 
 ## What it does
 
@@ -12,6 +14,14 @@ generates structured notes — no cloud, no account required.
 - Records microphone audio and system audio as separate local files.
 - Generates a Markdown note with metadata, personal notes, and (optionally)
   timestamped transcript segments.
+- Offers optional cloud sync through Convex: finished meetings can be uploaded
+  without audio, summarized server-side, and mirrored back into the Summary tab.
+- Suggests people from Apple Contacts, CRM cache, calendar attendees, and past
+  meetings; CRM-backed people keep their remote ID for automatic matching.
+- Pushes the generated summary and transcript to matched Twenty CRM people when
+  CRM is connected, with a per-meeting opt-out and unmatched-participant banner.
+- Keeps privacy controls local-first: `local_only` meetings never enqueue for
+  sync, and CRM push can be disabled per meeting.
 - Stores everything as plain JSON and audio files under
   `~/Library/Application Support/NoteTakr/`.
 
@@ -20,6 +30,7 @@ generates structured notes — no cloud, no account required.
 - macOS 14 (Sonoma) or later
 - Xcode 16 or later for local app builds, previews, archives, and XCTest
 - Swift 5.9 or later
+- Node.js LTS and npm for Convex function tests and typechecking
 
 ## Install
 
@@ -125,6 +136,15 @@ swift build --target NoteTakrCore
 swift build --target NoteTakrTranscriptionProbe
 ```
 
+Convex work uses the top-level `convex/` package:
+
+```
+cd convex
+npm ci
+npm test
+npm run typecheck
+```
+
 Probe a local FluidAudio model folder:
 
 ```
@@ -158,6 +178,14 @@ Swift package tests require an XCTest-capable local toolchain:
 swift test
 ```
 
+Convex checks:
+
+```
+cd convex
+npm test
+npm run typecheck
+```
+
 Full macOS test suite (requires Xcode):
 ```
 xcodebuild test \
@@ -167,8 +195,42 @@ xcodebuild test \
   CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 ```
 
-CI runs both suites automatically on every push via
+CI runs Swift and Convex suites automatically on every push via
 `.github/workflows/macos-ci.yml`.
+
+## Cloud sync, summaries, and CRM
+
+Cloud features are optional. Without the following configuration, the app stays
+signed out and local behavior remains available.
+
+App launch/build configuration:
+
+| Variable | Purpose |
+|----------|---------|
+| `NOTETAKR_CONVEX_DEPLOYMENT_URL`, `CONVEX_DEPLOYMENT_URL`, or `CONVEX_URL` | Convex deployment URL used by the Mac app |
+| `NOTETAKR_CLERK_PUBLISHABLE_KEY` or `CLERK_PUBLISHABLE_KEY` | Clerk publishable key for Google sign-in |
+| `NOTETAKR_CLERK_CALLBACK_SCHEME` | Optional OAuth callback URL scheme; defaults to the bundle identifier |
+
+Convex environment:
+
+| Variable | Purpose |
+|----------|---------|
+| `OPENROUTER_API_KEY` | Required for server-side summaries |
+| `SUMMARY_MODEL` | Optional OpenRouter model override; defaults to `moonshotai/kimi-k2.7-code` |
+| `CRM_SECRET_ENCRYPTION_KEY` | Required before saving CRM API keys; used to encrypt per-user CRM credentials in Convex |
+
+Live CRM integration tests are skipped unless these variables or CI secrets are
+present:
+
+| Variable | Purpose |
+|----------|---------|
+| `TWENTY_TEST_BASE_URL` | Live Twenty instance base URL |
+| `TWENTY_TEST_API_KEY` | Live Twenty API key |
+| `ATTIO_TEST_API_KEY` | Live Attio API key |
+
+CRM API keys entered in the Mac settings are stored in the local Keychain and,
+after a successful connection test, saved encrypted in Convex for background
+mirror/push actions.
 
 ## First-launch permissions
 
@@ -179,6 +241,7 @@ button for each permission you want to enable:
 | Permission | Required for |
 |------------|--------------|
 | Calendars | Detecting upcoming meetings |
+| Contacts | People suggestions and attendee name enrichment |
 | Microphone | Recording your voice |
 | Screen Recording | Capturing system audio via ScreenCaptureKit |
 
@@ -251,10 +314,25 @@ tccutil reset ScreenCapture com.notetakr.app
       microphone.m4a      — microphone recording
       system-audio.m4a    — system audio recording (when available)
       note.md             — generated Markdown note
+  Outbox/
+    <localId>.json        — pending sync payloads
+  PeopleCache.json        — cached CRM people snapshot for the picker
+  settings.json           — app defaults, CRM base URL, and meeting defaults
+  summary-templates.json
+  summarization-settings.json
   vocabulary.json         — custom vocabulary entries for transcription boosting
   transcription-settings.json
                           — FluidAudio model source and version selection
 ```
+
+`note.md` frontmatter includes the meeting metadata plus sync/CRM keys when
+set:
+
+- `local_only` — true means the meeting is never uploaded.
+- `crm_push_opt_out` — true means the meeting may sync but will not push to CRM.
+- `crm_push_status` — server-reported CRM push state: `pending`, `pushed`,
+  `failed`, or `skipped`.
+- participant `crm` fields — remote CRM person IDs used for exact CRM matching.
 
 ## Documentation
 

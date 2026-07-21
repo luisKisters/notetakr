@@ -30,6 +30,7 @@ final class SyncEnvelopeTests: XCTestCase {
                 NoteTakrKit.Participant(name: "Alice", email: "alice@example.com"),
                 NoteTakrKit.Participant(name: "Bob")
             ],
+            crmPushOptOut: true,
             body: "## Notes\n\nDecision made."
         )
 
@@ -44,6 +45,7 @@ final class SyncEnvelopeTests: XCTestCase {
             MeetingPayload.Participant(name: "Bob", email: nil)
         ])
         XCTAssertEqual(payload.markdownBody, "## Notes\n\nDecision made.")
+        XCTAssertEqual(payload.crmPushOptOut, true)
         XCTAssertEqual(payload.transcriptSegments, [
             MeetingPayload.TranscriptSegment(seq: 0, startMs: 1_500, speaker: "Alice", text: "Hello"),
             MeetingPayload.TranscriptSegment(seq: 1, startMs: 62_000, speaker: nil, text: "No speaker")
@@ -66,6 +68,17 @@ final class SyncEnvelopeTests: XCTestCase {
         let changed = try SyncEnvelope.payload(session: fixtureSession(), note: edited)
 
         XCTAssertNotEqual(original.contentHash, changed.contentHash)
+    }
+
+    func testContentHashChangesWhenCrmPushOptOutChanges() throws {
+        let original = try SyncEnvelope.payload(session: fixtureSession(), note: fixtureNote())
+        var edited = fixtureNote()
+        edited.crmPushOptOut = true
+
+        let changed = try SyncEnvelope.payload(session: fixtureSession(), note: edited)
+
+        XCTAssertNotEqual(original.contentHash, changed.contentHash)
+        XCTAssertEqual(changed.crmPushOptOut, true)
     }
 
     private func fixtureSession() -> MeetingSession {
