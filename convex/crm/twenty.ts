@@ -44,7 +44,7 @@ type TwentyNoteTargetsResponse = {
     noteTargets?: Array<{
       id?: unknown;
       noteId?: unknown;
-      personId?: unknown;
+      targetPersonId?: unknown;
     }>;
   };
   pageInfo?: {
@@ -156,9 +156,7 @@ async function createTwentyNote(
 function noteBody(title: string, markdown: string) {
   return {
     title,
-    body: markdown,
     bodyV2: {
-      blocknote: markdown,
       markdown,
     },
   };
@@ -215,7 +213,7 @@ async function noteTargetIdsByPersonIdForNote(cfg: CrmConfig, noteId: string) {
     for (const target of records) {
       const targetId = normalizedString(target.id);
       const targetNoteId = normalizedString(target.noteId);
-      const personId = normalizedString(target.personId);
+      const personId = normalizedString(target.targetPersonId);
       if (targetNoteId === noteId && personId !== undefined) {
         if (targetId === undefined) {
           throw CrmError.apiError(
@@ -247,7 +245,7 @@ async function createNoteTarget(
     method: "POST",
     body: {
       noteId,
-      personId: personRemoteId,
+      targetPersonId: personRemoteId,
     },
   });
 }

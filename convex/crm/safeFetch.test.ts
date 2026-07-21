@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { isPublicAddress, isSameOriginRedirect } from "./safeFetch";
+import {
+  createPinnedLookup,
+  isPublicAddress,
+  isSameOriginRedirect,
+} from "./safeFetch";
 
 describe("safe CRM fetch", () => {
   test("classifies public and private IP addresses", () => {
@@ -31,5 +35,28 @@ describe("safe CRM fetch", () => {
     expect(
       isSameOriginRedirect("https://crm.test/api", "http://crm.test/next"),
     ).toBe(false);
+  });
+
+  test("returns an address array when Node requests all lookup results", async () => {
+    const lookup = createPinnedLookup({ address: "203.0.113.10", family: 4 });
+    let callbackAddress: unknown;
+    let callbackFamily: number | undefined;
+
+    await new Promise<void>((resolve, reject) => {
+      lookup("crm.test", { all: true }, (error, address, family) => {
+        if (error !== null) {
+          reject(error);
+          return;
+        }
+        callbackAddress = address;
+        callbackFamily = family;
+        resolve();
+      });
+    });
+
+    expect(callbackAddress).toEqual([
+      { address: "203.0.113.10", family: 4 },
+    ]);
+    expect(callbackFamily).toBeUndefined();
   });
 });

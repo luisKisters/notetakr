@@ -3,7 +3,7 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import type { IncomingHttpHeaders } from "node:http";
 import { request as httpsRequest, type RequestOptions } from "node:https";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import { CrmError } from "./provider";
 
 type SafeFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
@@ -52,9 +52,7 @@ async function pinnedHttpsFetch(
       method: init.method ?? "GET",
       headers,
       servername: url.hostname,
-      lookup: (_hostname, _options, callback) => {
-        callback(null, pinned.address, pinned.family);
-      },
+      lookup: createPinnedLookup(pinned),
       timeout: 30_000,
     };
 
@@ -99,6 +97,19 @@ async function pinnedHttpsFetch(
     }
     req.end();
   });
+}
+
+export function createPinnedLookup(pinned: {
+  address: string;
+  family: 4 | 6;
+}): LookupFunction {
+  return (_hostname, options, callback) => {
+    if (options.all === true) {
+      callback(null, [pinned]);
+      return;
+    }
+    callback(null, pinned.address, pinned.family);
+  };
 }
 
 async function validatedAddressForUrl(url: URL) {

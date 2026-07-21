@@ -91,7 +91,7 @@ async function deleteLiveNote(noteId: string | undefined) {
 }
 
 async function noteTargetsForPerson(personId: string) {
-  const targets: Array<{ noteId?: string; personId?: string }> = [];
+  const targets: Array<{ noteId?: string; targetPersonId?: string }> = [];
   let startingAfter: string | undefined;
 
   while (true) {
@@ -101,14 +101,14 @@ async function noteTargetsForPerson(personId: string) {
     }
     const response = await liveRequest<{
       data: {
-        noteTargets: Array<{ noteId?: string; personId?: string }>;
+        noteTargets: Array<{ noteId?: string; targetPersonId?: string }>;
       };
       pageInfo?: { hasNextPage?: boolean; endCursor?: string };
     }>(`/noteTargets?${query.toString()}`);
 
     targets.push(
       ...response.data.noteTargets.filter(
-        (target) => target.personId === personId,
+        (target) => target.targetPersonId === personId,
       ),
     );
 
@@ -159,44 +159,52 @@ async function mirrorPeopleIntoConvex(
 }
 
 liveDescribe("twenty live integration", () => {
-  test("live: listPeople returns a non-empty mapped page from the real instance", async () => {
-    const people = await twentyProvider.listPeople(cfg);
+  test(
+    "live: listPeople returns a non-empty mapped page from the real instance",
+    { timeout: 30_000 },
+    async () => {
+      const people = await twentyProvider.listPeople(cfg);
 
-    expect(people.length).toBeGreaterThan(0);
-    expect(people[0].remoteId).toEqual(expect.any(String));
-    expect(people[0].name).toEqual(expect.any(String));
-    expect(people[0].email).toBe(people[0].email.toLowerCase());
-  });
+      expect(people.length).toBeGreaterThan(0);
+      expect(people[0].remoteId).toEqual(expect.any(String));
+      expect(people[0].name).toEqual(expect.any(String));
+      expect(people[0].email).toBe(people[0].email.toLowerCase());
+    },
+  );
 
-  test("live: a person created via the API appears in the next mirror pass", async () => {
-    const id = runId();
-    const email = `nt-test+${id}@example.invalid`;
-    let personId: string | undefined;
+  test(
+    "live: a person created via the API appears in the next mirror pass",
+    { timeout: 30_000 },
+    async () => {
+      const id = runId();
+      const email = `nt-test+${id}@example.invalid`;
+      let personId: string | undefined;
 
-    try {
-      personId = await createLivePerson(email, `[nt-test] Mirror ${id}`);
-      const backend = convexTest({ schema, modules });
+      try {
+        personId = await createLivePerson(email, `[nt-test] Mirror ${id}`);
+        const backend = convexTest({ schema, modules });
 
-      await mirrorPeopleIntoConvex(backend, "user-a");
+        await mirrorPeopleIntoConvex(backend, "user-a");
 
-      const mirrored = await backend.run(async (ctx) => {
-        return await ctx.db
-          .query("people")
-          .withIndex("by_user_email", (q) =>
-            q.eq("userId", "user-a").eq("email", email),
-          )
-          .unique();
-      });
-      expect(mirrored).toMatchObject({
-        email,
-        name: expect.stringContaining("[nt-test]"),
-        provider: "twenty",
-        remoteId: personId,
-      });
-    } finally {
-      await deleteLivePerson(personId);
-    }
-  });
+        const mirrored = await backend.run(async (ctx) => {
+          return await ctx.db
+            .query("people")
+            .withIndex("by_user_email", (q) =>
+              q.eq("userId", "user-a").eq("email", email),
+            )
+            .unique();
+        });
+        expect(mirrored).toMatchObject({
+          email,
+          name: expect.stringContaining("[nt-test]"),
+          provider: "twenty",
+          remoteId: personId,
+        });
+      } finally {
+        await deleteLivePerson(personId);
+      }
+    },
+  );
 
   test("live: upsertMeetingNote creates exactly one note attached to the test person", async () => {
     const id = runId();

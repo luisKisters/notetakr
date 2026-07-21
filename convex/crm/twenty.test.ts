@@ -154,17 +154,16 @@ describe("twenty provider", () => {
     const [noteUrl, noteInit] = fetch.mock.calls[0];
     expect(noteUrl).toBe("https://twenty.test/rest/notes");
     expect(noteInit?.method).toBe("POST");
-    expect(JSON.parse(noteInit?.body as string)).toMatchObject({
+    expect(JSON.parse(noteInit?.body as string)).toEqual({
       title: "Weekly Review",
-      body: "## Summary\nShip it.",
       bodyV2: { markdown: "## Summary\nShip it." },
     });
     const targetBodies = fetch.mock.calls
       .slice(1)
       .map(([, init]) => JSON.parse(init?.body as string));
     expect(targetBodies).toEqual([
-      { noteId: "note-1", personId: "person-1" },
-      { noteId: "note-1", personId: "person-2" },
+      { noteId: "note-1", targetPersonId: "person-1" },
+      { noteId: "note-1", targetPersonId: "person-2" },
     ]);
   });
 
@@ -176,7 +175,11 @@ describe("twenty provider", () => {
       jsonResponse({
         data: {
           noteTargets: [
-            { id: "target-1", noteId: "note-1", personId: "person-1" },
+            {
+              id: "target-1",
+              noteId: "note-1",
+              targetPersonId: "person-1",
+            },
           ],
         },
         pageInfo: { hasNextPage: false },
@@ -198,9 +201,8 @@ describe("twenty provider", () => {
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("https://twenty.test/rest/notes/note-1");
     expect(init?.method).toBe("PATCH");
-    expect(JSON.parse(init?.body as string)).toMatchObject({
+    expect(JSON.parse(init?.body as string)).toEqual({
       title: "Weekly Review",
-      body: "Updated markdown",
       bodyV2: { markdown: "Updated markdown" },
     });
     const [targetsUrl, targetsInit] = fetch.mock.calls[1];
@@ -218,7 +220,11 @@ describe("twenty provider", () => {
       jsonResponse({
         data: {
           noteTargets: [
-            { id: "target-1", noteId: "note-1", personId: "person-1" },
+            {
+              id: "target-1",
+              noteId: "note-1",
+              targetPersonId: "person-1",
+            },
           ],
         },
         pageInfo: { hasNextPage: false },
@@ -243,7 +249,7 @@ describe("twenty provider", () => {
     expect(targetInit?.method).toBe("POST");
     expect(JSON.parse(targetInit?.body as string)).toEqual({
       noteId: "note-1",
-      personId: "person-2",
+      targetPersonId: "person-2",
     });
   });
 
@@ -255,8 +261,16 @@ describe("twenty provider", () => {
       jsonResponse({
         data: {
           noteTargets: [
-            { id: "target-1", noteId: "note-1", personId: "person-1" },
-            { id: "target-2", noteId: "note-1", personId: "person-2" },
+            {
+              id: "target-1",
+              noteId: "note-1",
+              targetPersonId: "person-1",
+            },
+            {
+              id: "target-2",
+              noteId: "note-1",
+              targetPersonId: "person-2",
+            },
           ],
         },
         pageInfo: { hasNextPage: false },
@@ -313,7 +327,7 @@ describe("twenty provider", () => {
     expect(targetInit?.method).toBe("POST");
     expect(JSON.parse(targetInit?.body as string)).toEqual({
       noteId: "note-replacement",
-      personId: "person-1",
+      targetPersonId: "person-1",
     });
   });
 
