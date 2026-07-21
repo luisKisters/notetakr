@@ -104,10 +104,17 @@ final class NotePanelController {
         )
 
         if let ss = sessionStoreRef {
+            let noteStore = store
             presenter.onPersistSummary = { noteID, summary in
                 guard let uuid = UUID(uuidString: noteID),
                       var session = try? ss.load(id: uuid) else { return }
                 session.summary = summary
+                if let note = try? noteStore.load(id: noteID) {
+                    session.summaryContentHash = try? SyncEnvelope.payload(
+                        session: session,
+                        note: note
+                    ).contentHash
+                }
                 try? ss.save(session)
             }
         }
@@ -774,12 +781,26 @@ final class NotePanelController {
         if let sessionStore,
            let uuid = UUID(uuidString: noteID),
            let session = try? sessionStore.load(id: uuid),
-           let summary = session.summary,
-           !summary.isEmpty {
+           let summary = currentPersistedSummary(for: session) {
             tabsBridge.presenter.setSummary(summary, for: noteID)
         } else {
             tabsBridge.presenter.clearSummaryState(for: noteID)
         }
+    }
+
+    private func currentPersistedSummary(for session: MeetingSession) -> String? {
+        guard let summary = session.summary, !summary.isEmpty else {
+            return nil
+        }
+        guard let summaryContentHash = session.summaryContentHash else {
+            return summary
+        }
+        guard let note = try? store.load(id: session.id.uuidString),
+              let currentContentHash = try? SyncEnvelope.payload(session: session, note: note).contentHash,
+              currentContentHash == summaryContentHash else {
+            return nil
+        }
+        return summary
     }
 
     #if DEBUG
@@ -953,8 +974,10 @@ final class NotePanelController {
                 RawSegment(speaker: seg.speaker, timestamp: seg.timestamp, text: seg.text)
             }
             tabsBridge.presenter.setSegments(rawSegments, for: id)
-            if let summary = session.summary, !summary.isEmpty {
+            if let summary = currentPersistedSummary(for: session) {
                 tabsBridge.presenter.setSummary(summary, for: id)
+            } else {
+                tabsBridge.presenter.clearSummaryState(for: id)
             }
             if let syncState = appModelRef?.syncSummaryStates[id] {
                 tabsBridge.presenter.setSummaryState(syncState, for: id)

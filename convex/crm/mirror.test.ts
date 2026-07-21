@@ -23,6 +23,9 @@ const saveCrmConfig =
   makeFunctionReference<"action">("crm/mirror:saveCrmConfig");
 const crmConnectionState =
   makeFunctionReference<"action">("crm/mirror:crmConnectionState");
+const fetchCurrentPeopleSnapshot = makeFunctionReference<"action">(
+  "crm/mirror:fetchCurrentPeopleSnapshot",
+);
 
 function backend() {
   return convexTest({ schema, modules });
@@ -269,6 +272,43 @@ describe("crm mirror", () => {
     await expect(t.action(crmConnectionState, {})).resolves.toEqual({
       connected: true,
       provider: "mirror-test",
+    });
+  });
+
+  test("people snapshot only returns rows for the configured provider", async () => {
+    const t = authedBackend();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userSettings", {
+        userId: "user-a",
+        crm: {
+          provider: "mirror-test",
+          baseUrl: "https://crm.test",
+          encryptedApiKey: "test-key",
+        },
+      });
+      await ctx.db.insert("people", {
+        userId: "user-a",
+        email: "current@example.com",
+        name: "Current Provider",
+        provider: "mirror-test",
+        remoteId: "current-1",
+      });
+      await ctx.db.insert("people", {
+        userId: "user-a",
+        email: "old@example.com",
+        name: "Old Provider",
+        provider: "twenty",
+        remoteId: "old-1",
+      });
+    });
+
+    const snapshot = await t.action(fetchCurrentPeopleSnapshot, {});
+
+    expect(snapshot).toHaveLength(1);
+    expect(snapshot[0]).toMatchObject({
+      remoteId: "current-1",
+      name: "Current Provider",
+      emails: ["current@example.com"],
     });
   });
 

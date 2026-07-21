@@ -270,8 +270,18 @@ export const peopleSnapshotForUser = internalQuery({
   },
   returns: v.array(cachedPerson),
   handler: async (ctx, { userId }) => {
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const provider = normalizedString(settings?.crm?.provider);
+    if (provider === undefined) {
+      return [];
+    }
+
     const rows = (await ctx.db.query("people").collect())
       .filter((row) => row.userId === userId)
+      .filter((row) => row.provider === provider)
       .filter((row) => row.remoteId !== undefined);
 
     const grouped = new Map<

@@ -204,7 +204,41 @@ export const pushMeetingToCrm = internalAction({
       return { status: "skipped" as const, skipped: true };
     }
 
-    const match = matchParticipants(input);
+    let pushInput = input;
+    let match = matchParticipants(pushInput);
+    if (match.personRemoteIds.length === 0) {
+      try {
+        await mirrorUserWithConfig(ctx, input.userId, input.crm as StoredCrmConfig);
+        const refreshed = await ctx.runQuery(internal.crm.push.loadPushInput, {
+          meetingId,
+        });
+        if (refreshed !== null) {
+          if (refreshed.crmPushOptOut === true) {
+            await ctx.runMutation(internal.crm.push.writePushSkipped, {
+              meetingId,
+              unmatchedParticipants: [],
+            });
+            return { status: "skipped" as const, skipped: true };
+          }
+          if (refreshed.crm === undefined) {
+            await ctx.runMutation(internal.crm.push.writePushSkipped, {
+              meetingId,
+              unmatchedParticipants: [],
+            });
+            return { status: "skipped" as const, skipped: true };
+          }
+          pushInput = refreshed;
+          match = matchParticipants(pushInput);
+        }
+      } catch {
+        await ctx.runMutation(internal.crm.push.writePushFailed, {
+          meetingId,
+          unmatchedParticipants: match.unmatchedParticipants,
+        });
+        return { status: "failed" as const, skipped: false };
+      }
+    }
+
     if (match.personRemoteIds.length === 0) {
       await ctx.runMutation(internal.crm.push.writePushSkipped, {
         meetingId,
@@ -214,15 +248,15 @@ export const pushMeetingToCrm = internalAction({
     }
 
     try {
-      const crm = await materializeCrmConfig(input.crm as StoredCrmConfig);
+      const crm = await materializeCrmConfig(pushInput.crm as StoredCrmConfig);
       await validateCrmConfig(crm);
       const provider = requireCrmProvider(crm.provider);
       const crmNoteId = await provider.upsertMeetingNote(
         crm,
         match.personRemoteIds,
-        input.title,
-        meetingMarkdown(input),
-        input.crmNoteId,
+        pushInput.title,
+        meetingMarkdown(pushInput),
+        pushInput.crmNoteId,
       );
 
       await ctx.runMutation(internal.crm.push.writePushPushed, {

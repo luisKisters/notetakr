@@ -200,9 +200,13 @@ final class AppModel: ObservableObject {
                     )
                 }
             },
-            persistSummaryFailure: { [weak self] localId, message in
+            persistSummaryFailure: { [weak self] localId, message, contentHash in
                 Task { @MainActor [weak self] in
-                    self?.handleSyncedSummaryFailure(localId: localId, message: message)
+                    self?.handleSyncedSummaryFailure(
+                        localId: localId,
+                        message: message,
+                        contentHash: contentHash
+                    )
                 }
             },
             persistCrmPushStatus: { [weak self, notes] localId, status in
@@ -579,7 +583,8 @@ final class AppModel: ObservableObject {
             }
             self.handleSyncedSummaryFailure(
                 localId: noteID,
-                message: "Cloud summary generation timed out."
+                message: "Cloud summary generation timed out.",
+                contentHash: nil
             )
         }
     }
@@ -600,7 +605,11 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func handleSyncedSummaryFailure(localId: String, message: String) {
+    private func handleSyncedSummaryFailure(localId: String, message: String, contentHash: String?) {
+        if let contentHash,
+           currentSyncContentHash(for: localId) != contentHash {
+            return
+        }
         syncSummaryStates[localId] = .failed(message)
         syncedSummaryContentHashes.removeValue(forKey: localId)
         let waiters = syncedSummaryWaiters.removeValue(forKey: localId) ?? []

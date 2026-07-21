@@ -90,10 +90,7 @@ export const attioProvider: CrmProvider = {
       );
     }
 
-    for (const noteId of noteIdsFromRemoteNoteId(existingNoteId)) {
-      await deleteAttioNoteIfPresent(cfg, noteId);
-    }
-
+    const oldNoteIds = noteIdsFromRemoteNoteId(existingNoteId);
     const noteRefs: AttioNoteRef[] = [];
     for (const personRemoteId of targets) {
       const body = await attioRequest<AttioNoteResponse>(cfg, "/notes", {
@@ -104,6 +101,10 @@ export const attioProvider: CrmProvider = {
         personRemoteId,
         noteId: noteIdFromResponse(body),
       });
+    }
+
+    for (const noteId of oldNoteIds) {
+      await deleteAttioNoteBestEffort(cfg, noteId);
     }
 
     return remoteNoteIdFromRefs(noteRefs);
@@ -124,16 +125,13 @@ function noteBody(personRemoteId: string, title: string, markdown: string) {
   };
 }
 
-async function deleteAttioNoteIfPresent(cfg: CrmConfig, noteId: string) {
+async function deleteAttioNoteBestEffort(cfg: CrmConfig, noteId: string) {
   try {
     await attioRequest<unknown>(cfg, `/notes/${encodeURIComponent(noteId)}`, {
       method: "DELETE",
     });
-  } catch (error) {
-    if (error instanceof CrmError && error.code === "not_found") {
-      return;
-    }
-    throw error;
+  } catch {
+    return;
   }
 }
 

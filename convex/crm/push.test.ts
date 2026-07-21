@@ -2,7 +2,7 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { describe, expect, test, vi } from "vitest";
 import schema from "../schema";
-import { registerCrmProvider } from "./provider";
+import { type CrmPerson, registerCrmProvider } from "./provider";
 
 const modules = {
   ...import.meta.glob("../*.ts"),
@@ -35,9 +35,9 @@ function backend() {
   return convexTest({ schema, modules });
 }
 
-function registerPushProvider(noteId = "note-1") {
+function registerPushProvider(noteId = "note-1", mirroredPeople: CrmPerson[] = []) {
   const calls: PushCall[] = [];
-  const listPeople = vi.fn(async () => []);
+  const listPeople = vi.fn(async () => mirroredPeople);
   const upsertMeetingNote = vi.fn(
     async (
       _cfg,
@@ -205,6 +205,30 @@ describe("crm push", () => {
         { name: "No Email" },
         { name: "External Guest", email: "guest@example.com" },
       ],
+      pushStatus: "pushed",
+    });
+  });
+
+  test("refreshes empty mirror before skipping crm push", async () => {
+    const provider = registerPushProvider("note-created", [
+      {
+        remoteId: "person-1",
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+      },
+    ]);
+    const t = backend();
+    const meetingId = await seedMeeting(t, {
+      people: [],
+    });
+
+    await t.action(pushMeetingToCrm, { meetingId });
+
+    expect(provider.listPeople).toHaveBeenCalledOnce();
+    expect(provider.calls).toHaveLength(1);
+    expect(provider.calls[0].personRemoteIds).toEqual(["person-1"]);
+    await expect(meetingById(t, meetingId)).resolves.toMatchObject({
+      crmNoteId: "note-created",
       pushStatus: "pushed",
     });
   });

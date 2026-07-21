@@ -6,7 +6,7 @@ public final class SyncService: @unchecked Sendable {
     public typealias SessionLoader = @Sendable (String) throws -> MeetingSession?
     public typealias NoteLoader = @Sendable (String) throws -> MeetingNote?
     public typealias SummaryPersister = @Sendable (String, String, String?) throws -> Void
-    public typealias SummaryFailurePersister = @Sendable (String, String) -> Void
+    public typealias SummaryFailurePersister = @Sendable (String, String, String?) -> Void
     public typealias CrmPushStatusPersister = @Sendable (String, CrmPushStatus) throws -> Void
     public typealias Sleep = @Sendable (TimeInterval) async -> Void
 
@@ -133,7 +133,11 @@ public final class SyncService: @unchecked Sendable {
             guard !Task.isCancelled, backend.accountState.isSignedIn else { return }
             if update.status == .failed {
                 let message = update.message?.trimmingCharacters(in: .whitespacesAndNewlines)
-                persistSummaryFailure?(update.localId, message?.isEmpty == false ? message! : "Cloud summary generation failed.")
+                persistSummaryFailure?(
+                    update.localId,
+                    message?.isEmpty == false ? message! : "Cloud summary generation failed.",
+                    update.contentHash
+                )
                 continue
             }
             guard !update.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

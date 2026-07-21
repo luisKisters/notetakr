@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { isPublicAddress } from "./safeFetch";
+import { isPublicAddress, isSameOriginRedirect } from "./safeFetch";
 
 describe("safe CRM fetch", () => {
   test("classifies public and private IP addresses", () => {
@@ -16,5 +16,20 @@ describe("safe CRM fetch", () => {
     expect(isPublicAddress("fe80::1")).toBe(false);
     expect(isPublicAddress("fc00::1")).toBe(false);
     expect(isPublicAddress("::ffff:192.168.1.1")).toBe(false);
+  });
+
+  test("rejects redirects that would carry credentials to another origin", () => {
+    expect(
+      isSameOriginRedirect("https://crm.test/api", "https://crm.test/next"),
+    ).toBe(true);
+    expect(
+      isSameOriginRedirect("https://crm.test/api", "https://crm.test:443/next"),
+    ).toBe(true);
+    expect(
+      isSameOriginRedirect("https://crm.test/api", "https://evil.test/next"),
+    ).toBe(false);
+    expect(
+      isSameOriginRedirect("https://crm.test/api", "http://crm.test/next"),
+    ).toBe(false);
   });
 });

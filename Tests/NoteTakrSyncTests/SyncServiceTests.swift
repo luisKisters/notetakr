@@ -223,7 +223,8 @@ final class SyncServiceTests: XCTestCase {
             SummaryUpdate(
                 localId: localId,
                 status: .failed,
-                message: "OpenRouter summary request failed: 502"
+                message: "OpenRouter summary request failed: 502",
+                contentHash: "hash-failed"
             )
         )
         backend.finishSummaryUpdates()
@@ -232,6 +233,9 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(store.persistedSummaries.isEmpty)
         XCTAssertEqual(store.persistedSummaryFailures, [
             localId: "OpenRouter summary request failed: 502"
+        ])
+        XCTAssertEqual(store.persistedSummaryFailureContentHashes, [
+            localId: "hash-failed"
         ])
     }
 
@@ -294,7 +298,9 @@ final class SyncServiceTests: XCTestCase {
             persistSummary: { localId, text, contentHash in
                 try store.persistSummary(localId: localId, text: text, contentHash: contentHash)
             },
-            persistSummaryFailure: { localId, message in store.persistSummaryFailure(localId: localId, message: message) },
+            persistSummaryFailure: { localId, message, contentHash in
+                store.persistSummaryFailure(localId: localId, message: message, contentHash: contentHash)
+            },
             persistCrmPushStatus: { localId, status in try store.persistCrmPushStatus(localId: localId, status: status) },
             peopleCacheSource: peopleCacheSource,
             peopleCacheDidRefresh: peopleCacheDidRefresh,
@@ -344,6 +350,7 @@ private final class SyncFixtureStore: @unchecked Sendable {
     private(set) var persistedSummaries: [String: String] = [:]
     private(set) var persistedSummaryContentHashes: [String: String] = [:]
     private(set) var persistedSummaryFailures: [String: String] = [:]
+    private(set) var persistedSummaryFailureContentHashes: [String: String] = [:]
     private(set) var persistedCrmPushStatuses: [String: CrmPushStatus] = [:]
 
     func put(session: MeetingSession) {
@@ -379,9 +386,12 @@ private final class SyncFixtureStore: @unchecked Sendable {
         }
     }
 
-    func persistSummaryFailure(localId: String, message: String) {
+    func persistSummaryFailure(localId: String, message: String, contentHash: String?) {
         lock.withLock {
             persistedSummaryFailures[localId] = message
+            if let contentHash {
+                persistedSummaryFailureContentHashes[localId] = contentHash
+            }
         }
     }
 

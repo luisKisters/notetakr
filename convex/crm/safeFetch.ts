@@ -64,6 +64,10 @@ async function pinnedHttpsFetch(
       if (status >= 300 && status < 400 && location !== undefined) {
         res.resume();
         const redirectURL = new URL(location, url);
+        if (!isSameOriginRedirect(url, redirectURL)) {
+          reject(CrmError.network("CRM request redirected to a different origin"));
+          return;
+        }
         pinnedHttpsFetch(
           redirectURL,
           redirectInit(init, status),
@@ -161,6 +165,16 @@ export function isPublicAddress(address: string) {
     return isPublicIPv6(host);
   }
   return false;
+}
+
+export function isSameOriginRedirect(source: string | URL, target: string | URL) {
+  const sourceUrl = new URL(source.toString());
+  const targetUrl = new URL(target.toString(), sourceUrl);
+  return (
+    sourceUrl.protocol === targetUrl.protocol &&
+    normalizedHostname(sourceUrl.hostname) === normalizedHostname(targetUrl.hostname) &&
+    effectivePort(sourceUrl) === effectivePort(targetUrl)
+  );
 }
 
 function isPublicIPv4(address: string) {
@@ -305,6 +319,19 @@ function splitIPv6Side(value: string) {
 
 function normalizedHostname(hostname: string) {
   return hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+}
+
+function effectivePort(url: URL) {
+  if (url.port !== "") {
+    return url.port;
+  }
+  if (url.protocol === "https:") {
+    return "443";
+  }
+  if (url.protocol === "http:") {
+    return "80";
+  }
+  return "";
 }
 
 function redirectInit(init: RequestInit, status: number): RequestInit {
