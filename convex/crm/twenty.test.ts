@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { CrmError, getCrmProvider } from "./provider";
 import { twentyProvider } from "./twenty";
+import { setSafeCrmFetchForTesting } from "./safeFetch";
 
 const cfg = {
   provider: "twenty",
@@ -16,7 +17,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function fetchMock(...responses: Response[]) {
-  return vi.fn(
+  const fetch = vi.fn(
     async (
       _input: RequestInfo | URL,
       _init?: RequestInit,
@@ -28,9 +29,12 @@ function fetchMock(...responses: Response[]) {
       return response;
     },
   );
+  setSafeCrmFetchForTesting(fetch);
+  return fetch;
 }
 
 afterEach(() => {
+  setSafeCrmFetchForTesting(undefined);
   vi.unstubAllGlobals();
 });
 

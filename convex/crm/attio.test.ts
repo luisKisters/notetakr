@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { CrmError, getCrmProvider, requireCrmProvider } from "./provider";
 import { attioProvider } from "./attio";
+import { setSafeCrmFetchForTesting } from "./safeFetch";
 
 const cfg = {
   provider: "attio",
@@ -16,7 +17,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function fetchMock(...responses: Response[]) {
-  return vi.fn(
+  const fetch = vi.fn(
     async (
       _input: RequestInfo | URL,
       _init?: RequestInit,
@@ -28,6 +29,8 @@ function fetchMock(...responses: Response[]) {
       return response;
     },
   );
+  setSafeCrmFetchForTesting(fetch);
+  return fetch;
 }
 
 function attioPerson(
@@ -74,6 +77,7 @@ function fullPage(prefix: string) {
 }
 
 afterEach(() => {
+  setSafeCrmFetchForTesting(undefined);
   vi.unstubAllGlobals();
 });
 
@@ -195,8 +199,8 @@ describe("attio provider", () => {
 
   test("upsertMeetingNote with existingNoteId updates instead of creating", async () => {
     const fetch = fetchMock(
-      jsonResponse({ data: null }),
       jsonResponse({ data: { id: { note_id: "note-replacement" } } }),
+      jsonResponse({ data: null }),
     );
     vi.stubGlobal("fetch", fetch);
 
@@ -211,8 +215,8 @@ describe("attio provider", () => {
     ).resolves.toBe("note-replacement");
 
     expect(fetch).toHaveBeenCalledTimes(2);
-    const [deleteUrl, deleteInit] = fetch.mock.calls[0];
-    const [createUrl, createInit] = fetch.mock.calls[1];
+    const [createUrl, createInit] = fetch.mock.calls[0];
+    const [deleteUrl, deleteInit] = fetch.mock.calls[1];
     expect(deleteUrl).toBe("https://attio.test/v2/notes/note-existing");
     expect(deleteInit?.method).toBe("DELETE");
     expect(createUrl).toBe("https://attio.test/v2/notes");
@@ -226,6 +230,30 @@ describe("attio provider", () => {
         content: "Updated markdown",
       },
     });
+  });
+
+  test("upsertMeetingNote preserves existing note when replacement create fails", async () => {
+    const fetch = fetchMock(jsonResponse({ message: "Temporarily unavailable" }, 503));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      attioProvider.upsertMeetingNote(
+        cfg,
+        ["person-1"],
+        "Weekly Review",
+        "Updated markdown",
+        "note-existing",
+      ),
+    ).rejects.toMatchObject({
+      name: "CrmError",
+      code: "api_error",
+      status: 503,
+    });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [createUrl, createInit] = fetch.mock.calls[0];
+    expect(createUrl).toBe("https://attio.test/v2/notes");
+    expect(createInit?.method).toBe("POST");
   });
 
   test("api error surfaces as typed CrmError, not a throw-through", async () => {

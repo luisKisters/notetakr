@@ -236,7 +236,7 @@ describe("crm mirror", () => {
     await expect(
       t.action(testCrmConnection, {
         crm: {
-          provider: "mirror-test",
+          provider: "twenty",
           baseUrl: "https://127.0.0.1",
           apiKey: "test-key",
         },

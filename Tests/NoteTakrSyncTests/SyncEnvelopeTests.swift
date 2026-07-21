@@ -27,7 +27,7 @@ final class SyncEnvelopeTests: XCTestCase {
             date: startedAt.addingTimeInterval(30),
             calendarEvent: "evt_note",
             participants: [
-                NoteTakrKit.Participant(name: "Alice", email: "alice@example.com"),
+                NoteTakrKit.Participant(name: "Alice", email: "alice@example.com", crm: "crm-person-1"),
                 NoteTakrKit.Participant(name: "Bob")
             ],
             crmPushOptOut: true,
@@ -41,7 +41,7 @@ final class SyncEnvelopeTests: XCTestCase {
         XCTAssertEqual(payload.startedAt, note.date)
         XCTAssertEqual(payload.calendarEventId, "evt_note")
         XCTAssertEqual(payload.participants, [
-            MeetingPayload.Participant(name: "Alice", email: "alice@example.com"),
+            MeetingPayload.Participant(name: "Alice", email: "alice@example.com", crm: "crm-person-1"),
             MeetingPayload.Participant(name: "Bob", email: nil)
         ])
         XCTAssertEqual(payload.markdownBody, "## Notes\n\nDecision made.")
@@ -81,6 +81,17 @@ final class SyncEnvelopeTests: XCTestCase {
         XCTAssertEqual(changed.crmPushOptOut, true)
     }
 
+    func testContentHashChangesWhenParticipantCrmChanges() throws {
+        let original = try SyncEnvelope.payload(session: fixtureSession(), note: fixtureNote())
+        var edited = fixtureNote()
+        edited.participants[0].crm = "person-updated"
+
+        let changed = try SyncEnvelope.payload(session: fixtureSession(), note: edited)
+
+        XCTAssertNotEqual(original.contentHash, changed.contentHash)
+        XCTAssertEqual(changed.participants[0].crm, "person-updated")
+    }
+
     private func fixtureSession() -> MeetingSession {
         MeetingSession(
             id: UUID(uuidString: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")!,
@@ -102,7 +113,7 @@ final class SyncEnvelopeTests: XCTestCase {
             date: Date(timeIntervalSince1970: 1_774_200_000),
             calendarEvent: "calendar-1",
             participants: [
-                NoteTakrKit.Participant(name: "Luis", email: "luis@example.com"),
+                NoteTakrKit.Participant(name: "Luis", email: "luis@example.com", crm: "person-luis"),
                 NoteTakrKit.Participant(name: "Mina", email: "mina@example.com")
             ],
             body: "Initial body"

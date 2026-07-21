@@ -4,6 +4,7 @@ import { v } from "convex/values";
 const participant = v.object({
   name: v.string(),
   email: v.optional(v.string()),
+  crm: v.optional(v.string()),
 });
 
 const summaryStatus = v.union(

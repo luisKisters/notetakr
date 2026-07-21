@@ -1,3 +1,5 @@
+"use node";
+
 import {
   CrmError,
   type CrmConfig,
@@ -5,6 +7,7 @@ import {
   type CrmProvider,
   registerCrmProvider,
 } from "./provider";
+import { safeCrmFetch } from "./safeFetch";
 
 const ATTIO_PAGE_SIZE = 500;
 
@@ -87,10 +90,6 @@ export const attioProvider: CrmProvider = {
       );
     }
 
-    for (const noteId of noteIdsFromRemoteNoteId(existingNoteId)) {
-      await deleteAttioNoteIfPresent(cfg, noteId);
-    }
-
     const noteRefs: AttioNoteRef[] = [];
     for (const personRemoteId of targets) {
       const body = await attioRequest<AttioNoteResponse>(cfg, "/notes", {
@@ -103,7 +102,11 @@ export const attioProvider: CrmProvider = {
       });
     }
 
-    return remoteNoteIdFromRefs(noteRefs);
+    const replacementNoteId = remoteNoteIdFromRefs(noteRefs);
+    for (const noteId of noteIdsFromRemoteNoteId(existingNoteId)) {
+      await deleteAttioNoteIfPresent(cfg, noteId);
+    }
+    return replacementNoteId;
   },
 };
 
@@ -145,7 +148,7 @@ async function attioRequest<T>(
   const url = `${attioBaseUrl(cfg)}${path}`;
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await safeCrmFetch(url, {
       method: options.method,
       headers: {
         Authorization: `Bearer ${requiredApiKey(cfg)}`,

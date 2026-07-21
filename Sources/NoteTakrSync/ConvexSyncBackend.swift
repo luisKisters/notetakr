@@ -149,7 +149,7 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
                             guard status == .failed || !summary.isEmpty else { continue }
                             let crmPushStatus = row.pushStatus.flatMap(CrmPushStatus.init(rawValue:))
                             let message = row.summaryError?.trimmingCharacters(in: .whitespacesAndNewlines)
-                            let seenValue = "\(status.rawValue)\n\(summary)\n\(message ?? "")\n\(row.pushStatus ?? "")"
+                            let seenValue = "\(status.rawValue)\n\(summary)\n\(message ?? "")\n\(row.contentHash)\n\(row.pushStatus ?? "")"
                             let shouldYield: Bool = {
                                 lock.lock()
                                 defer { lock.unlock() }
@@ -164,6 +164,7 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
                                         status: status,
                                         text: summary,
                                         message: message?.isEmpty == false ? message : nil,
+                                        contentHash: row.contentHash,
                                         crmPushStatus: crmPushStatus
                                     )
                                 )
@@ -235,6 +236,7 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
                 [
                     "name": participant.name,
                     "email": participant.email,
+                    "crm": participant.crm,
                 ] as [String: ConvexEncodable?]
             },
             "markdownBody": payload.markdownBody,
@@ -296,6 +298,7 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
 
     private struct ReadySummary: Decodable {
         var localId: String
+        var contentHash: String
         var summary: String?
         var summaryStatus: String?
         var summaryError: String?

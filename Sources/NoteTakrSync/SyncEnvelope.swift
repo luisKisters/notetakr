@@ -6,10 +6,12 @@ public struct MeetingPayload: Codable, Equatable, Sendable {
     public struct Participant: Codable, Equatable, Sendable {
         public var name: String
         public var email: String?
+        public var crm: String?
 
-        public init(name: String, email: String? = nil) {
+        public init(name: String, email: String? = nil, crm: String? = nil) {
             self.name = name
             self.email = email
+            self.crm = crm
         }
     }
 
@@ -80,7 +82,11 @@ public enum SyncEnvelope {
             startedAt: note.date,
             calendarEventId: trimmedNonEmpty(note.calendarEvent) ?? trimmedNonEmpty(session.linkedEventID),
             participants: note.participants.map {
-                MeetingPayload.Participant(name: $0.name, email: trimmedNonEmpty($0.email))
+                MeetingPayload.Participant(
+                    name: $0.name,
+                    email: trimmedNonEmpty($0.email),
+                    crm: trimmedNonEmpty($0.crm)
+                )
             },
             markdownBody: note.body,
             transcriptSegments: transcript,

@@ -26,7 +26,7 @@ function payload(
     title: string;
     startedAt: string;
     calendarEventId: string;
-    participants: Array<{ name: string; email?: string }>;
+    participants: Array<{ name: string; email?: string; crm?: string }>;
     markdownBody: string;
     transcriptSegments: Segment[];
     crmPushOptOut: boolean;
@@ -113,6 +113,27 @@ describe("meetings", () => {
 
     await expect(t.query(getByLocalId, { localId: "meeting-1" })).resolves.toMatchObject({
       crmPushOptOut: true,
+    });
+  });
+
+  test("upsert persists participant crm remote ids from device payload", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    await t.mutation(upsertFromDevice, {
+      payload: payload({
+        participants: [
+          { name: "Ada Lovelace", email: "ada@example.com", crm: "person-1" },
+          { name: "Manual Match", crm: "person-2" },
+        ],
+      }),
+    });
+
+    await expect(t.query(getByLocalId, { localId: "meeting-1" })).resolves.toMatchObject({
+      participants: [
+        { name: "Ada Lovelace", email: "ada@example.com", crm: "person-1" },
+        { name: "Manual Match", crm: "person-2" },
+      ],
     });
   });
 
@@ -277,6 +298,7 @@ describe("meetings", () => {
     await expect(userA.query(readySummaries, {})).resolves.toEqual([
       {
         localId: "ready-a",
+        contentHash: "hash-1",
         summary: "Ready for A",
         summaryStatus: "ready",
       },
@@ -318,6 +340,7 @@ describe("meetings", () => {
     await expect(userA.query(summaryUpdates, {})).resolves.toEqual([
       {
         localId: "failed-a",
+        contentHash: "hash-1",
         summaryStatus: "failed",
         summaryError: "OpenRouter summary request failed: 502",
       },

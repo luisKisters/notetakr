@@ -23,7 +23,7 @@ function payload(
     title: string;
     startedAt: string;
     calendarEventId: string;
-    participants: Array<{ name: string; email?: string }>;
+    participants: Array<{ name: string; email?: string; crm?: string }>;
     markdownBody: string;
     transcriptSegments: Segment[];
     contentHash: string;

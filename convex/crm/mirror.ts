@@ -7,21 +7,8 @@ import {
   internalQuery,
   mutation,
   query,
-  type ActionCtx,
 } from "../_generated/server";
-import {
-  CrmError,
-  type CrmConfig,
-  type CrmPerson,
-  requireCrmProvider,
-} from "./provider";
-import {
-  materializeCrmConfig,
-  storedCrmConfigFromInput,
-  type StoredCrmConfig,
-} from "./secrets";
-import "./attio";
-import "./twenty";
+import type { CrmPerson } from "./provider";
 
 const crmInputConfig = v.object({
   provider: v.string(),
@@ -190,13 +177,9 @@ export const mirrorUser = internalAction({
   },
   returns: mirrorResult,
   handler: async (ctx, { userId }) => {
-    const crm = await ctx.runQuery(internal.crm.mirror.crmSettingsForUser, {
+    return await ctx.runAction(internal.crm.network.mirrorUser, {
       userId,
     });
-    if (crm === null) {
-      return { skipped: true, inserted: 0, updated: 0, removed: 0 };
-    }
-    return await mirrorUserWithConfig(ctx, userId, crm);
   },
 });
 
@@ -216,7 +199,9 @@ export const mirrorAllUsers = internalAction({
 
     for (const setting of settings) {
       try {
-        await mirrorUserWithConfig(ctx, setting.userId, setting.crm);
+        await ctx.runAction(internal.crm.network.mirrorUser, {
+          userId: setting.userId,
+        });
         mirroredUsers += 1;
       } catch {
         failedUsers += 1;
@@ -232,13 +217,7 @@ export const mirrorCurrentUser = action({
   returns: mirrorResult,
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
-    const crm = await ctx.runQuery(internal.crm.mirror.crmSettingsForUser, {
-      userId,
-    });
-    if (crm === null) {
-      return { skipped: true, inserted: 0, updated: 0, removed: 0 };
-    }
-    return await mirrorUserWithConfig(ctx, userId, crm);
+    return await ctx.runAction(internal.crm.network.mirrorUser, { userId });
   },
 });
 
@@ -365,25 +344,7 @@ export const testCrmConnection = action({
   }),
   handler: async (ctx, { crm }) => {
     await requireUserId(ctx);
-    try {
-      validateCrmConfig(crm);
-      const provider = requireCrmProvider(crm.provider);
-      await provider.listPeople(crm);
-      return { ok: true };
-    } catch (error) {
-      if (error instanceof CrmError) {
-        return {
-          ok: false,
-          code: error.code,
-          message: error.message,
-        };
-      }
-      return {
-        ok: false,
-        code: "api_error",
-        message: error instanceof Error ? error.message : "CRM connection failed",
-      };
-    }
+    return await ctx.runAction(internal.crm.network.testCrmConnection, { crm });
   },
 });
 
@@ -396,16 +357,10 @@ export const saveCrmConfig = action({
   }),
   handler: async (ctx, { crm }) => {
     const userId = await requireUserId(ctx);
-    validateCrmConfig(crm);
-    const provider = requireCrmProvider(crm.provider);
-    await provider.listPeople(crm);
-    const storedCrm = await storedCrmConfigFromInput(crm);
-
-    await ctx.runMutation(internal.crm.mirror.writeCrmConfig, {
+    return await ctx.runAction(internal.crm.network.saveCrmConfig, {
       userId,
-      crm: storedCrm,
+      crm,
     });
-    return { scheduledMirror: true };
   },
 });
 
@@ -434,23 +389,6 @@ export const writeCrmConfig = internalMutation({
   },
 });
 
-async function mirrorUserWithConfig(
-  ctx: ActionCtx,
-  userId: string,
-  storedCrm: StoredCrmConfig,
-) {
-  const crm = await materializeCrmConfig(storedCrm);
-  validateCrmConfig(crm);
-  const provider = requireCrmProvider(crm.provider);
-  const people = await provider.listPeople(crm);
-  const result = await ctx.runMutation(internal.crm.mirror.applyMirror, {
-    userId,
-    provider: crm.provider,
-    people,
-  });
-  return { skipped: false, ...result };
-}
-
 function mirrorKey(remoteId: string, email: string) {
   return `${remoteId}\n${email.toLowerCase()}`;
 }
@@ -465,58 +403,4 @@ function normalizedString(value: unknown) {
   }
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
-}
-
-function validateCrmConfig(crm: CrmConfig) {
-  if (normalizedString(crm.apiKey) === undefined) {
-    throw CrmError.configuration("CRM API key is not configured");
-  }
-  const baseUrl = normalizedString(crm.baseUrl);
-  if (baseUrl !== undefined) {
-    validatePublicHttpsUrl(baseUrl);
-  }
-}
-
-function validatePublicHttpsUrl(value: string) {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw CrmError.configuration("CRM base URL is not valid");
-  }
-
-  if (url.protocol !== "https:") {
-    throw CrmError.configuration("CRM base URL must use https");
-  }
-  if (isPrivateHost(url.hostname)) {
-    throw CrmError.configuration("CRM base URL must be publicly reachable");
-  }
-}
-
-function isPrivateHost(hostname: string) {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host.endsWith(".localhost")) {
-    return true;
-  }
-  if (host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
-    return true;
-  }
-
-  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (ipv4 === null) {
-    return false;
-  }
-  const octets = ipv4.slice(1).map((part) => Number(part));
-  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
-    return true;
-  }
-  const [a, b] = octets;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168)
-  );
 }

@@ -21,6 +21,7 @@ const pushMeetingToCrm =
 type Participant = {
   name: string;
   email?: string;
+  crm?: string;
 };
 
 type PushCall = {
@@ -158,6 +159,30 @@ describe("crm push", () => {
 
     expect(provider.calls).toHaveLength(1);
     expect(provider.calls[0].personRemoteIds).toEqual(["person-1"]);
+  });
+
+  test("matches participants by explicit crm remote id before email", async () => {
+    const provider = registerPushProvider();
+    const t = backend();
+    const meetingId = await seedMeeting(t, {
+      participants: [
+        { name: "Manually Matched", crm: "person-2" },
+        { name: "Email Changed", email: "old@example.com", crm: "person-3" },
+      ],
+      people: [
+        { email: "current@example.com", remoteId: "person-2", name: "Manual" },
+        { email: "new@example.com", remoteId: "person-3", name: "Changed" },
+      ],
+    });
+
+    await t.action(pushMeetingToCrm, { meetingId });
+
+    expect(provider.calls).toHaveLength(1);
+    expect(provider.calls[0].personRemoteIds).toEqual(["person-2", "person-3"]);
+    await expect(meetingById(t, meetingId)).resolves.toMatchObject({
+      unmatchedParticipants: [],
+      pushStatus: "pushed",
+    });
   });
 
   test("unmatched participants are recorded and do not block the push", async () => {

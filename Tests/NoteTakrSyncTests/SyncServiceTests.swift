@@ -195,12 +195,18 @@ final class SyncServiceTests: XCTestCase {
             await service.consumeSummaryUpdates()
         }
         backend.emitSummaryUpdate(
-            SummaryUpdate(localId: localId, text: "Server summary", crmPushStatus: .pushed)
+            SummaryUpdate(
+                localId: localId,
+                text: "Server summary",
+                contentHash: "hash-1",
+                crmPushStatus: .pushed
+            )
         )
         backend.finishSummaryUpdates()
         await listener.value
 
         XCTAssertEqual(store.persistedSummaries, [localId: "Server summary"])
+        XCTAssertEqual(store.persistedSummaryContentHashes, [localId: "hash-1"])
         XCTAssertEqual(store.persistedCrmPushStatuses, [localId: .pushed])
     }
 
@@ -250,7 +256,9 @@ final class SyncServiceTests: XCTestCase {
             outbox: outbox ?? SyncOutbox(rootURL: tempDir),
             loadSession: { try store.loadSession(localId: $0) },
             loadNote: { try store.loadNote(localId: $0) },
-            persistSummary: { localId, text in try store.persistSummary(localId: localId, text: text) },
+            persistSummary: { localId, text, contentHash in
+                try store.persistSummary(localId: localId, text: text, contentHash: contentHash)
+            },
             persistSummaryFailure: { localId, message in store.persistSummaryFailure(localId: localId, message: message) },
             persistCrmPushStatus: { localId, status in try store.persistCrmPushStatus(localId: localId, status: status) },
             sleep: sleep ?? { _ in }
@@ -297,6 +305,7 @@ private final class SyncFixtureStore: @unchecked Sendable {
     private var sessions: [String: MeetingSession] = [:]
     private var notes: [String: MeetingNote] = [:]
     private(set) var persistedSummaries: [String: String] = [:]
+    private(set) var persistedSummaryContentHashes: [String: String] = [:]
     private(set) var persistedSummaryFailures: [String: String] = [:]
     private(set) var persistedCrmPushStatuses: [String: CrmPushStatus] = [:]
 
@@ -324,9 +333,12 @@ private final class SyncFixtureStore: @unchecked Sendable {
         }
     }
 
-    func persistSummary(localId: String, text: String) throws {
+    func persistSummary(localId: String, text: String, contentHash: String?) throws {
         lock.withLock {
             persistedSummaries[localId] = text
+            if let contentHash {
+                persistedSummaryContentHashes[localId] = contentHash
+            }
         }
     }
 

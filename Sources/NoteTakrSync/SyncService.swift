@@ -5,7 +5,7 @@ import NoteTakrKit
 public final class SyncService: @unchecked Sendable {
     public typealias SessionLoader = @Sendable (String) throws -> MeetingSession?
     public typealias NoteLoader = @Sendable (String) throws -> MeetingNote?
-    public typealias SummaryPersister = @Sendable (String, String) throws -> Void
+    public typealias SummaryPersister = @Sendable (String, String, String?) throws -> Void
     public typealias SummaryFailurePersister = @Sendable (String, String) -> Void
     public typealias CrmPushStatusPersister = @Sendable (String, CrmPushStatus) throws -> Void
     public typealias Sleep = @Sendable (TimeInterval) async -> Void
@@ -133,7 +133,7 @@ public final class SyncService: @unchecked Sendable {
             guard !update.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 continue
             }
-            try? persistSummary(update.localId, update.text)
+            try? persistSummary(update.localId, update.text, update.contentHash)
             if let status = update.crmPushStatus {
                 try? persistCrmPushStatus?(update.localId, status)
             }

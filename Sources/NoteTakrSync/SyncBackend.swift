@@ -28,13 +28,20 @@ public struct SummaryUpdate: Codable, Equatable, Sendable {
     public var text: String
     public var status: SummaryUpdateStatus
     public var message: String?
+    public var contentHash: String?
     public var crmPushStatus: CrmPushStatus?
 
-    public init(localId: String, text: String, crmPushStatus: CrmPushStatus? = nil) {
+    public init(
+        localId: String,
+        text: String,
+        contentHash: String? = nil,
+        crmPushStatus: CrmPushStatus? = nil
+    ) {
         self.localId = localId
         self.text = text
         self.status = .ready
         self.message = nil
+        self.contentHash = contentHash
         self.crmPushStatus = crmPushStatus
     }
 
@@ -43,12 +50,14 @@ public struct SummaryUpdate: Codable, Equatable, Sendable {
         status: SummaryUpdateStatus,
         text: String = "",
         message: String? = nil,
+        contentHash: String? = nil,
         crmPushStatus: CrmPushStatus? = nil
     ) {
         self.localId = localId
         self.text = text
         self.status = status
         self.message = message
+        self.contentHash = contentHash
         self.crmPushStatus = crmPushStatus
     }
 
@@ -57,6 +66,7 @@ public struct SummaryUpdate: Codable, Equatable, Sendable {
         case text
         case status
         case message
+        case contentHash
         case crmPushStatus
     }
 
@@ -66,6 +76,7 @@ public struct SummaryUpdate: Codable, Equatable, Sendable {
         text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
         status = try container.decodeIfPresent(SummaryUpdateStatus.self, forKey: .status) ?? .ready
         message = try container.decodeIfPresent(String.self, forKey: .message)
+        contentHash = try container.decodeIfPresent(String.self, forKey: .contentHash)
         crmPushStatus = try container.decodeIfPresent(CrmPushStatus.self, forKey: .crmPushStatus)
     }
 }

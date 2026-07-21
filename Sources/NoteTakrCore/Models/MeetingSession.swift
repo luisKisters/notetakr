@@ -10,6 +10,7 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
     public var audioFilePaths: [String]
     public var audioSourceStatuses: [AudioSourceStatus]
     public var summary: String?
+    public var summaryContentHash: String?
     public var localOnly: Bool?
     public var linkedEventID: String?
     public var linkedEventTitle: String?
@@ -28,6 +29,7 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         audioFilePaths: [String] = [],
         audioSourceStatuses: [AudioSourceStatus] = [],
         summary: String? = nil,
+        summaryContentHash: String? = nil,
         localOnly: Bool? = nil,
         linkedEventID: String? = nil,
         linkedEventTitle: String? = nil,
@@ -45,6 +47,7 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         self.audioFilePaths = audioFilePaths
         self.audioSourceStatuses = audioSourceStatuses
         self.summary = summary
+        self.summaryContentHash = summaryContentHash
         self.localOnly = localOnly
         self.linkedEventID = linkedEventID
         self.linkedEventTitle = linkedEventTitle
@@ -67,6 +70,7 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
         audioFilePaths = try c.decode([String].self, forKey: .audioFilePaths)
         audioSourceStatuses = (try? c.decode([AudioSourceStatus].self, forKey: .audioSourceStatuses)) ?? []
         summary = try? c.decodeIfPresent(String.self, forKey: .summary)
+        summaryContentHash = try? c.decodeIfPresent(String.self, forKey: .summaryContentHash)
         localOnly = try? c.decodeIfPresent(Bool.self, forKey: .localOnly)
         linkedEventID = try? c.decodeIfPresent(String.self, forKey: .linkedEventID)
         linkedEventTitle = try? c.decodeIfPresent(String.self, forKey: .linkedEventTitle)
@@ -79,7 +83,7 @@ public struct MeetingSession: Codable, Identifiable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, title, date, status, transcriptSegments, personalNotes
         case audioFilePaths, audioSourceStatuses
-        case summary, localOnly, linkedEventID, linkedEventTitle, participants
+        case summary, summaryContentHash, localOnly, linkedEventID, linkedEventTitle, participants
         case inPerson, microphoneEnabled, systemAudioEnabled
     }
 }

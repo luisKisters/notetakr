@@ -1,3 +1,5 @@
+"use node";
+
 import { env } from "../_generated/server";
 import { CrmError, type CrmConfig } from "./provider";
 

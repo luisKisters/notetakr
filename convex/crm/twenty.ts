@@ -1,3 +1,5 @@
+"use node";
+
 import {
   CrmError,
   type CrmConfig,
@@ -5,6 +7,7 @@ import {
   type CrmProvider,
   registerCrmProvider,
 } from "./provider";
+import { safeCrmFetch } from "./safeFetch";
 
 type TwentyListPeopleResponse = {
   data?: {
@@ -254,7 +257,7 @@ async function twentyRequest<T>(
   const url = twentyUrl(cfg, path, options.query);
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await safeCrmFetch(url, {
       method: options.method,
       headers: {
         Authorization: `Bearer ${requiredApiKey(cfg)}`,

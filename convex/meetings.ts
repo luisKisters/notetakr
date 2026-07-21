@@ -5,6 +5,7 @@ import { mutation, query } from "./_generated/server";
 const participant = v.object({
   name: v.string(),
   email: v.optional(v.string()),
+  crm: v.optional(v.string()),
 });
 
 const transcriptSegment = v.object({
@@ -159,6 +160,7 @@ export const readySummaries = query({
   returns: v.array(
     v.object({
       localId: v.string(),
+      contentHash: v.string(),
       summary: v.optional(v.string()),
       summaryStatus: v.optional(summaryStatus),
       summaryError: v.optional(v.string()),
@@ -173,6 +175,7 @@ export const readySummaries = query({
       .filter((meeting) => meeting.summaryStatus === "ready")
       .map((meeting) => ({
         localId: meeting.localId,
+        contentHash: meeting.contentHash,
         summary: meeting.summary,
         summaryStatus: meeting.summaryStatus,
         ...(meeting.summaryError === undefined ? {} : { summaryError: meeting.summaryError }),
@@ -186,6 +189,7 @@ export const summaryUpdates = query({
   returns: v.array(
     v.object({
       localId: v.string(),
+      contentHash: v.string(),
       summary: v.optional(v.string()),
       summaryStatus: v.optional(summaryStatus),
       summaryError: v.optional(v.string()),
@@ -200,6 +204,7 @@ export const summaryUpdates = query({
       .filter((meeting) => meeting.summaryStatus === "ready" || meeting.summaryStatus === "failed")
       .map((meeting) => ({
         localId: meeting.localId,
+        contentHash: meeting.contentHash,
         summary: meeting.summary,
         summaryStatus: meeting.summaryStatus,
         ...(meeting.summaryError === undefined ? {} : { summaryError: meeting.summaryError }),

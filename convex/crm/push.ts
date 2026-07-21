@@ -5,14 +5,11 @@ import {
   internalMutation,
   internalQuery,
 } from "../_generated/server";
-import { requireCrmProvider } from "./provider";
-import { materializeCrmConfig, type StoredCrmConfig } from "./secrets";
-import "./attio";
-import "./twenty";
 
 const participant = v.object({
   name: v.string(),
   email: v.optional(v.string()),
+  crm: v.optional(v.string()),
 });
 
 const transcriptSegment = v.object({
@@ -51,35 +48,6 @@ const pushInput = v.object({
   ),
   transcriptSegments: v.array(transcriptSegment),
 });
-
-type Participant = {
-  name: string;
-  email?: string;
-};
-
-type PushInput = {
-  userId: string;
-  title: string;
-  participants: Participant[];
-  summary?: string;
-  crmNoteId?: string;
-  crmPushOptOut?: boolean;
-  crm?: {
-    provider: string;
-    baseUrl?: string;
-    encryptedApiKey?: string;
-  };
-  people: Array<{
-    email: string;
-    remoteId?: string;
-  }>;
-  transcriptSegments: Array<{
-    seq: number;
-    startMs: number;
-    speaker?: string;
-    text: string;
-  }>;
-};
 
 export const loadPushInput = internalQuery({
   args: {
@@ -185,142 +153,8 @@ export const pushMeetingToCrm = internalAction({
     skipped: v.boolean(),
   }),
   handler: async (ctx, { meetingId }) => {
-    const input = await ctx.runQuery(internal.crm.push.loadPushInput, {
+    return await ctx.runAction(internal.crm.network.pushMeetingToCrm, {
       meetingId,
     });
-    if (input === null) {
-      return { status: "failed" as const, skipped: false };
-    }
-
-    if (input.crmPushOptOut === true) {
-      await ctx.runMutation(internal.crm.push.writePushSkipped, {
-        meetingId,
-        unmatchedParticipants: [],
-      });
-      return { status: "skipped" as const, skipped: true };
-    }
-
-    if (input.crm === undefined) {
-      await ctx.runMutation(internal.crm.push.writePushSkipped, {
-        meetingId,
-        unmatchedParticipants: [],
-      });
-      return { status: "skipped" as const, skipped: true };
-    }
-
-    const match = matchParticipants(input);
-    if (match.personRemoteIds.length === 0) {
-      await ctx.runMutation(internal.crm.push.writePushSkipped, {
-        meetingId,
-        unmatchedParticipants: match.unmatchedParticipants,
-      });
-      return { status: "skipped" as const, skipped: true };
-    }
-
-    try {
-      const crm = await materializeCrmConfig(input.crm as StoredCrmConfig);
-      const provider = requireCrmProvider(crm.provider);
-      const crmNoteId = await provider.upsertMeetingNote(
-        crm,
-        match.personRemoteIds,
-        input.title,
-        meetingMarkdown(input),
-        input.crmNoteId,
-      );
-
-      await ctx.runMutation(internal.crm.push.writePushPushed, {
-        meetingId,
-        crmNoteId,
-        unmatchedParticipants: match.unmatchedParticipants,
-      });
-      return { status: "pushed" as const, skipped: false };
-    } catch {
-      await ctx.runMutation(internal.crm.push.writePushFailed, {
-        meetingId,
-        unmatchedParticipants: match.unmatchedParticipants,
-      });
-      return { status: "failed" as const, skipped: false };
-    }
   },
 });
-
-function matchParticipants(input: PushInput) {
-  const remoteIdsByEmail = new Map<string, string[]>();
-  for (const person of input.people) {
-    const email = normalizedEmail(person.email);
-    const remoteId = normalizedString(person.remoteId);
-    if (email === undefined || remoteId === undefined) {
-      continue;
-    }
-    const remoteIds = remoteIdsByEmail.get(email) ?? [];
-    remoteIds.push(remoteId);
-    remoteIdsByEmail.set(email, remoteIds);
-  }
-
-  const personRemoteIds: string[] = [];
-  const unmatchedParticipants: Participant[] = [];
-  for (const participant of input.participants) {
-    const email = normalizedEmail(participant.email);
-    if (email === undefined) {
-      unmatchedParticipants.push({ name: participant.name });
-      continue;
-    }
-
-    const remoteIds = remoteIdsByEmail.get(email);
-    if (remoteIds === undefined || remoteIds.length === 0) {
-      unmatchedParticipants.push({
-        name: participant.name,
-        email,
-      });
-      continue;
-    }
-
-    personRemoteIds.push(...remoteIds);
-  }
-
-  return {
-    personRemoteIds: unique(personRemoteIds),
-    unmatchedParticipants,
-  };
-}
-
-function meetingMarkdown(input: PushInput) {
-  return [
-    `# ${input.title}`,
-    "",
-    "## Summary",
-    normalizedString(input.summary) ?? "Summary not available.",
-    "",
-    "## Transcript",
-    transcriptMarkdown(input.transcriptSegments),
-  ].join("\n");
-}
-
-function transcriptMarkdown(segments: PushInput["transcriptSegments"]) {
-  if (segments.length === 0) {
-    return "Transcript not available.";
-  }
-  return segments
-    .map((segment) => {
-      const text = segment.text.trim();
-      const speaker = normalizedString(segment.speaker);
-      return speaker === undefined ? text : `${speaker}: ${text}`;
-    })
-    .join("\n");
-}
-
-function unique(values: string[]) {
-  return Array.from(new Set(values));
-}
-
-function normalizedEmail(value: unknown) {
-  return normalizedString(value)?.toLowerCase();
-}
-
-function normalizedString(value: unknown) {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed;
-}
