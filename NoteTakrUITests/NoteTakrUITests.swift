@@ -158,9 +158,24 @@ final class NoteTakrUITests: XCTestCase {
         let hoverTarget = app.buttons[
             "switcherRow_note-11111111-1111-1111-1111-111111111111"
         ]
+        let keyboardSelection = app.buttons[
+            "switcherRow_note-22222222-2222-2222-2222-222222222222"
+        ]
         XCTAssertTrue(hoverTarget.waitForExistence(timeout: 5))
+        XCTAssertTrue(keyboardSelection.waitForExistence(timeout: 5))
+        XCTAssertEqual(keyboardSelection.value as? String, "Selected")
         hoverTarget.hover()
         XCTAssertEqual(hoverTarget.value as? String, "Hovered")
+        XCTAssertEqual(
+            keyboardSelection.value as? String,
+            "Selected",
+            "Pointer hover must not silently replace the keyboard selection."
+        )
+
+        element("switcherSearchField").typeKey(.return, modifierFlags: [])
+        let title = element("meetingTitleField")
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.value as? String, "Keyboard selection")
     }
 
     func testCalendarSwitchConfirmationBlocksThePickerBehindIt() {
