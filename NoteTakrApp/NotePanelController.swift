@@ -32,6 +32,7 @@ final class NotePanelController {
     private var calendarCancellables = Set<AnyCancellable>()
     private var appearanceCancellable: AnyCancellable?
     private weak var appModelRef: AppModel?
+    private var suppressNextStopPipeline = false
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
@@ -85,6 +86,14 @@ final class NotePanelController {
         }
 
         tabsBridge = NoteTabsBridge(presenter: presenter)
+
+        if let appModel {
+            bridge.viewModel.onDidSave = { [weak appModel] note in
+                Task { @MainActor [weak appModel] in
+                    appModel?.persistEditorChanges(note)
+                }
+            }
+        }
 
         let noteListProvider = NoteStoreListProvider(store: store)
         let switcherVM = SwitcherViewModel(
@@ -200,6 +209,8 @@ final class NotePanelController {
 
     /// Called by AppDelegate when recording stops. Stops the bridge (triggers transcription).
     func recordingStopped() {
+        let suppressPipeline = suppressNextStopPipeline
+        suppressNextStopPipeline = false
         let stoppedNoteID = switcherBridge.activeRecordingNoteID ?? frontmatterBridge.noteID
         let shouldDriveExternalPillStop: Bool = {
             switch recordPillMachine.state {
@@ -212,13 +223,18 @@ final class NotePanelController {
         elapsedTimer = nil
         frontmatterBridge.setRecordingActive(false)
         switcherBridge.setActiveRecordingNoteID(nil)
-        recordingBridge?.stopRecording()
+        if suppressPipeline {
+            recordingBridge?.discardRecording()
+        } else {
+            recordingBridge?.stopRecording()
+        }
         recordingBridge = nil
         activeRecordingProvider.recording = nil
         if switcherBridge.isVisible {
             switcherBridge.refresh()
         }
-        guard shouldDriveExternalPillStop,
+        guard !suppressPipeline,
+              shouldDriveExternalPillStop,
               !stoppedNoteID.isEmpty,
               frontmatterBridge.noteID == stoppedNoteID else { return }
         recordPillMachine.beginTranscribing()
@@ -236,6 +252,13 @@ final class NotePanelController {
 
     func showLoadedNote() {
         show(loadCurrentNote: false)
+    }
+
+    /// Hides the reusable panel after synchronously persisting pending editor
+    /// text. Toolbar Close, Escape, and Command-W all share this path.
+    func hide() {
+        try? bridge.viewModel.flush()
+        panel?.orderOut(nil)
     }
 
     private func show(loadCurrentNote shouldLoadCurrentNote: Bool) {
@@ -279,6 +302,7 @@ final class NotePanelController {
         p.appearance = settingsBridge.currentAppearance.nsAppearance
         p.acceptsMouseMovedEvents = true
         p.minSize = NSSize(width: 300, height: 400)
+        p.closeHandler = { [weak self] in self?.hide() }
         p.standardWindowButton(.closeButton)?.isHidden = true
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
@@ -294,7 +318,7 @@ final class NotePanelController {
                 onRenameSpeaker: { [weak self] noteID, oldName, newName in
                     self?.appModelRef?.renameSpeaker(noteID: noteID, from: oldName, to: newName)
                 },
-                onClose: { [weak p] in p?.orderOut(nil) }
+                onClose: { [weak self] in self?.hide() }
             ),
             hoverChanged: { [weak p] _ in
                 p?.hideNativeTrafficLights()
@@ -456,7 +480,12 @@ final class NotePanelController {
             }
             Task { @MainActor in
                 self.pillPipelineCancellables.removeAll()
+                self.suppressNextStopPipeline = true
                 await appModel.stopRecording()
+                // stopRecording normally invokes recordingStopped synchronously.
+                // Clear the marker here as a safety net when there was no active
+                // backing recorder and therefore no lifecycle callback.
+                self.suppressNextStopPipeline = false
                 let didStart = await appModel.startRecording(for: note)
                 guard didStart, appModel.isRecording else {
                     self.recordPillMachine.reset()
@@ -474,7 +503,9 @@ final class NotePanelController {
             Task { @MainActor in
                 self?.stopPillTickTimer()
                 self?.pillPipelineCancellables.removeAll()
+                self?.suppressNextStopPipeline = true
                 await appModel.stopRecording()
+                self?.suppressNextStopPipeline = false
             }
         }
 
@@ -869,10 +900,11 @@ private final class FloatingPanel: NSPanel {
     var commandNHandler: (() -> Bool)?
     /// Return `true` after deleting the targeted note with command-backspace.
     var commandBackspaceHandler: (() -> Bool)?
+    var closeHandler: (() -> Void)?
 
     override func cancelOperation(_ sender: Any?) {
         if let handler = cancelHandler, handler() { return }
-        orderOut(nil)
+        closeHandler?()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -887,7 +919,7 @@ private final class FloatingPanel: NSPanel {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command {
             switch event.charactersIgnoringModifiers?.lowercased() {
             case "w":
-                orderOut(nil)
+                closeHandler?()
                 return true
             case "n":
                 if commandNHandler?() == true { return true }
