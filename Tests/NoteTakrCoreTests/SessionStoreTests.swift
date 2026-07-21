@@ -150,6 +150,30 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertNil(loaded?.transcriptSegments[1].speaker)
     }
 
+    func testUpdateEditorContentPreservesGeneratedSessionData() throws {
+        var session = MeetingSession(
+            title: "Old title",
+            date: Date(timeIntervalSince1970: 1_700_000_000),
+            personalNotes: "Old private notes",
+            summary: "Generated summary"
+        )
+        session.transcriptSegments = [
+            TranscriptSegment(timestamp: 0, speaker: "Alice", text: "Generated transcript")
+        ]
+        try store.save(session)
+
+        let updated = try store.updateEditorContent(
+            id: session.id,
+            title: "New title",
+            personalNotes: "New private notes"
+        )
+
+        XCTAssertEqual(updated?.title, "New title")
+        XCTAssertEqual(updated?.personalNotes, "New private notes")
+        XCTAssertEqual(updated?.summary, "Generated summary")
+        XCTAssertEqual(updated?.transcriptSegments, session.transcriptSegments)
+    }
+
     func testRenameSpeakerPersistsMatchingSegmentsOnly() throws {
         var session = MeetingSession(title: "With Speakers", date: Date(timeIntervalSince1970: 1_700_000_000))
         session.transcriptSegments = [
