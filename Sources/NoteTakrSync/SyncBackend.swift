@@ -121,6 +121,7 @@ public protocol SyncPeopleFetching: Sendable {
 public protocol CrmSettingsManaging: Sendable {
     func saveCrmConfiguration(_ configuration: CrmConfiguration) async throws
     func testCrmConnection(_ configuration: CrmConfiguration) async throws
+    func hasSavedCrmConfiguration() async throws -> Bool
 }
 
 public protocol SyncAccountControlling: Sendable {
@@ -135,7 +136,7 @@ public enum MockSyncBackendError: Error, Equatable, Sendable {
     case configuredFailure
 }
 
-public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
+public final class MockSyncBackend: SyncBackend, SyncPeopleFetching, @unchecked Sendable {
     private let lock = NSLock()
     private let accountStream: AsyncStream<AccountState>
     private let accountContinuation: AsyncStream<AccountState>.Continuation
@@ -147,6 +148,7 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
     private var _upsertedPayloads: [MeetingPayload] = []
     private var _summarySubscriptionCount: Int = 0
     private var _upsertHandler: (@Sendable (MeetingPayload) async throws -> Void)?
+    private var _peopleSnapshot: [ConvexCachedPerson] = []
 
     public init(accountState: AccountState = .signedOut) {
         _accountState = accountState
@@ -210,6 +212,17 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
         locked { _summarySubscriptionCount }
     }
 
+    public var peopleSnapshot: [ConvexCachedPerson] {
+        get {
+            locked { _peopleSnapshot }
+        }
+        set {
+            locked {
+                _peopleSnapshot = newValue
+            }
+        }
+    }
+
     public func upsertMeeting(_ payload: MeetingPayload) async throws {
         let result: (handler: (@Sendable (MeetingPayload) async throws -> Void)?, shouldFail: Bool) = locked {
             _upsertedPayloads.append(payload)
@@ -247,6 +260,10 @@ public final class MockSyncBackend: SyncBackend, @unchecked Sendable {
 
     public func finishSummaryUpdates() {
         summaryContinuation.finish()
+    }
+
+    public func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson] {
+        locked { _peopleSnapshot }
     }
 
     private func locked<T>(_ body: () throws -> T) rethrows -> T {
@@ -304,6 +321,10 @@ public final class UnavailableSyncBackend: SyncBackend, SyncAccountControlling, 
 
     public func testCrmConnection(_ configuration: CrmConfiguration) async throws {
         throw UnavailableSyncBackendError.missingConfiguration(missingConfiguration)
+    }
+
+    public func hasSavedCrmConfiguration() async throws -> Bool {
+        false
     }
 
     public func accountStateUpdates() -> AsyncStream<AccountState> {

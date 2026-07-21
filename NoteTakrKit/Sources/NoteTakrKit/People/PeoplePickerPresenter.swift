@@ -47,18 +47,13 @@ public struct PeoplePickerPresenter {
             sections.append(Section(id: .inThisEvent, rows: eventRows))
         }
 
-        let recentRows = builder.rows(
-            from: directory.people(fromProvider: PastMeetingsIndex.providerId),
-            excludingSeen: true
-        )
-        if !recentRows.isEmpty {
-            sections.append(Section(id: .recent, rows: recentRows))
-        }
-
-        for providerId in directory.sourceProviderIds where providerId != PastMeetingsIndex.providerId {
+        for providerId in directory.sourceProviderIds {
             let rows = builder.rows(from: directory.people(fromProvider: providerId), excludingSeen: true)
             if !rows.isEmpty {
-                sections.append(Section(id: .source(providerId), rows: rows))
+                let sectionId: SectionID = providerId == PastMeetingsIndex.providerId
+                    ? .recent
+                    : .source(providerId)
+                sections.append(Section(id: sectionId, rows: rows))
             }
         }
 

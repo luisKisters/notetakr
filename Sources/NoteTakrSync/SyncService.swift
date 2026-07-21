@@ -18,6 +18,7 @@ public final class SyncService: @unchecked Sendable {
     private let persistSummaryFailure: SummaryFailurePersister?
     private let persistCrmPushStatus: CrmPushStatusPersister?
     private let peopleCacheSource: ConvexPeopleCacheSource?
+    private let peopleCacheDidRefresh: (@Sendable () -> Void)?
     private let sleep: Sleep
 
     private let lock = NSLock()
@@ -35,6 +36,7 @@ public final class SyncService: @unchecked Sendable {
         persistSummaryFailure: SummaryFailurePersister? = nil,
         persistCrmPushStatus: CrmPushStatusPersister? = nil,
         peopleCacheSource: ConvexPeopleCacheSource? = nil,
+        peopleCacheDidRefresh: (@Sendable () -> Void)? = nil,
         sleep: @escaping Sleep = { seconds in
             let nanoseconds = UInt64(max(0, seconds) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
@@ -48,6 +50,7 @@ public final class SyncService: @unchecked Sendable {
         self.persistSummaryFailure = persistSummaryFailure
         self.persistCrmPushStatus = persistCrmPushStatus
         self.peopleCacheSource = peopleCacheSource
+        self.peopleCacheDidRefresh = peopleCacheDidRefresh
         self.sleep = sleep
     }
 
@@ -118,7 +121,10 @@ public final class SyncService: @unchecked Sendable {
         guard let people = try? await peopleFetcher.fetchPeopleSnapshot() else {
             return
         }
-        try? peopleCacheSource.refresh(people: people)
+        guard (try? peopleCacheSource.refresh(people: people)) != nil else {
+            return
+        }
+        peopleCacheDidRefresh?()
     }
 
     public func consumeSummaryUpdates() async {

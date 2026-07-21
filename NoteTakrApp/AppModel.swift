@@ -60,6 +60,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var crmConnected: Bool = false
     @Published private(set) var crmAPIKeyConfigured: Bool = false
     @Published private(set) var crmMessage: String?
+    @Published private(set) var crmPeopleCacheRevision: Int = 0
+    @Published private(set) var crmPushStatuses: [String: CrmPushStatus] = [:]
 
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
@@ -157,7 +159,7 @@ final class AppModel: ObservableObject {
 
     private func configureSync(rootURL: URL) {
         let backend = Self.makeSyncBackend(rootURL: rootURL)
-        let outbox = SyncOutbox(rootURL: rootURL.appendingPathComponent("NoteTakr", isDirectory: true))
+        let outbox = SyncOutbox(rootURL: rootURL)
         let sessionStore = store
         let notes = noteStore
 
@@ -190,7 +192,6 @@ final class AppModel: ObservableObject {
                 session.summary = text
                 session.summaryContentHash = summaryContentHash
                 try sessionStore.save(session)
-                Self.regenerateNote(for: session, store: sessionStore, noteStore: notes)
                 Task { @MainActor [weak self] in
                     self?.handleSyncedSummary(
                         localId: localId,
@@ -204,12 +205,20 @@ final class AppModel: ObservableObject {
                     self?.handleSyncedSummaryFailure(localId: localId, message: message)
                 }
             },
-            persistCrmPushStatus: { [notes] localId, status in
+            persistCrmPushStatus: { [weak self, notes] localId, status in
                 guard var note = try notes.load(id: localId) else { return }
                 note.crmPushStatus = status
                 try notes.save(note)
+                Task { @MainActor [weak self] in
+                    self?.handleCrmPushStatus(localId: localId, status: status)
+                }
             },
-            peopleCacheSource: crmPeopleCacheSource
+            peopleCacheSource: crmPeopleCacheSource,
+            peopleCacheDidRefresh: { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.crmPeopleCacheRevision &+= 1
+                }
+            }
         )
         syncService = service
 
@@ -240,6 +249,7 @@ final class AppModel: ObservableObject {
                 }
                 if state.isSignedIn {
                     await service.runOnce()
+                    await self?.refreshCrmConnectionStateFromServer()
                 }
             }
         }
@@ -396,6 +406,7 @@ final class AppModel: ObservableObject {
             syncAccountState = syncBackend.accountState
             syncAccountMessage = nil
             await syncService?.runOnce()
+            await refreshCrmConnectionStateFromServer()
         } catch {
             syncAccountMessage = Self.syncErrorMessage(error)
         }
@@ -442,13 +453,11 @@ final class AppModel: ObservableObject {
             }
             try await manager.testCrmConnection(configuration)
             try await manager.saveCrmConfiguration(configuration)
-            crmConnectionVerified = true
+            await refreshCrmConnectionStateFromServer()
             crmMessage = "CRM settings saved."
-            refreshCrmConnectionState(forceConnected: true)
         } catch {
             crmMessage = Self.syncErrorMessage(error)
-            crmConnectionVerified = false
-            refreshCrmConnectionState(forceConnected: false)
+            await refreshCrmConnectionStateFromServer()
             return
         }
     }
@@ -465,7 +474,7 @@ final class AppModel: ObservableObject {
 
         if Self.usesE2EMockCrmConnected {
             crmMessage = "CRM connection succeeded."
-            refreshCrmConnectionState(forceConnected: true)
+            refreshCrmConnectionState()
             return
         }
 
@@ -474,13 +483,11 @@ final class AppModel: ObservableObject {
                 throw CrmBackendError.configuration("Cloud sync is not configured.")
             }
             try await manager.testCrmConnection(configuration)
-            crmConnectionVerified = true
             crmMessage = "CRM connection succeeded."
-            refreshCrmConnectionState(forceConnected: true)
+            refreshCrmConnectionState()
         } catch {
             crmMessage = Self.syncErrorMessage(error)
-            crmConnectionVerified = false
-            refreshCrmConnectionState(forceConnected: false)
+            refreshCrmConnectionState()
         }
     }
 
@@ -496,9 +503,32 @@ final class AppModel: ObservableObject {
 
     private func refreshCrmConnectionState(forceConnected: Bool? = nil) {
         crmAPIKeyConfigured = crmKeychainStore.hasValue
-        let locallyConfigured = Self.firstNonEmpty(appSettings.crmTwentyBaseURL) != nil && crmAPIKeyConfigured
-        let confirmed = crmConnectionVerified && locallyConfigured && syncAccountState.isSignedIn
+        let confirmed = crmConnectionVerified && syncAccountState.isSignedIn
         crmConnected = forceConnected ?? (Self.usesE2EMockCrmConnected || confirmed)
+    }
+
+    private func refreshCrmConnectionStateFromServer() async {
+        guard syncAccountState.isSignedIn else {
+            crmConnectionVerified = false
+            refreshCrmConnectionState()
+            return
+        }
+        guard !Self.usesE2EMockCrmConnected else {
+            refreshCrmConnectionState()
+            return
+        }
+        guard let manager = syncBackend as? any CrmSettingsManaging else {
+            crmConnectionVerified = false
+            refreshCrmConnectionState()
+            return
+        }
+
+        do {
+            crmConnectionVerified = try await manager.hasSavedCrmConfiguration()
+        } catch {
+            crmConnectionVerified = false
+        }
+        refreshCrmConnectionState()
     }
 
     private func hasTranscriptContent(for localId: String) -> Bool {
@@ -578,6 +608,10 @@ final class AppModel: ObservableObject {
         for waiter in waiters {
             waiter.resume(throwing: error)
         }
+    }
+
+    private func handleCrmPushStatus(localId: String, status: CrmPushStatus) {
+        crmPushStatuses[localId] = status
     }
 
     private func resumeSyncedSummaryWaiters(throwing error: Error) {
@@ -766,6 +800,7 @@ final class AppModel: ObservableObject {
         guard let uuid = UUID(uuidString: noteID) else { return }
         guard let updated = try? store.renameSpeaker(in: uuid, from: oldName, to: newName) else { return }
         regenerateNote(for: updated)
+        markSyncDirty(localId: noteID)
     }
 
     private func beginRecordingActivity() {

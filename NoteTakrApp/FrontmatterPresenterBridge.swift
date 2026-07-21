@@ -90,6 +90,11 @@ final class FrontmatterPresenterBridge: ObservableObject {
         try? presenter?.setCrmPushEnabled(value)
     }
 
+    func applyPersistedCrmPushStatus(_ status: CrmPushStatus, for noteID: String) {
+        guard presenter?.note.id == noteID else { return }
+        presenter?.applyPersistedCrmPushStatus(status)
+    }
+
     func dismissCrmBanner() {
         guard let meetingId = presenter?.note.id, !meetingId.isEmpty else { return }
         crmStatusPresenter.dismiss(meetingId: meetingId)

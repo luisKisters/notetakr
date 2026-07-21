@@ -740,6 +740,28 @@ final class NotePanelController {
             }
             .store(in: &syncCancellables)
 
+        appModel.$crmPeopleCacheRevision
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.frontmatterBridge.rebuildPeopleIndex(notes: (try? self.store.list()) ?? [])
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmPushStatuses
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] statuses in
+                guard let self,
+                      let status = statuses[self.frontmatterBridge.noteID] else {
+                    return
+                }
+                self.frontmatterBridge.applyPersistedCrmPushStatus(
+                    status,
+                    for: self.frontmatterBridge.noteID
+                )
+            }
+            .store(in: &syncCancellables)
+
         appModel.$crmMessage
             .receive(on: DispatchQueue.main)
             .sink { [weak self] message in

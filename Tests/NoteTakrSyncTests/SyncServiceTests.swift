@@ -235,6 +235,39 @@ final class SyncServiceTests: XCTestCase {
         ])
     }
 
+    func testPeopleCacheRefreshNotifiesAfterSnapshotWrite() async throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        backend.peopleSnapshot = [
+            ConvexCachedPerson(
+                remoteId: "person-1",
+                name: "Ada Lovelace",
+                emails: ["ada@example.com"]
+            )
+        ]
+        let peopleCache = ConvexPeopleCacheSource(rootURL: tempDir)
+        let refreshCounter = LockedCounter()
+        let service = makeService(
+            store: store,
+            backend: backend,
+            peopleCacheSource: peopleCache,
+            peopleCacheDidRefresh: {
+                refreshCounter.increment()
+            }
+        )
+
+        await service.runOnce()
+
+        XCTAssertEqual(peopleCache.allPeople(), [
+            Person(
+                name: "Ada Lovelace",
+                emails: ["ada@example.com"],
+                sourceRefs: [SourceRef(provider: "crm", remoteId: "person-1")]
+            )
+        ])
+        XCTAssertEqual(refreshCounter.value, 1)
+    }
+
     func testSignedOutDoesNotSubscribeToSummaryUpdates() async {
         let store = SyncFixtureStore()
         let backend = MockSyncBackend(accountState: .signedOut)
@@ -249,6 +282,8 @@ final class SyncServiceTests: XCTestCase {
         store: SyncFixtureStore,
         backend: MockSyncBackend,
         outbox: SyncOutbox? = nil,
+        peopleCacheSource: ConvexPeopleCacheSource? = nil,
+        peopleCacheDidRefresh: (@Sendable () -> Void)? = nil,
         sleep: (@Sendable (TimeInterval) async -> Void)? = nil
     ) -> SyncService {
         SyncService(
@@ -261,6 +296,8 @@ final class SyncServiceTests: XCTestCase {
             },
             persistSummaryFailure: { localId, message in store.persistSummaryFailure(localId: localId, message: message) },
             persistCrmPushStatus: { localId, status in try store.persistCrmPushStatus(localId: localId, status: status) },
+            peopleCacheSource: peopleCacheSource,
+            peopleCacheDidRefresh: peopleCacheDidRefresh,
             sleep: sleep ?? { _ in }
         )
     }
@@ -398,6 +435,21 @@ private final class AsyncGate: @unchecked Sendable {
             return continuation
         }
         continuation?.resume()
+    }
+}
+
+private final class LockedCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.withLock { count }
+    }
+
+    func increment() {
+        lock.withLock {
+            count += 1
+        }
     }
 }
 

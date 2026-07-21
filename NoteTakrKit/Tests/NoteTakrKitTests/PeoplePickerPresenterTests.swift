@@ -80,6 +80,35 @@ final class PeoplePickerPresenterTests: XCTestCase {
             Participant(name: "Ada Lovelace", email: "ada@example.com", crm: "person-1")
         )
     }
+
+    func testSectionsFollowDirectorySourcePriorityBeforeRecentPeople() {
+        let directory = PeopleDirectory(
+            sources: [
+                StaticPeopleSource(providerId: "contacts", people: [
+                    Person(name: "Ada Contact", emails: ["ada@example.com"])
+                ]),
+                StaticPeopleSource(providerId: "crm", people: [
+                    Person(
+                        name: "Grace CRM",
+                        emails: ["grace@example.com"],
+                        sourceRefs: [SourceRef(provider: "crm", remoteId: "person-grace")]
+                    )
+                ]),
+                StaticPeopleSource(providerId: PastMeetingsIndex.providerId, people: [
+                    Person(name: "Recent Person", emails: ["recent@example.com"])
+                ]),
+            ]
+        )
+        let presenter = PeoplePickerPresenter(directory: directory)
+
+        let sections = presenter.sections(for: "")
+
+        XCTAssertEqual(sections.map(\.id), [
+            .source("contacts"),
+            .source("crm"),
+            .recent,
+        ])
+    }
 }
 
 private struct StaticPeopleSource: PeopleSource {

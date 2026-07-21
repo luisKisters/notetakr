@@ -238,6 +238,22 @@ final class FrontmatterPresenterTests: XCTestCase {
         XCTAssertEqual(rows[6], .transcript)
     }
 
+    func testApplyPersistedCrmPushStatusUpdatesPropertyRowsWithoutSaving() {
+        let note = MeetingNote(id: "1", title: "T", date: utcDate(2026, 6, 10, 14, 0))
+        let store = StoreSpy()
+        let presenter = makePresenter(note: note, store: store)
+        var changeCount = 0
+        presenter.onChange = {
+            changeCount += 1
+        }
+
+        presenter.applyPersistedCrmPushStatus(.pushed)
+
+        XCTAssertTrue(presenter.propertyRows.contains(.crmPushStatus(.pushed)))
+        XCTAssertEqual(changeCount, 1)
+        XCTAssertEqual(store.savedNotes.count, 0)
+    }
+
     func testIsExpandedToggle() {
         let presenter = makePresenter(note: MeetingNote(id: "1", title: "T", date: utcDate(2026, 6, 10, 9, 0)))
         XCTAssertFalse(presenter.isExpanded)
@@ -619,14 +635,22 @@ final class FrontmatterPresenterTests: XCTestCase {
 
     private class StoreSpy: NoteStoring {
         private var notes: [String: MeetingNote] = [:]
+        var savedNotes: [MeetingNote] = []
         func load(id: String) throws -> MeetingNote? { notes[id] }
-        func save(_ note: MeetingNote) throws { notes[note.id] = note }
+        func save(_ note: MeetingNote) throws {
+            savedNotes.append(note)
+            notes[note.id] = note
+        }
     }
 
     private func makePresenter(note: MeetingNote) -> FrontmatterPresenter {
+        makePresenter(note: note, store: StoreSpy())
+    }
+
+    private func makePresenter(note: MeetingNote, store: any NoteStoring) -> FrontmatterPresenter {
         FrontmatterPresenter(
             note: note,
-            store: StoreSpy(),
+            store: store,
             now: { self.utcDate(2026, 6, 10, 14, 0) },
             timeZone: TimeZone(secondsFromGMT: 0)!
         )

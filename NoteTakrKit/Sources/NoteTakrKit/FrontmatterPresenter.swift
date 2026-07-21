@@ -137,6 +137,11 @@ public final class FrontmatterPresenter {
         try saveAndNotify()
     }
 
+    public func applyPersistedCrmPushStatus(_ status: CrmPushStatus?) {
+        note.crmPushStatus = status
+        onChange?()
+    }
+
     public func linkEvent(_ event: LinkedEventInfo) throws {
         note.calendarEvent = event.eventID
         note.title = event.title

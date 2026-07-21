@@ -319,6 +319,26 @@ export const fetchCurrentPeopleSnapshot = action({
   },
 });
 
+export const crmConnectionState = action({
+  args: {},
+  returns: v.object({
+    connected: v.boolean(),
+    provider: v.optional(v.string()),
+  }),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const crm = await ctx.runQuery(internal.crm.mirror.crmSettingsForUser, {
+      userId,
+    });
+    const provider = normalizedString(crm?.provider);
+    const encryptedApiKey = normalizedString(crm?.encryptedApiKey);
+    return {
+      connected: provider !== undefined && encryptedApiKey !== undefined,
+      ...(provider === undefined ? {} : { provider }),
+    };
+  },
+});
+
 export const refreshPeople = mutation({
   args: {},
   returns: v.object({

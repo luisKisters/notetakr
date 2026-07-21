@@ -130,6 +130,13 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
         }
     }
 
+    public func hasSavedCrmConfiguration() async throws -> Bool {
+        let result: CrmConnectionStateResult = try await client.action(
+            "crm/mirror:crmConnectionState"
+        )
+        return result.connected
+    }
+
     public func accountStateUpdates() -> AsyncStream<AccountState> {
         accountStream
     }
@@ -296,6 +303,11 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
         var message: String?
     }
 
+    private struct CrmConnectionStateResult: Decodable {
+        var connected: Bool
+        var provider: String?
+    }
+
     private struct ReadySummary: Decodable {
         var localId: String
         var contentHash: String
@@ -332,6 +344,10 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncP
     }
 
     public func testCrmConnection(_ configuration: CrmConfiguration) async throws {
+        throw ConvexSyncBackendError.sdkUnavailable
+    }
+
+    public func hasSavedCrmConfiguration() async throws -> Bool {
         throw ConvexSyncBackendError.sdkUnavailable
     }
 

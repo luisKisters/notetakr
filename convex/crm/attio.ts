@@ -90,6 +90,10 @@ export const attioProvider: CrmProvider = {
       );
     }
 
+    for (const noteId of noteIdsFromRemoteNoteId(existingNoteId)) {
+      await deleteAttioNoteIfPresent(cfg, noteId);
+    }
+
     const noteRefs: AttioNoteRef[] = [];
     for (const personRemoteId of targets) {
       const body = await attioRequest<AttioNoteResponse>(cfg, "/notes", {
@@ -102,11 +106,7 @@ export const attioProvider: CrmProvider = {
       });
     }
 
-    const replacementNoteId = remoteNoteIdFromRefs(noteRefs);
-    for (const noteId of noteIdsFromRemoteNoteId(existingNoteId)) {
-      await deleteAttioNoteIfPresent(cfg, noteId);
-    }
-    return replacementNoteId;
+    return remoteNoteIdFromRefs(noteRefs);
   },
 };
 

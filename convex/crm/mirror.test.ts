@@ -21,6 +21,8 @@ const testCrmConnection =
   makeFunctionReference<"action">("crm/mirror:testCrmConnection");
 const saveCrmConfig =
   makeFunctionReference<"action">("crm/mirror:saveCrmConfig");
+const crmConnectionState =
+  makeFunctionReference<"action">("crm/mirror:crmConnectionState");
 
 function backend() {
   return convexTest({ schema, modules });
@@ -244,6 +246,29 @@ describe("crm mirror", () => {
     ).resolves.toMatchObject({
       ok: false,
       code: "configuration",
+    });
+  });
+
+  test("crmConnectionState reflects saved server configuration", async () => {
+    const t = authedBackend();
+
+    await expect(t.action(crmConnectionState, {})).resolves.toEqual({
+      connected: false,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userSettings", {
+        userId: "user-a",
+        crm: {
+          provider: "mirror-test",
+          baseUrl: "https://crm.test",
+          encryptedApiKey: "test-key",
+        },
+      });
+    });
+
+    await expect(t.action(crmConnectionState, {})).resolves.toEqual({
+      connected: true,
+      provider: "mirror-test",
     });
   });
 
