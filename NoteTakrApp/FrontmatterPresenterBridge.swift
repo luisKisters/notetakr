@@ -268,9 +268,14 @@ final class FrontmatterPresenterBridge: ObservableObject {
     }
 
     private func refreshPeopleIndexFromStoreIfPossible() {
-        guard let noteStore = store as? NoteStore,
-              let notes = try? noteStore.list() else { return }
-        rebuildPeopleSources(notes: notes)
+        if let noteStore = store as? NoteStore,
+           let notes = try? noteStore.list() {
+            rebuildPeopleSources(notes: notes)
+        } else {
+            // CRM and Contacts sources do not depend on NoteStore's concrete
+            // implementation. Keep them available for any NoteStoring adapter.
+            rebuildPeopleSources(notes: indexedNotes)
+        }
     }
 
     private func rebuildPeopleSources(notes: [MeetingNote]) {
