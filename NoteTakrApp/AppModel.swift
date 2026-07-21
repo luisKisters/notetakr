@@ -539,6 +539,18 @@ final class AppModel: ObservableObject {
 
     // MARK: - Notes
 
+    /// Keeps session.json canonical for private editor content, then restores
+    /// the generated note.md sections from that same session snapshot.
+    func persistEditorChanges(_ note: MeetingNote) {
+        guard let id = UUID(uuidString: note.id),
+              let updated = try? store.updateEditorContent(
+                id: id,
+                title: note.title,
+                personalNotes: note.body
+              ) else { return }
+        regenerateNote(for: updated)
+    }
+
     /// Writes note.md without opening it (used after transcription/summarization updates it).
     private func regenerateNote(for session: MeetingSession) {
         let markdown = MarkdownNoteRenderer.render(session: session)
