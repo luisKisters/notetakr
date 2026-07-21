@@ -107,6 +107,16 @@ final class NoteTabsPresenterTests: XCTestCase {
         XCTAssertEqual(p.summaryState(for: "n1"), .waiting)
     }
 
+    func testClearSummaryStateFallsBackToTranscriptDerivedState() {
+        let p = NoteTabsPresenter()
+        p.setSegments([RawSegment(speaker: "A", timestamp: 0, text: "Hi")], for: "n1")
+        p.setSummaryState(.generating, for: "n1")
+
+        p.clearSummaryState(for: "n1")
+
+        XCTAssertEqual(p.summaryState(for: "n1"), .missing)
+    }
+
     // MARK: - Summary: generation happy path
 
     func testGenerateSummaryHappyPath() {

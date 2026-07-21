@@ -179,6 +179,33 @@ describe("meetings", () => {
     ]);
   });
 
+  test("failed summary resync with unchanged contentHash reschedules summarize", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    await t.mutation(upsertFromDevice, { payload: payload() });
+    await t.run(async (ctx) => {
+      const meeting = await ctx.db.query("meetings").unique();
+      if (meeting === null) {
+        throw new Error("missing meeting");
+      }
+      await ctx.db.patch(meeting._id, {
+        summaryStatus: "failed",
+        summaryError: "temporary outage",
+      });
+    });
+    await t.mutation(upsertFromDevice, { payload: payload() });
+
+    const rows = await allRows(t);
+    expect(rows.scheduled).toHaveLength(2);
+    expect(rows.scheduled.map((job) => job.name)).toEqual([
+      "summarize:summarizeMeeting",
+      "summarize:summarizeMeeting",
+    ]);
+    expect(rows.meetings[0].summaryStatus).toBe("pending");
+    expect(rows.meetings[0].summaryError).toBeUndefined();
+  });
+
   test("users only read their own meetings", async () => {
     vi.useFakeTimers();
     const backend = convexTest({ schema, modules });

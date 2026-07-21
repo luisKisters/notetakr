@@ -145,7 +145,6 @@ jobs:
             -project Notetakr.xcodeproj \
             -scheme NoteTakr \
             -destination 'platform=macOS' \
-            -only-testing:NoteTakrTests \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \

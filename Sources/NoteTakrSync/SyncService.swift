@@ -54,15 +54,12 @@ public final class SyncService: @unchecked Sendable {
     @discardableResult
     public func markDirty(localId: String) throws -> Bool {
         guard backend.accountState.isSignedIn else { return false }
-        guard let session = try loadSession(localId),
-              let note = try loadNote(localId) else { return false }
-        guard session.localOnly != true, note.localOnly != true else {
+        guard let payload = try currentSyncablePayload(localId: localId) else {
             discardPending(localId: localId)
             try outbox.complete(localId: localId)
             return false
         }
 
-        let payload = try SyncEnvelope.payload(session: session, note: note)
         if isInFlight(localId: localId) {
             recordDirtyWhileInFlight(payload)
             return false
@@ -178,6 +175,12 @@ public final class SyncService: @unchecked Sendable {
             }
 
             do {
+                guard let currentPayload = try currentSyncablePayload(localId: payload.localId) else {
+                    finishNoLongerSyncable(localId: payload.localId)
+                    return
+                }
+                payload = currentPayload
+                try? outbox.enqueue(currentPayload)
                 try await backend.upsertMeeting(payload)
                 finishSuccessfulPush(localId: payload.localId)
                 return
@@ -193,6 +196,23 @@ public final class SyncService: @unchecked Sendable {
         }
 
         finishInFlight(localId: payload.localId)
+    }
+
+    private func currentSyncablePayload(localId: String) throws -> MeetingPayload? {
+        guard let session = try loadSession(localId),
+              let note = try loadNote(localId) else {
+            return nil
+        }
+        guard session.localOnly != true, note.localOnly != true else {
+            return nil
+        }
+        return try SyncEnvelope.payload(session: session, note: note)
+    }
+
+    private func finishNoLongerSyncable(localId: String) {
+        discardPending(localId: localId)
+        try? outbox.complete(localId: localId)
+        _ = finishInFlight(localId: localId)
     }
 
     private func finishSuccessfulPush(localId: String) {

@@ -39,6 +39,7 @@ type TwentyNoteTargetResponse = {
 type TwentyNoteTargetsResponse = {
   data?: {
     noteTargets?: Array<{
+      id?: unknown;
       noteId?: unknown;
       personId?: unknown;
     }>;
@@ -149,10 +150,13 @@ async function ensureNoteTargets(
   personRemoteIds: string[],
 ) {
   const wanted = uniqueNonEmpty(personRemoteIds);
-  if (wanted.length === 0) {
-    return;
+  const wantedSet = new Set(wanted);
+  const existing = await noteTargetIdsByPersonIdForNote(cfg, noteId);
+  for (const [personRemoteId, noteTargetId] of existing) {
+    if (!wantedSet.has(personRemoteId)) {
+      await deleteNoteTarget(cfg, noteTargetId);
+    }
   }
-  const existing = await noteTargetPersonIdsForNote(cfg, noteId);
   for (const personRemoteId of wanted) {
     if (existing.has(personRemoteId)) {
       continue;
@@ -161,8 +165,8 @@ async function ensureNoteTargets(
   }
 }
 
-async function noteTargetPersonIdsForNote(cfg: CrmConfig, noteId: string) {
-  const personIds = new Set<string>();
+async function noteTargetIdsByPersonIdForNote(cfg: CrmConfig, noteId: string) {
+  const targetIdsByPersonId = new Map<string, string>();
   let startingAfter: string | undefined;
 
   while (true) {
@@ -189,10 +193,17 @@ async function noteTargetPersonIdsForNote(cfg: CrmConfig, noteId: string) {
       );
     }
     for (const target of records) {
+      const targetId = normalizedString(target.id);
       const targetNoteId = normalizedString(target.noteId);
       const personId = normalizedString(target.personId);
       if (targetNoteId === noteId && personId !== undefined) {
-        personIds.add(personId);
+        if (targetId === undefined) {
+          throw CrmError.apiError(
+            200,
+            "Twenty note target response did not include target id",
+          );
+        }
+        targetIdsByPersonId.set(personId, targetId);
       }
     }
 
@@ -204,7 +215,7 @@ async function noteTargetPersonIdsForNote(cfg: CrmConfig, noteId: string) {
     startingAfter = endCursor;
   }
 
-  return personIds;
+  return targetIdsByPersonId;
 }
 
 async function createNoteTarget(
@@ -219,6 +230,16 @@ async function createNoteTarget(
       personId: personRemoteId,
     },
   });
+}
+
+async function deleteNoteTarget(cfg: CrmConfig, noteTargetId: string) {
+  await twentyRequest<unknown>(
+    cfg,
+    `/noteTargets/${encodeURIComponent(noteTargetId)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 async function twentyRequest<T>(
@@ -253,6 +274,10 @@ async function twentyRequest<T>(
 
   if (!response.ok) {
     throw await crmErrorFromResponse(response);
+  }
+
+  if (response.status === 204) {
+    return null as T;
   }
 
   try {

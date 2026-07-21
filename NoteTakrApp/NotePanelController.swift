@@ -32,6 +32,7 @@ final class NotePanelController {
     private var pillPipelineCancellables = Set<AnyCancellable>()
     private var calendarCancellables = Set<AnyCancellable>()
     private var syncCancellables = Set<AnyCancellable>()
+    private var syncedSummaryNoteIDs = Set<String>()
     private weak var appModelRef: AppModel?
 
     init(notesRoot: URL, appModel: AppModel? = nil) {
@@ -712,6 +713,12 @@ final class NotePanelController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] states in
                 guard let self else { return }
+                let currentNoteIDs = Set(states.keys)
+                let removedNoteIDs = self.syncedSummaryNoteIDs.subtracting(currentNoteIDs)
+                self.syncedSummaryNoteIDs = currentNoteIDs
+                for noteID in removedNoteIDs {
+                    self.restorePersistedSummaryState(for: noteID)
+                }
                 for (noteID, state) in states {
                     self.tabsBridge.presenter.setSummaryState(state, for: noteID)
                 }
@@ -739,6 +746,18 @@ final class NotePanelController {
                 self?.settingsBridge.setCrmMessage(message)
             }
             .store(in: &syncCancellables)
+    }
+
+    private func restorePersistedSummaryState(for noteID: String) {
+        if let sessionStore,
+           let uuid = UUID(uuidString: noteID),
+           let session = try? sessionStore.load(id: uuid),
+           let summary = session.summary,
+           !summary.isEmpty {
+            tabsBridge.presenter.setSummary(summary, for: noteID)
+        } else {
+            tabsBridge.presenter.clearSummaryState(for: noteID)
+        }
     }
 
     #if DEBUG

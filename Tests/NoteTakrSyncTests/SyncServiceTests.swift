@@ -72,8 +72,18 @@ final class SyncServiceTests: XCTestCase {
         let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
         let outbox = SyncOutbox(rootURL: tempDir)
         let service = makeService(store: store, backend: backend, outbox: outbox)
-        let first = try makePayload(localId: "11111111-1111-1111-1111-111111111111", body: "one")
-        let second = try makePayload(localId: "22222222-2222-2222-2222-222222222222", body: "two")
+        let firstId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let secondId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let firstSession = makeSession(id: firstId)
+        let firstNote = makeNote(id: firstId, body: "one")
+        let secondSession = makeSession(id: secondId)
+        let secondNote = makeNote(id: secondId, body: "two")
+        store.put(session: firstSession)
+        store.put(note: firstNote)
+        store.put(session: secondSession)
+        store.put(note: secondNote)
+        let first = try SyncEnvelope.payload(session: firstSession, note: firstNote)
+        let second = try SyncEnvelope.payload(session: secondSession, note: secondNote)
         try outbox.enqueue(first)
         try outbox.enqueue(second)
 
@@ -96,13 +106,49 @@ final class SyncServiceTests: XCTestCase {
             outbox: outbox,
             sleep: { delay in sleepRecorder.record(delay) }
         )
-        let payload = try makePayload(localId: "33333333-3333-3333-3333-333333333333")
+        let id = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let session = makeSession(id: id)
+        let note = makeNote(id: id)
+        store.put(session: session)
+        store.put(note: note)
+        let payload = try SyncEnvelope.payload(session: session, note: note)
         try outbox.enqueue(payload)
 
         await service.runOnce()
 
         XCTAssertEqual(sleepRecorder.delays, [1, 2])
         XCTAssertEqual(backend.upsertCount, 3)
+        XCTAssertTrue(try outbox.pending().isEmpty)
+    }
+
+    func testFailedPushDoesNotRetryAfterMeetingBecomesLocalOnly() async throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))
+        backend.failuresBeforeSuccess = 1
+        let sleepRecorder = SleepRecorder()
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let id = UUID(uuidString: "34343434-3434-3434-3434-343434343434")!
+        let session = makeSession(id: id)
+        let syncableNote = makeNote(id: id, body: "syncable")
+        let localOnlyNote = makeNote(id: id, body: "private", localOnly: true)
+        store.put(session: session)
+        store.put(note: syncableNote)
+        try outbox.enqueue(SyncEnvelope.payload(session: session, note: syncableNote))
+
+        let service = makeService(
+            store: store,
+            backend: backend,
+            outbox: outbox,
+            sleep: { delay in
+                sleepRecorder.record(delay)
+                store.put(note: localOnlyNote)
+            }
+        )
+
+        await service.runOnce()
+
+        XCTAssertEqual(sleepRecorder.delays, [1])
+        XCTAssertEqual(backend.upsertCount, 1)
         XCTAssertTrue(try outbox.pending().isEmpty)
     }
 
@@ -242,14 +288,6 @@ final class SyncServiceTests: XCTestCase {
             ],
             localOnly: localOnly,
             body: body
-        )
-    }
-
-    private func makePayload(localId: String, body: String = "body") throws -> MeetingPayload {
-        let id = UUID(uuidString: localId)!
-        return try SyncEnvelope.payload(
-            session: makeSession(id: id),
-            note: makeNote(id: id, body: body)
         )
     }
 }

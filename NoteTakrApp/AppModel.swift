@@ -872,6 +872,20 @@ final class AppModel: ObservableObject {
     private func autoSummarizeIfNeeded(_ session: MeetingSession) {
         guard summarizationSettingsStore.load().autoSummarize else { return }
         guard !session.transcriptSegments.isEmpty else { return }
+        let noteID = session.id.uuidString
+        if canUseCloudSummary(for: noteID) {
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    _ = try await self.generateServerSummary(for: noteID)
+                } catch CloudSummaryError.unavailable {
+                    await self.summarize(session)
+                } catch {
+                    // Cloud failures are reflected in the Summary tab by the sync update path.
+                }
+            }
+            return
+        }
         // Do NOT probe the keychain here — that would call `SecItemCopyMatching` (and risk a
         // keychain prompt) on every transcription completion, even when no summary is wanted.
         // `summarize(_:)` reads the key only after the user opted into auto-summarize and sets

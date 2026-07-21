@@ -170,7 +170,11 @@ describe("twenty provider", () => {
         data: { updateNote: { id: "note-1" } },
       }),
       jsonResponse({
-        data: { noteTargets: [{ noteId: "note-1", personId: "person-1" }] },
+        data: {
+          noteTargets: [
+            { id: "target-1", noteId: "note-1", personId: "person-1" },
+          ],
+        },
         pageInfo: { hasNextPage: false },
       }),
     );
@@ -208,7 +212,11 @@ describe("twenty provider", () => {
         data: { updateNote: { id: "note-1" } },
       }),
       jsonResponse({
-        data: { noteTargets: [{ noteId: "note-1", personId: "person-1" }] },
+        data: {
+          noteTargets: [
+            { id: "target-1", noteId: "note-1", personId: "person-1" },
+          ],
+        },
         pageInfo: { hasNextPage: false },
       }),
       jsonResponse({ data: { createNoteTarget: { id: "target-2" } } }, 201),
@@ -233,6 +241,40 @@ describe("twenty provider", () => {
       noteId: "note-1",
       personId: "person-2",
     });
+  });
+
+  test("upsertMeetingNote with existingNoteId removes stale targets", async () => {
+    const fetch = fetchMock(
+      jsonResponse({
+        data: { updateNote: { id: "note-1" } },
+      }),
+      jsonResponse({
+        data: {
+          noteTargets: [
+            { id: "target-1", noteId: "note-1", personId: "person-1" },
+            { id: "target-2", noteId: "note-1", personId: "person-2" },
+          ],
+        },
+        pageInfo: { hasNextPage: false },
+      }),
+      new Response(null, { status: 204 }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      twentyProvider.upsertMeetingNote(
+        cfg,
+        ["person-1"],
+        "Weekly Review",
+        "Updated markdown",
+        "note-1",
+      ),
+    ).resolves.toBe("note-1");
+
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const [deleteUrl, deleteInit] = fetch.mock.calls[2];
+    expect(deleteUrl).toBe("https://twenty.test/rest/noteTargets/target-2");
+    expect(deleteInit?.method).toBe("DELETE");
   });
 
   test("api error surfaces as typed CrmError, not a throw-through", async () => {

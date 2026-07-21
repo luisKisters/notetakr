@@ -72,7 +72,9 @@ export const upsertFromDevice = mutation({
     const hasTranscript = payload.transcriptSegments.length > 0;
     const contentChanged =
       existing === null || existing.contentHash !== payload.contentHash;
-    const shouldScheduleSummary = hasTranscript && contentChanged;
+    const shouldRetryFailedSummary = existing?.summaryStatus === "failed";
+    const shouldScheduleSummary =
+      hasTranscript && (contentChanged || shouldRetryFailedSummary);
 
     let meetingId = existing?._id;
     const meetingFields = {

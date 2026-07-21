@@ -134,6 +134,11 @@ public final class NoteTabsPresenter {
         onChange?()
     }
 
+    public func clearSummaryState(for noteID: String) {
+        guard summaryByNoteID.removeValue(forKey: noteID) != nil else { return }
+        onChange?()
+    }
+
     public func generateSummary(for noteID: String) {
         guard let generator = summaryGenerator else { return }
         guard summaryByNoteID[noteID] != .generating else { return }
