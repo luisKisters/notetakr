@@ -263,6 +263,29 @@ struct SettingsSheetView: View {
                 .accessibilityIdentifier("localOnlyMeetingToggle")
             }
 
+            settingsRow {
+                Toggle(isOn: Binding(
+                    get: { viewModel.frontmatterBridge.noteCrmPushEnabled },
+                    set: { viewModel.setCrmPushThisMeeting($0) }
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "arrow.up.doc")
+                            .iconStyle(color: textTertiary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Push to CRM").font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Attach summary and transcript to matched people")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                        }
+                        Spacer()
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(accent)
+                .disabled(viewModel.frontmatterBridge.noteLocalOnly ?? viewModel.appSettings.localOnlyByDefault)
+                .accessibilityIdentifier("crmPushMeetingToggle")
+            }
+
             sectionLabel("Calendar")
 
             settingsRow {
@@ -463,6 +486,8 @@ struct SettingsSheetView: View {
 
             accountSyncSection
 
+            crmSection
+
             sectionLabel("App")
 
             settingsRow {
@@ -631,6 +656,110 @@ struct SettingsSheetView: View {
             return email
         }
         return "Signed out"
+    }
+
+    private var crmSection: some View {
+        Group {
+            sectionLabel("CRM")
+
+            settingsRow {
+                Image(systemName: "building.2")
+                    .iconStyle(color: textTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Twenty").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text(crmSubtitle)
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                if viewModel.crmConnected {
+                    Label("Connected", systemImage: "checkmark.seal.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.system(size: 11))
+                        .foregroundColor(accent)
+                } else {
+                    Text("Not connected")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(textTertiary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(controlBg)
+                        .clipShape(Capsule())
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("https://twenty.example.com", text: $viewModel.crmBaseURLDraft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .foregroundColor(textPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(controlBg)
+                    .cornerRadius(6.5)
+                    .overlay(RoundedRectangle(cornerRadius: 6.5)
+                        .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
+                    .accessibilityIdentifier("crmBaseURLField")
+
+                SecureField(
+                    viewModel.crmAPIKeyConfigured ? "Enter new API key to replace" : "Twenty API key",
+                    text: $viewModel.crmAPIKeyDraft
+                )
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundColor(textPrimary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(controlBg)
+                .cornerRadius(6.5)
+                .overlay(RoundedRectangle(cornerRadius: 6.5)
+                    .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
+                .accessibilityIdentifier("crmAPIKeyField")
+
+                HStack(spacing: 10) {
+                    Button("Save") { viewModel.saveCrmSettings() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(crmCanAct ? accent : textTertiary)
+                        .disabled(!crmCanAct)
+                        .accessibilityIdentifier("crmSaveButton")
+
+                    Button("Test connection") { viewModel.testCrmConnection() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundColor(crmCanAct ? textPrimary : textTertiary)
+                        .disabled(!crmCanAct)
+                        .accessibilityIdentifier("crmTestConnectionButton")
+
+                    Spacer()
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 2)
+
+            if let message = viewModel.crmMessage, !message.isEmpty {
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundColor(viewModel.crmConnected ? textTertiary : theme.destructive.swiftUIColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 2)
+                    .padding(.bottom, 8)
+                    .accessibilityIdentifier("crmSettingsMessage")
+            }
+        }
+    }
+
+    private var crmSubtitle: String {
+        if viewModel.crmAPIKeyConfigured {
+            return "API key stored in Keychain"
+        }
+        return "Attach notes to matched people"
+    }
+
+    private var crmCanAct: Bool {
+        !viewModel.crmBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            (viewModel.crmAPIKeyConfigured ||
+             !viewModel.crmAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     // MARK: - OpenRouter API key

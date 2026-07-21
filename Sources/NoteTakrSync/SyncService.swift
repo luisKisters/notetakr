@@ -6,6 +6,7 @@ public final class SyncService: @unchecked Sendable {
     public typealias SessionLoader = @Sendable (String) throws -> MeetingSession?
     public typealias NoteLoader = @Sendable (String) throws -> MeetingNote?
     public typealias SummaryPersister = @Sendable (String, String) throws -> Void
+    public typealias CrmPushStatusPersister = @Sendable (String, CrmPushStatus) throws -> Void
     public typealias Sleep = @Sendable (TimeInterval) async -> Void
     public typealias Clock = @Sendable () -> Date
 
@@ -14,6 +15,8 @@ public final class SyncService: @unchecked Sendable {
     private let loadSession: SessionLoader
     private let loadNote: NoteLoader
     private let persistSummary: SummaryPersister
+    private let persistCrmPushStatus: CrmPushStatusPersister?
+    private let peopleCacheSource: ConvexPeopleCacheSource?
     private let sleep: Sleep
     private let now: Clock
 
@@ -27,6 +30,8 @@ public final class SyncService: @unchecked Sendable {
         loadSession: @escaping SessionLoader,
         loadNote: @escaping NoteLoader,
         persistSummary: @escaping SummaryPersister,
+        persistCrmPushStatus: CrmPushStatusPersister? = nil,
+        peopleCacheSource: ConvexPeopleCacheSource? = nil,
         sleep: @escaping Sleep = { seconds in
             let nanoseconds = UInt64(max(0, seconds) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
@@ -38,6 +43,8 @@ public final class SyncService: @unchecked Sendable {
         self.loadSession = loadSession
         self.loadNote = loadNote
         self.persistSummary = persistSummary
+        self.persistCrmPushStatus = persistCrmPushStatus
+        self.peopleCacheSource = peopleCacheSource
         self.sleep = sleep
         self.now = now
     }
@@ -74,6 +81,7 @@ public final class SyncService: @unchecked Sendable {
 
     public func runOnce() async {
         guard backend.accountState.isSignedIn else { return }
+        await refreshPeopleCacheIfPossible()
 
         while !Task.isCancelled, backend.accountState.isSignedIn {
             let pending: [MeetingPayload]
@@ -98,10 +106,24 @@ public final class SyncService: @unchecked Sendable {
         }
     }
 
+    private func refreshPeopleCacheIfPossible() async {
+        guard let peopleCacheSource,
+              let peopleFetcher = backend as? any SyncPeopleFetching else {
+            return
+        }
+        guard let people = try? await peopleFetcher.fetchPeopleSnapshot() else {
+            return
+        }
+        try? peopleCacheSource.refresh(people: people)
+    }
+
     public func consumeSummaryUpdates() async {
         for await update in backend.summaryUpdates() {
             guard !Task.isCancelled else { return }
             try? persistSummary(update.localId, update.text)
+            if let status = update.crmPushStatus {
+                try? persistCrmPushStatus?(update.localId, status)
+            }
         }
     }
 

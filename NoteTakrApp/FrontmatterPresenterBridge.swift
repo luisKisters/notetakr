@@ -27,6 +27,10 @@ final class FrontmatterPresenterBridge: ObservableObject {
     @Published private(set) var peopleIndexEntries: [PersonIndexEntry] = []
     @Published private(set) var peopleDirectory = PeopleDirectory(sources: [])
     @Published private(set) var pastMeetingsIndex = PastMeetingsIndex(notes: [])
+    @Published var crmConnected: Bool = false {
+        didSet { refreshCrmStatus() }
+    }
+    @Published private(set) var crmBannerText: String?
     /// Meeting capture sources are fixed for the lifetime of a recording. The
     /// in-person toggle is disabled while this is true so system audio cannot
     /// continue behind metadata that was changed mid-recording.
@@ -34,11 +38,14 @@ final class FrontmatterPresenterBridge: ObservableObject {
 
     private(set) var presenter: FrontmatterPresenter?
     private let store: any NoteStoring
+    private let crmPeopleSource: (any PeopleSource)?
     private var indexedNotes: [MeetingNote] = []
+    private var crmStatusPresenter = CrmStatusPresenter()
     var onRequestCalendarEvents: ((EventPickerWindow) -> Void)?
 
-    init(store: any NoteStoring) {
+    init(store: any NoteStoring, crmPeopleSource: (any PeopleSource)? = nil) {
         self.store = store
+        self.crmPeopleSource = crmPeopleSource
     }
 
     func load(note: MeetingNote) {
@@ -75,6 +82,16 @@ final class FrontmatterPresenterBridge: ObservableObject {
         try? presenter?.setLocalOnly(value)
     }
 
+    func setCrmPushEnabled(_ value: Bool) {
+        try? presenter?.setCrmPushEnabled(value)
+    }
+
+    func dismissCrmBanner() {
+        guard let meetingId = presenter?.note.id, !meetingId.isEmpty else { return }
+        crmStatusPresenter.dismiss(meetingId: meetingId)
+        refreshCrmStatus()
+    }
+
     func setRecordingActive(_ active: Bool) {
         isRecording = active
     }
@@ -91,10 +108,12 @@ final class FrontmatterPresenterBridge: ObservableObject {
         let participants = attendees.map {
             let email = $0.email?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
             let crm = $0.crm?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-            return Participant(
-                name: Participant.displayName(name: $0.name, email: email),
-                email: email,
-                crm: crm
+            return autoMatchedParticipant(
+                Participant(
+                    name: Participant.displayName(name: $0.name, email: email),
+                    email: email,
+                    crm: crm
+                )
             )
         }
         let info = LinkedEventInfo(
@@ -216,6 +235,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
     var noteMeetingLink: String? { presenter?.note.meetingLink }
     var noteTranscribe: Bool? { presenter?.note.transcribe }
     var noteLocalOnlyValue: Bool? { presenter?.note.localOnly }
+    var noteCrmPushEnabled: Bool { presenter?.note.crmPushOptOut != true }
     var noteLanguage: TranscribeLanguage? { presenter?.note.language }
     var noteVocabulary: [String] { presenter?.note.vocabulary ?? [] }
     var noteCalendarEvent: String? { presenter?.note.calendarEvent }
@@ -235,6 +255,7 @@ final class FrontmatterPresenterBridge: ObservableObject {
         noteInPerson = p.note.inPerson
         noteLocalOnly = p.note.localOnly
         refreshPeopleIndexFromStoreIfPossible()
+        refreshCrmStatus()
     }
 
     private func refreshPeopleIndexFromStoreIfPossible() {
@@ -253,11 +274,15 @@ final class FrontmatterPresenterBridge: ObservableObject {
         #if canImport(Contacts)
         sources.append(AppleContactsSource())
         #endif
+        if let crmPeopleSource {
+            sources.append(crmPeopleSource)
+        }
         sources.append(pastIndex)
 
         pastMeetingsIndex = pastIndex
         peopleDirectory = PeopleDirectory(sources: sources)
         peopleIndexEntries = PeopleIndex(notes: indexNotes, events: availableEvents).entries
+        refreshCrmStatus()
     }
 
     private func peoplePickerPresenter(excluding selectedParticipants: [Participant]) -> PeoplePickerPresenter {
@@ -271,6 +296,48 @@ final class FrontmatterPresenterBridge: ObservableObject {
     private func linkedEventAttendees() -> [Participant] {
         guard let eventID = presenter?.note.calendarEvent else { return [] }
         return availableEvents.first(where: { $0.id == eventID })?.participants ?? []
+    }
+
+    private func refreshCrmStatus() {
+        guard let note = presenter?.note else {
+            crmBannerText = nil
+            return
+        }
+        crmBannerText = crmStatusPresenter.bannerText(
+            meetingId: note.id,
+            crmConnected: crmConnected,
+            unmatchedParticipants: unmatchedCrmParticipants(in: note)
+        )
+    }
+
+    private func unmatchedCrmParticipants(in note: MeetingNote) -> [Participant] {
+        guard crmConnected else { return [] }
+        return note.participants.filter { participant in
+            guard let email = participant.email?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty else {
+                return true
+            }
+            if participant.crm?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty != nil {
+                return false
+            }
+            guard let person = peopleDirectory.person(forEmail: email) else {
+                return true
+            }
+            return !peopleDirectory.providerIds(for: person).contains("crm")
+        }
+    }
+
+    private func autoMatchedParticipant(_ participant: Participant) -> Participant {
+        guard participant.crm?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty == nil,
+              let email = participant.email?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+              let remoteId = crmRemoteId(forEmail: email) else {
+            return participant
+        }
+        return Participant(name: participant.name, email: participant.email, crm: remoteId)
+    }
+
+    private func crmRemoteId(forEmail email: String) -> String? {
+        guard let person = peopleDirectory.person(forEmail: email) else { return nil }
+        return person.sourceRefs.first { $0.provider == "crm" }?.remoteId
     }
 }
 

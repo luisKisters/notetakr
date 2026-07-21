@@ -1,4 +1,5 @@
 import Foundation
+import NoteTakrKit
 
 public struct ConvexSyncConfiguration: Equatable, Sendable {
     public var deploymentURL: String
@@ -36,7 +37,7 @@ import ClerkKit
 import ClerkConvex
 @preconcurrency import ConvexMobile
 
-public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, @unchecked Sendable {
+public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncPeopleFetching, CrmSettingsManaging, @unchecked Sendable {
     private let client: ConvexClientWithAuth<String>
     private let lock = NSLock()
     private var cancellables = Set<AnyCancellable>()
@@ -108,6 +109,27 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, @unch
         )
     }
 
+    public func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson] {
+        try await client.action("crm/mirror:fetchCurrentPeopleSnapshot")
+    }
+
+    public func saveCrmConfiguration(_ configuration: CrmConfiguration) async throws {
+        let _: SaveCrmConfigResult = try await client.mutation(
+            "crm/mirror:saveCrmConfig",
+            with: ["crm": convexCrmConfiguration(configuration)]
+        )
+    }
+
+    public func testCrmConnection(_ configuration: CrmConfiguration) async throws {
+        let result: CrmConnectionResult = try await client.action(
+            "crm/mirror:testCrmConnection",
+            with: ["crm": convexCrmConfiguration(configuration)]
+        )
+        guard result.ok else {
+            throw Self.crmBackendError(from: result)
+        }
+    }
+
     public func accountStateUpdates() -> AsyncStream<AccountState> {
         accountStream
     }
@@ -124,15 +146,23 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, @unch
                         for row in rows where row.summaryStatus == "ready" {
                             guard let summary = row.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
                                   !summary.isEmpty else { continue }
+                            let crmPushStatus = row.pushStatus.flatMap(CrmPushStatus.init(rawValue:))
+                            let seenValue = "\(summary)\n\(row.pushStatus ?? "")"
                             let shouldYield: Bool = {
                                 lock.lock()
                                 defer { lock.unlock() }
-                                guard seen[row.localId] != summary else { return false }
-                                seen[row.localId] = summary
+                                guard seen[row.localId] != seenValue else { return false }
+                                seen[row.localId] = seenValue
                                 return true
                             }()
                             if shouldYield {
-                                continuation.yield(SummaryUpdate(localId: row.localId, text: summary))
+                                continuation.yield(
+                                    SummaryUpdate(
+                                        localId: row.localId,
+                                        text: summary,
+                                        crmPushStatus: crmPushStatus
+                                    )
+                                )
                             }
                         }
                     }
@@ -212,8 +242,30 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, @unch
                     "text": segment.text,
                 ] as [String: ConvexEncodable?]
             },
+            "crmPushOptOut": payload.crmPushOptOut,
             "contentHash": payload.contentHash,
         ]
+    }
+
+    private func convexCrmConfiguration(_ configuration: CrmConfiguration) -> [String: ConvexEncodable?] {
+        [
+            "provider": configuration.provider,
+            "baseUrl": configuration.baseURL,
+            "apiKey": configuration.apiKey,
+        ]
+    }
+
+    private static func crmBackendError(from result: CrmConnectionResult) -> CrmBackendError {
+        let message = result.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = message?.isEmpty == false ? message! : "CRM connection failed"
+        switch result.code {
+        case "unauthorized":
+            return .unauthorized(fallback)
+        case "configuration":
+            return .configuration(fallback)
+        default:
+            return .failed(fallback)
+        }
     }
 
     private func locked<T>(_ body: () throws -> T) rethrows -> T {
@@ -228,14 +280,25 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, @unch
         var scheduledSummary: Bool
     }
 
+    private struct SaveCrmConfigResult: Decodable {
+        var scheduledMirror: Bool
+    }
+
+    private struct CrmConnectionResult: Decodable {
+        var ok: Bool
+        var code: String?
+        var message: String?
+    }
+
     private struct ReadySummary: Decodable {
         var localId: String
         var summary: String?
         var summaryStatus: String?
+        var pushStatus: String?
     }
 }
 #else
-public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, @unchecked Sendable {
+public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, SyncPeopleFetching, CrmSettingsManaging, @unchecked Sendable {
     public init(configuration: ConvexSyncConfiguration) throws {
         throw ConvexSyncBackendError.sdkUnavailable
     }
@@ -249,6 +312,18 @@ public final class ConvexSyncBackend: SyncBackend, SyncAccountControlling, @unch
     public func signOut() async throws {}
 
     public func upsertMeeting(_ payload: MeetingPayload) async throws {
+        throw ConvexSyncBackendError.sdkUnavailable
+    }
+
+    public func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson] {
+        throw ConvexSyncBackendError.sdkUnavailable
+    }
+
+    public func saveCrmConfiguration(_ configuration: CrmConfiguration) async throws {
+        throw ConvexSyncBackendError.sdkUnavailable
+    }
+
+    public func testCrmConnection(_ configuration: CrmConfiguration) async throws {
         throw ConvexSyncBackendError.sdkUnavailable
     }
 

@@ -89,6 +89,8 @@ private struct PropertyRowView: View {
             KeyLabel(icon: "link", label: "Meeting link", theme: theme)
         case .inPerson:
             KeyLabel(icon: "figure.walk", label: "In-person", theme: theme)
+        case .crmPushStatus:
+            KeyLabel(icon: "arrow.up.doc", label: "CRM", theme: theme)
         case .transcript:
             KeyLabel(icon: "mic", label: "Transcript", theme: theme)
         }
@@ -125,6 +127,8 @@ private struct PropertyRowView: View {
             )
         case .inPerson(let on):
             InPersonValue(isOn: on, bridge: bridge, theme: theme)
+        case .crmPushStatus(let status):
+            CrmPushStatusValue(status: status, theme: theme)
         case .transcript:
             TranscriptRowValue(
                 bridge: bridge,
@@ -1285,6 +1289,7 @@ private struct AddParticipantPopover: View {
             return "Recent"
         case .source(let providerId):
             if providerId == "contacts" { return "Contacts" }
+            if providerId == "crm" { return "CRM" }
             return providerId
                 .split(separator: "-")
                 .map { $0.localizedCapitalized }
@@ -1613,6 +1618,69 @@ private struct InPersonValue: View {
             .toggleStyle(ThemedToggleStyle(theme: theme))
             .labelsHidden()
             .disabled(bridge.isRecording)
+        }
+    }
+}
+
+// MARK: - CRM status value
+
+private struct CrmPushStatusValue: View {
+    let status: CrmPushStatus?
+    let theme: ThemeColors
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: iconName)
+                .font(.system(size: 10, weight: .semibold))
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(color.opacity(0.12)))
+        .overlay(Capsule().stroke(color.opacity(0.25), lineWidth: 1))
+        .accessibilityIdentifier("crmPushStatusValue")
+    }
+
+    private var label: String {
+        switch status {
+        case .pending:
+            return "Pending"
+        case .pushed:
+            return "Pushed"
+        case .failed:
+            return "Failed"
+        case .skipped:
+            return "Skipped"
+        case nil:
+            return "Not pushed"
+        }
+    }
+
+    private var iconName: String {
+        switch status {
+        case .pushed:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        case .skipped:
+            return "minus.circle.fill"
+        case .pending, nil:
+            return "clock.fill"
+        }
+    }
+
+    private var color: Color {
+        switch status {
+        case .pushed:
+            return theme.accent.swiftUIColor
+        case .failed:
+            return theme.destructive.swiftUIColor
+        case .skipped:
+            return theme.tertiaryText.swiftUIColor
+        case .pending, nil:
+            return theme.secondaryText.swiftUIColor
         }
     }
 }

@@ -34,6 +34,7 @@ public struct MeetingPayload: Codable, Equatable, Sendable {
     public var participants: [Participant]
     public var markdownBody: String
     public var transcriptSegments: [TranscriptSegment]
+    public var crmPushOptOut: Bool?
     public var contentHash: String
 
     public init(
@@ -44,6 +45,7 @@ public struct MeetingPayload: Codable, Equatable, Sendable {
         participants: [Participant] = [],
         markdownBody: String,
         transcriptSegments: [TranscriptSegment] = [],
+        crmPushOptOut: Bool? = nil,
         contentHash: String
     ) {
         self.localId = localId
@@ -53,6 +55,7 @@ public struct MeetingPayload: Codable, Equatable, Sendable {
         self.participants = participants
         self.markdownBody = markdownBody
         self.transcriptSegments = transcriptSegments
+        self.crmPushOptOut = crmPushOptOut
         self.contentHash = contentHash
     }
 }
@@ -81,6 +84,7 @@ public enum SyncEnvelope {
             },
             markdownBody: note.body,
             transcriptSegments: transcript,
+            crmPushOptOut: note.crmPushOptOut,
             contentHash: ""
         )
         payload.contentHash = try contentHash(for: payload)
@@ -95,6 +99,7 @@ public enum SyncEnvelope {
         var participants: [MeetingPayload.Participant]
         var markdownBody: String
         var transcriptSegments: [MeetingPayload.TranscriptSegment]
+        var crmPushOptOut: Bool?
     }
 
     private static func contentHash(for payload: MeetingPayload) throws -> String {
@@ -105,7 +110,8 @@ public enum SyncEnvelope {
             calendarEventId: payload.calendarEventId,
             participants: payload.participants,
             markdownBody: payload.markdownBody,
-            transcriptSegments: payload.transcriptSegments
+            transcriptSegments: payload.transcriptSegments,
+            crmPushOptOut: payload.crmPushOptOut
         )
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

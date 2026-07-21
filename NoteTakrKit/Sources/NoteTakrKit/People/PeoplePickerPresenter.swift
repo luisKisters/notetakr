@@ -77,7 +77,8 @@ public struct PeoplePickerPresenter {
     public func participant(from row: Row) -> Participant {
         switch row {
         case .person(let person):
-            return Participant(name: person.name, email: person.emails.first)
+            let crmRemoteId = person.sourceRefs.first { $0.provider == "crm" }?.remoteId
+            return Participant(name: person.name, email: person.emails.first, crm: crmRemoteId)
         case .freeText(let value):
             return Participant(name: value, email: nil)
         }

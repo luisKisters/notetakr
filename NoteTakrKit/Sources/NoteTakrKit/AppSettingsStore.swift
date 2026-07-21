@@ -29,6 +29,7 @@ public final class AppSettingsStore {
     private var _autoCheckForUpdates: Bool = true
     private var _autoDownloadUpdates: Bool = false
     private var _localOnlyByDefault: Bool = false
+    private var _crmTwentyBaseURL: String = ""
 
     public init(root: URL) {
         fileURL = root.appendingPathComponent("settings.json")
@@ -112,6 +113,11 @@ public final class AppSettingsStore {
         set { _localOnlyByDefault = newValue; saveToDisk() }
     }
 
+    public var crmTwentyBaseURL: String {
+        get { _crmTwentyBaseURL }
+        set { _crmTwentyBaseURL = newValue; saveToDisk() }
+    }
+
     // MARK: - Persistence
 
     private struct Payload: Codable {
@@ -130,6 +136,7 @@ public final class AppSettingsStore {
         var autoCheckForUpdates: Bool?
         var autoDownloadUpdates: Bool?
         var localOnlyByDefault: Bool?
+        var crmTwentyBaseURL: String?
     }
 
     private func loadFromDisk() {
@@ -151,6 +158,7 @@ public final class AppSettingsStore {
         if let v = payload.autoCheckForUpdates   { _autoCheckForUpdates = v }
         if let v = payload.autoDownloadUpdates   { _autoDownloadUpdates = v }
         if let v = payload.localOnlyByDefault    { _localOnlyByDefault = v }
+        if let v = payload.crmTwentyBaseURL      { _crmTwentyBaseURL = v }
     }
 
     private func saveToDisk() {
@@ -169,7 +177,8 @@ public final class AppSettingsStore {
             systemAudioEnabled: _systemAudioEnabled,
             autoCheckForUpdates: _autoCheckForUpdates,
             autoDownloadUpdates: _autoDownloadUpdates,
-            localOnlyByDefault: _localOnlyByDefault
+            localOnlyByDefault: _localOnlyByDefault,
+            crmTwentyBaseURL: _crmTwentyBaseURL
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? FileManager.default.createDirectory(

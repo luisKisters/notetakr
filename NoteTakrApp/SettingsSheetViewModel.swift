@@ -31,6 +31,11 @@ final class SettingsSheetViewModel: ObservableObject {
     @Published private(set) var hotkeyRegistrationMessages: [String] = []
     @Published var accountState: AccountState = .signedOut
     @Published private(set) var accountMessage: String?
+    @Published var crmBaseURLDraft: String
+    @Published var crmAPIKeyDraft: String = ""
+    @Published var crmAPIKeyConfigured: Bool = false
+    @Published var crmConnected: Bool = false
+    @Published private(set) var crmMessage: String?
 
     let frontmatterBridge: FrontmatterPresenterBridge
     let appSettings: AppSettingsStore
@@ -47,11 +52,14 @@ final class SettingsSheetViewModel: ObservableObject {
     var onAutoDownloadUpdatesChange: ((Bool) -> Void)?
     var onSignInWithGoogle: (() -> Void)?
     var onSignOut: (() -> Void)?
+    var onSaveCrmSettings: ((String, String?) -> Void)?
+    var onTestCrmConnection: ((String, String?) -> Void)?
 
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
         self.appSettings = appSettings
         self.currentAppearance = appSettings.appearance
+        self.crmBaseURLDraft = appSettings.crmTwentyBaseURL
         self.frontmatterObservation = frontmatterBridge.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
@@ -82,6 +90,10 @@ final class SettingsSheetViewModel: ObservableObject {
 
     func setLocalOnlyThisMeeting(_ value: Bool) {
         frontmatterBridge.setLocalOnly(value)
+    }
+
+    func setCrmPushThisMeeting(_ value: Bool) {
+        frontmatterBridge.setCrmPushEnabled(value)
     }
 
     func unlinkEvent() {
@@ -198,6 +210,27 @@ final class SettingsSheetViewModel: ObservableObject {
         accountMessage = message
     }
 
+    func saveCrmSettings() {
+        crmMessage = nil
+        onSaveCrmSettings?(
+            crmBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+            crmAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        )
+        crmAPIKeyDraft = ""
+    }
+
+    func testCrmConnection() {
+        crmMessage = nil
+        onTestCrmConnection?(
+            crmBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+            crmAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        )
+    }
+
+    func setCrmMessage(_ message: String?) {
+        crmMessage = message
+    }
+
     // MARK: - Sheet lifecycle
 
     func close() {
@@ -206,4 +239,10 @@ final class SettingsSheetViewModel: ObservableObject {
 
     private static let hotkeyConflictText =
         "Choose different shortcuts for showing the note and starting recording."
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
 }

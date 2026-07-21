@@ -75,6 +75,13 @@ public enum TranscribeLanguage: Equatable, Hashable, Codable {
     }
 }
 
+public enum CrmPushStatus: String, Equatable, Hashable, Codable, CaseIterable, Sendable {
+    case pending
+    case pushed
+    case failed
+    case skipped
+}
+
 public struct MeetingNote: Equatable {
     public var id: String
     public var title: String
@@ -90,6 +97,8 @@ public struct MeetingNote: Equatable {
     public var inPerson: Bool?
     public var transcribe: Bool?
     public var localOnly: Bool?
+    public var crmPushOptOut: Bool?
+    public var crmPushStatus: CrmPushStatus?
     public var language: TranscribeLanguage?
     public var vocabulary: [String]
     public var unknownFrontmatterKeys: [(key: String, rawLine: String)]
@@ -108,6 +117,8 @@ public struct MeetingNote: Equatable {
         inPerson: Bool? = nil,
         transcribe: Bool? = nil,
         localOnly: Bool? = nil,
+        crmPushOptOut: Bool? = nil,
+        crmPushStatus: CrmPushStatus? = nil,
         language: TranscribeLanguage? = nil,
         vocabulary: [String] = [],
         unknownFrontmatterKeys: [(key: String, rawLine: String)] = [],
@@ -125,6 +136,8 @@ public struct MeetingNote: Equatable {
         self.inPerson = inPerson
         self.transcribe = transcribe
         self.localOnly = localOnly
+        self.crmPushOptOut = crmPushOptOut
+        self.crmPushStatus = crmPushStatus
         self.language = language
         self.vocabulary = vocabulary
         self.unknownFrontmatterKeys = unknownFrontmatterKeys
@@ -144,6 +157,8 @@ public struct MeetingNote: Equatable {
         lhs.inPerson == rhs.inPerson &&
         lhs.transcribe == rhs.transcribe &&
         lhs.localOnly == rhs.localOnly &&
+        lhs.crmPushOptOut == rhs.crmPushOptOut &&
+        lhs.crmPushStatus == rhs.crmPushStatus &&
         lhs.language == rhs.language &&
         lhs.vocabulary == rhs.vocabulary &&
         lhs.body == rhs.body

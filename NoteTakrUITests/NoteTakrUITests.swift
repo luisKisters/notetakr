@@ -197,17 +197,46 @@ final class NoteTakrUITests: XCTestCase {
         try waitForPersistedSummary(localId: payload.localId, text: summaryText)
     }
 
+    func testUnmatchedCrmBannerAppearsAboveFooter() throws {
+        try seedMeeting(
+            id: "66666666-6666-6666-6666-666666666666",
+            title: "CRM unmatched meeting",
+            date: "2026-07-13T09:00:00Z",
+            participants: [SeedParticipant(name: "Mystery Guest", email: nil)]
+        )
+
+        launch(enablePanelToggleControl: true, mockCrmConnected: true)
+
+        let banner = element("crmUnmatchedBanner")
+        XCTAssertTrue(banner.waitForExistence(timeout: 8))
+        let footerTab = app.buttons["Private Notes"]
+        XCTAssertTrue(footerTab.waitForExistence(timeout: 5))
+        XCTAssertLessThan(
+            banner.frame.maxY,
+            footerTab.frame.minY + 2,
+            "The CRM banner should sit above the footer tab bar."
+        )
+
+        element("crmUnmatchedBannerDismiss").click()
+        XCTAssertTrue(
+            banner.waitForNonExistence(timeout: 5),
+            "Dismissing the CRM banner should hide it for the current meeting."
+        )
+    }
+
     private func launch(
         openSettings: Bool = false,
         openSwitcher: Bool = false,
         enablePanelToggleControl: Bool = false,
         expandFrontmatter: Bool = false,
         openPeoplePicker: Bool = false,
-        mockSyncBackend: Bool = false
+        mockSyncBackend: Bool = false,
+        mockCrmConnected: Bool = false
     ) {
         app.launchEnvironment["NOTETAKR_E2E_APP_SUPPORT_ROOT"] = appSupportRoot.path
         app.launchEnvironment["NOTETAKR_E2E_USE_MOCK_RECORDER"] = "1"
         app.launchEnvironment["NOTETAKR_E2E_MOCK_SYNC_BACKEND"] = mockSyncBackend ? "1" : "0"
+        app.launchEnvironment["NOTETAKR_E2E_MOCK_CRM_CONNECTED"] = mockCrmConnected ? "1" : "0"
         app.launchEnvironment["NOTETAKR_E2E_SHOW_PANEL"] = "1"
         app.launchEnvironment["NOTETAKR_E2E_OPEN_SETTINGS"] = openSettings ? "1" : "0"
         app.launchEnvironment["NOTETAKR_E2E_OPEN_SWITCHER"] = openSwitcher ? "1" : "0"

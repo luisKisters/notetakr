@@ -23,6 +23,8 @@ final class AppModel: ObservableObject {
     let summarizationSettingsStore: SummarizationSettingsStore
     let appSettings: AppSettingsStore
     let keychainStore: KeychainStore
+    let crmKeychainStore: KeychainStore
+    let crmPeopleCacheSource: ConvexPeopleCacheSource
     private let summarizationService = SummarizationService()
     private var syncBackend: (any AppSyncBackend)?
     private var syncService: SyncService?
@@ -53,6 +55,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var syncAccountState: AccountState = .signedOut
     @Published private(set) var syncAccountMessage: String?
     @Published private(set) var syncSummaryStates: [String: SummaryState] = [:]
+    @Published private(set) var crmConnected: Bool = false
+    @Published private(set) var crmAPIKeyConfigured: Bool = false
+    @Published private(set) var crmMessage: String?
 
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
@@ -87,8 +92,11 @@ final class AppModel: ObservableObject {
         )
         appSettings = AppSettingsStore(root: base.appendingPathComponent("NoteTakr"))
         keychainStore = KeychainStore()
+        crmKeychainStore = KeychainStore(service: "com.notetakr.crm.twenty", account: "api-key")
+        crmPeopleCacheSource = ConvexPeopleCacheSource(rootURL: base)
         recordingManager = RecordingManager(store: store, recorder: Self.makeAudioRecorder())
         configureSync(rootURL: base)
+        refreshCrmConnectionState()
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleStartRecordingFromNotification),
@@ -120,6 +128,14 @@ final class AppModel: ObservableObject {
     private static var usesE2EMockRecorder: Bool {
         #if DEBUG
         ProcessInfo.processInfo.environment["NOTETAKR_E2E_USE_MOCK_RECORDER"] == "1"
+        #else
+        false
+        #endif
+    }
+
+    private static var usesE2EMockCrmConnected: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["NOTETAKR_E2E_MOCK_CRM_CONNECTED"] == "1"
         #else
         false
         #endif
@@ -164,7 +180,13 @@ final class AppModel: ObservableObject {
                 Task { @MainActor [weak self] in
                     self?.handleSyncedSummary(localId: localId, text: text)
                 }
-            }
+            },
+            persistCrmPushStatus: { [notes] localId, status in
+                guard var note = try notes.load(id: localId) else { return }
+                note.crmPushStatus = status
+                try notes.save(note)
+            },
+            peopleCacheSource: crmPeopleCacheSource
         )
         syncService = service
 
@@ -341,6 +363,80 @@ final class AppModel: ObservableObject {
         } catch {
             syncAccountMessage = Self.syncErrorMessage(error)
         }
+    }
+
+    func saveCrmSettings(baseURL: String, apiKey: String?) async {
+        appSettings.crmTwentyBaseURL = baseURL
+        if let apiKey, !apiKey.isEmpty {
+            do {
+                try crmKeychainStore.save(apiKey)
+            } catch {
+                crmMessage = Self.syncErrorMessage(error)
+                refreshCrmConnectionState()
+                return
+            }
+        }
+
+        guard let configuration = currentCrmConfiguration(apiKeyOverride: apiKey) else {
+            crmMessage = "Twenty base URL and API key are required."
+            refreshCrmConnectionState()
+            return
+        }
+
+        do {
+            if let manager = syncBackend as? any CrmSettingsManaging {
+                try await manager.saveCrmConfiguration(configuration)
+            }
+            crmMessage = "CRM settings saved."
+        } catch {
+            crmMessage = Self.syncErrorMessage(error)
+        }
+        refreshCrmConnectionState()
+    }
+
+    func testCrmConnection(baseURL: String, apiKey: String?) async {
+        guard let configuration = currentCrmConfiguration(
+            baseURLOverride: baseURL,
+            apiKeyOverride: apiKey
+        ) else {
+            crmMessage = "Twenty base URL and API key are required."
+            refreshCrmConnectionState()
+            return
+        }
+
+        if Self.usesE2EMockCrmConnected {
+            crmMessage = "CRM connection succeeded."
+            refreshCrmConnectionState(forceConnected: true)
+            return
+        }
+
+        do {
+            guard let manager = syncBackend as? any CrmSettingsManaging else {
+                throw CrmBackendError.configuration("Cloud sync is not configured.")
+            }
+            try await manager.testCrmConnection(configuration)
+            crmMessage = "CRM connection succeeded."
+            refreshCrmConnectionState(forceConnected: true)
+        } catch {
+            crmMessage = Self.syncErrorMessage(error)
+            refreshCrmConnectionState(forceConnected: false)
+        }
+    }
+
+    private func currentCrmConfiguration(
+        baseURLOverride: String? = nil,
+        apiKeyOverride: String? = nil
+    ) -> CrmConfiguration? {
+        let baseURL = Self.firstNonEmpty(baseURLOverride, appSettings.crmTwentyBaseURL)
+        let apiKey = Self.firstNonEmpty(apiKeyOverride, crmKeychainStore.read())
+        guard let baseURL, let apiKey else { return nil }
+        return CrmConfiguration(provider: "twenty", baseURL: baseURL, apiKey: apiKey)
+    }
+
+    private func refreshCrmConnectionState(forceConnected: Bool? = nil) {
+        crmAPIKeyConfigured = crmKeychainStore.hasValue
+        let locallyConfigured = Self.firstNonEmpty(appSettings.crmTwentyBaseURL) != nil && crmAPIKeyConfigured
+        crmConnected = forceConnected ?? Self.usesE2EMockCrmConnected || locallyConfigured
     }
 
     private func waitForSyncedSummary(noteID: String) async throws -> String {

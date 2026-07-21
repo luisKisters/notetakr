@@ -22,6 +22,7 @@ const meetingPayload = v.object({
   participants: v.array(participant),
   markdownBody: v.string(),
   transcriptSegments: v.array(transcriptSegment),
+  crmPushOptOut: v.optional(v.boolean()),
   contentHash: v.string(),
 });
 
@@ -29,6 +30,13 @@ const summaryStatus = v.union(
   v.literal("pending"),
   v.literal("ready"),
   v.literal("failed"),
+);
+
+const pushStatus = v.union(
+  v.literal("pending"),
+  v.literal("pushed"),
+  v.literal("failed"),
+  v.literal("skipped"),
 );
 
 const summarizeMeeting = makeFunctionReference<"action">(
@@ -75,6 +83,7 @@ export const upsertFromDevice = mutation({
       calendarEventId: payload.calendarEventId,
       participants: payload.participants,
       contentHash: payload.contentHash,
+      crmPushOptOut: payload.crmPushOptOut,
       summaryStatus: shouldScheduleSummary
         ? ("pending" as const)
         : existing?.summaryStatus,
@@ -149,6 +158,7 @@ export const readySummaries = query({
       localId: v.string(),
       summary: v.optional(v.string()),
       summaryStatus: v.optional(summaryStatus),
+      pushStatus: v.optional(pushStatus),
     }),
   ),
   handler: async (ctx) => {
@@ -161,6 +171,7 @@ export const readySummaries = query({
         localId: meeting.localId,
         summary: meeting.summary,
         summaryStatus: meeting.summaryStatus,
+        ...(meeting.pushStatus === undefined ? {} : { pushStatus: meeting.pushStatus }),
       }));
   },
 });

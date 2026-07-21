@@ -29,7 +29,7 @@ public struct Person: Equatable, Hashable, Codable, Sendable {
         self.sourceRefs = Self.deduplicatedSourceRefs(sourceRefs)
     }
 
-    static func normalizedEmail(_ email: String?) -> String? {
+    public static func normalizedEmail(_ email: String?) -> String? {
         let trimmed = email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return trimmed?.isEmpty == false ? trimmed : nil
     }

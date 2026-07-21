@@ -97,6 +97,15 @@ struct EditorView: View {
                 tabContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+                if let bannerText = frontmatterBridge.crmBannerText {
+                    CrmUnmatchedBanner(
+                        text: bannerText,
+                        theme: themeColors,
+                        dismiss: { frontmatterBridge.dismissCrmBanner() }
+                    )
+                    .accessibilityIdentifier("crmUnmatchedBanner")
+                }
+
                 footerTabs
             }
             .ignoresSafeArea(.container, edges: .top)
@@ -211,5 +220,50 @@ struct EditorView: View {
         .font(.system(size: 12, weight: weight))
         .foregroundStyle(color)
         .animation(.easeInOut(duration: 0.15), value: tabsBridge.selectedTab)
+    }
+}
+
+private struct CrmUnmatchedBanner: View {
+    let text: String
+    let theme: ThemeColors
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(theme.accent.swiftUIColor.opacity(0.9))
+                .frame(width: 16, height: 16)
+
+            Text(text)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(theme.secondaryText.swiftUIColor)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.tertiaryText.swiftUIColor)
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+            .accessibilityIdentifier("crmUnmatchedBannerDismiss")
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 34)
+        .background(theme.accent.swiftUIColor.opacity(0.06))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(theme.hairline.swiftUIColor)
+                .frame(height: 1)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(theme.hairline.swiftUIColor)
+                .frame(height: 1)
+        }
     }
 }

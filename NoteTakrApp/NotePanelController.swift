@@ -44,7 +44,10 @@ final class NotePanelController {
                 }
             }
         )
-        frontmatterBridge = FrontmatterPresenterBridge(store: store)
+        frontmatterBridge = FrontmatterPresenterBridge(
+            store: store,
+            crmPeopleSource: appModel?.crmPeopleCacheSource
+        )
         recordPillMachine = RecordPillStateMachine()
 
         let settingsRoot = notesRoot.deletingLastPathComponent()
@@ -661,6 +664,10 @@ final class NotePanelController {
         guard let appModel else { return }
         settingsBridge.accountState = appModel.syncAccountState
         settingsBridge.setAccountMessage(appModel.syncAccountMessage)
+        settingsBridge.crmConnected = appModel.crmConnected
+        settingsBridge.crmAPIKeyConfigured = appModel.crmAPIKeyConfigured
+        settingsBridge.setCrmMessage(appModel.crmMessage)
+        frontmatterBridge.crmConnected = appModel.crmConnected
         settingsBridge.onSignInWithGoogle = { [weak appModel] in
             Task { @MainActor [weak appModel] in
                 await appModel?.signInWithGoogle()
@@ -669,6 +676,16 @@ final class NotePanelController {
         settingsBridge.onSignOut = { [weak appModel] in
             Task { @MainActor [weak appModel] in
                 await appModel?.signOut()
+            }
+        }
+        settingsBridge.onSaveCrmSettings = { [weak appModel] baseURL, apiKey in
+            Task { @MainActor [weak appModel] in
+                await appModel?.saveCrmSettings(baseURL: baseURL, apiKey: apiKey)
+            }
+        }
+        settingsBridge.onTestCrmConnection = { [weak appModel] baseURL, apiKey in
+            Task { @MainActor [weak appModel] in
+                await appModel?.testCrmConnection(baseURL: baseURL, apiKey: apiKey)
             }
         }
 
@@ -693,6 +710,28 @@ final class NotePanelController {
                 for (noteID, state) in states {
                     self.tabsBridge.presenter.setSummaryState(state, for: noteID)
                 }
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmConnected
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] connected in
+                self?.settingsBridge.crmConnected = connected
+                self?.frontmatterBridge.crmConnected = connected
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmAPIKeyConfigured
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] configured in
+                self?.settingsBridge.crmAPIKeyConfigured = configured
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                self?.settingsBridge.setCrmMessage(message)
             }
             .store(in: &syncCancellables)
     }

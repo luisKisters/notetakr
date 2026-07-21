@@ -6,9 +6,11 @@ import {
   internalMutation,
   internalQuery,
   mutation,
+  query,
   type ActionCtx,
 } from "../_generated/server";
 import {
+  CrmError,
   type CrmConfig,
   type CrmPerson,
   requireCrmProvider,
@@ -33,6 +35,13 @@ const mirrorResult = v.object({
   inserted: v.number(),
   updated: v.number(),
   removed: v.number(),
+});
+
+const cachedPerson = v.object({
+  remoteId: v.string(),
+  name: v.string(),
+  emails: v.array(v.string()),
+  company: v.optional(v.string()),
 });
 
 async function requireUserId(ctx: {
@@ -221,6 +230,104 @@ export const mirrorCurrentUser = action({
   },
 });
 
+export const currentPeopleSnapshot = query({
+  args: {},
+  returns: v.array(cachedPerson),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const rows = (await ctx.db.query("people").collect())
+      .filter((row) => row.userId === userId)
+      .filter((row) => row.remoteId !== undefined);
+
+    const grouped = new Map<
+      string,
+      { remoteId: string; name: string; emails: Set<string>; company?: string }
+    >();
+    for (const row of rows) {
+      const remoteId = normalizedString(row.remoteId);
+      const email = normalizedEmail(row.email);
+      if (remoteId === undefined || email === undefined) {
+        continue;
+      }
+      const existing = grouped.get(remoteId) ?? {
+        remoteId,
+        name: normalizedString(row.name) ?? email,
+        emails: new Set<string>(),
+        company: normalizedString(row.company),
+      };
+      existing.emails.add(email);
+      if (existing.company === undefined) {
+        existing.company = normalizedString(row.company);
+      }
+      grouped.set(remoteId, existing);
+    }
+
+    return Array.from(grouped.values())
+      .map((person) => ({
+        remoteId: person.remoteId,
+        name: person.name,
+        emails: Array.from(person.emails).sort(),
+        company: person.company,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.remoteId.localeCompare(b.remoteId));
+  },
+});
+
+export const peopleSnapshotForUser = internalQuery({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.array(cachedPerson),
+  handler: async (ctx, { userId }) => {
+    const rows = (await ctx.db.query("people").collect())
+      .filter((row) => row.userId === userId)
+      .filter((row) => row.remoteId !== undefined);
+
+    const grouped = new Map<
+      string,
+      { remoteId: string; name: string; emails: Set<string>; company?: string }
+    >();
+    for (const row of rows) {
+      const remoteId = normalizedString(row.remoteId);
+      const email = normalizedEmail(row.email);
+      if (remoteId === undefined || email === undefined) {
+        continue;
+      }
+      const existing = grouped.get(remoteId) ?? {
+        remoteId,
+        name: normalizedString(row.name) ?? email,
+        emails: new Set<string>(),
+        company: normalizedString(row.company),
+      };
+      existing.emails.add(email);
+      if (existing.company === undefined) {
+        existing.company = normalizedString(row.company);
+      }
+      grouped.set(remoteId, existing);
+    }
+
+    return Array.from(grouped.values())
+      .map((person) => ({
+        remoteId: person.remoteId,
+        name: person.name,
+        emails: Array.from(person.emails).sort(),
+        company: person.company,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.remoteId.localeCompare(b.remoteId));
+  },
+});
+
+export const fetchCurrentPeopleSnapshot = action({
+  args: {},
+  returns: v.array(cachedPerson),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    return await ctx.runQuery(internal.crm.mirror.peopleSnapshotForUser, {
+      userId,
+    });
+  },
+});
+
 export const refreshPeople = mutation({
   args: {},
   returns: v.object({
@@ -232,6 +339,37 @@ export const refreshPeople = mutation({
       userId,
     });
     return { scheduled: true };
+  },
+});
+
+export const testCrmConnection = action({
+  args: {
+    crm: crmConfig,
+  },
+  returns: v.object({
+    ok: v.boolean(),
+    code: v.optional(v.string()),
+    message: v.optional(v.string()),
+  }),
+  handler: async (_ctx, { crm }) => {
+    try {
+      const provider = requireCrmProvider(crm.provider);
+      await provider.listPeople(crm);
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof CrmError) {
+        return {
+          ok: false,
+          code: error.code,
+          message: error.message,
+        };
+      }
+      return {
+        ok: false,
+        code: "api_error",
+        message: error instanceof Error ? error.message : "CRM connection failed",
+      };
+    }
   },
 });
 

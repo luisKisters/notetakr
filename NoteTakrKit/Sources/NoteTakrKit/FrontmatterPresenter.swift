@@ -24,6 +24,8 @@ public enum PropertyRow: Equatable {
     case meetingLink(String?)
     /// In-person toggle.
     case inPerson(Bool)
+    /// CRM push status from the cloud pipeline.
+    case crmPushStatus(CrmPushStatus?)
     /// Transcript row — renders the record pill or player depending on recording state.
     case transcript
 }
@@ -102,15 +104,19 @@ public final class FrontmatterPresenter {
     }
 
     public var propertyRows: [PropertyRow] {
-        [
+        var rows: [PropertyRow] = [
             .event(id: note.calendarEvent, title: note.title),
             .dateTime(date: note.date, end: note.end),
             .people(note.participants),
             .location(note.locationText),
             .meetingLink(note.meetingLink),
             .inPerson(note.inPerson ?? false),
-            .transcript
         ]
+        if note.crmPushStatus != nil {
+            rows.append(.crmPushStatus(note.crmPushStatus))
+        }
+        rows.append(.transcript)
+        return rows
     }
 
     // MARK: - Mutations
@@ -123,6 +129,12 @@ public final class FrontmatterPresenter {
 
     public func setLocalOnly(_ localOnly: Bool) throws {
         note.localOnly = localOnly
+        try store.save(note)
+        onChange?()
+    }
+
+    public func setCrmPushEnabled(_ enabled: Bool) throws {
+        note.crmPushOptOut = enabled ? nil : true
         try store.save(note)
         onChange?()
     }

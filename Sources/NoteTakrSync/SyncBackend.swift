@@ -1,4 +1,5 @@
 import Foundation
+import NoteTakrKit
 
 public enum AccountState: Equatable, Sendable {
     case signedOut
@@ -20,10 +21,12 @@ public enum AccountState: Equatable, Sendable {
 public struct SummaryUpdate: Codable, Equatable, Sendable {
     public var localId: String
     public var text: String
+    public var crmPushStatus: CrmPushStatus?
 
-    public init(localId: String, text: String) {
+    public init(localId: String, text: String, crmPushStatus: CrmPushStatus? = nil) {
         self.localId = localId
         self.text = text
+        self.crmPushStatus = crmPushStatus
     }
 }
 
@@ -33,6 +36,40 @@ public protocol SyncBackend: Sendable {
     func upsertMeeting(_ payload: MeetingPayload) async throws
     func accountStateUpdates() -> AsyncStream<AccountState>
     func summaryUpdates() -> AsyncStream<SummaryUpdate>
+}
+
+public struct CrmConfiguration: Equatable, Sendable {
+    public var provider: String
+    public var baseURL: String
+    public var apiKey: String
+
+    public init(provider: String = "twenty", baseURL: String, apiKey: String) {
+        self.provider = provider
+        self.baseURL = baseURL
+        self.apiKey = apiKey
+    }
+}
+
+public enum CrmBackendError: LocalizedError, Equatable, Sendable {
+    case configuration(String)
+    case unauthorized(String)
+    case failed(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .configuration(let message), .unauthorized(let message), .failed(let message):
+            return message
+        }
+    }
+}
+
+public protocol SyncPeopleFetching: Sendable {
+    func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson]
+}
+
+public protocol CrmSettingsManaging: Sendable {
+    func saveCrmConfiguration(_ configuration: CrmConfiguration) async throws
+    func testCrmConnection(_ configuration: CrmConfiguration) async throws
 }
 
 public protocol SyncAccountControlling: Sendable {
@@ -181,7 +218,7 @@ public enum UnavailableSyncBackendError: LocalizedError, Sendable, Equatable {
     }
 }
 
-public final class UnavailableSyncBackend: SyncBackend, SyncAccountControlling, @unchecked Sendable {
+public final class UnavailableSyncBackend: SyncBackend, SyncAccountControlling, SyncPeopleFetching, CrmSettingsManaging, @unchecked Sendable {
     private let missingConfiguration: [String]
 
     public init(missingConfiguration: [String]) {
@@ -197,6 +234,18 @@ public final class UnavailableSyncBackend: SyncBackend, SyncAccountControlling, 
     public func signOut() async throws {}
 
     public func upsertMeeting(_ payload: MeetingPayload) async throws {}
+
+    public func fetchPeopleSnapshot() async throws -> [ConvexCachedPerson] {
+        []
+    }
+
+    public func saveCrmConfiguration(_ configuration: CrmConfiguration) async throws {
+        throw UnavailableSyncBackendError.missingConfiguration(missingConfiguration)
+    }
+
+    public func testCrmConnection(_ configuration: CrmConfiguration) async throws {
+        throw UnavailableSyncBackendError.missingConfiguration(missingConfiguration)
+    }
 
     public func accountStateUpdates() -> AsyncStream<AccountState> {
         AsyncStream { continuation in
