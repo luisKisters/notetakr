@@ -90,6 +90,26 @@ final class NotePanelTests: XCTestCase {
         XCTAssertNotNil(try NoteStore(root: dir).load(id: noteID))
     }
 
+    func testCommandWFlushesPendingEditorTextBeforeHiding() throws {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = NoteStore(root: dir)
+        let note = try store.create(title: "Close test", date: Date())
+        let controller = NotePanelController(notesRoot: dir)
+        let panel = try XCTUnwrap(controller.panel)
+        controller.loadNote(id: note.id)
+        controller.bridge.setBody("Must survive immediate close")
+
+        let handled = panel.performKeyEquivalent(with: commandKeyEvent(
+            characters: "w",
+            keyCode: 13,
+            windowNumber: panel.windowNumber
+        ))
+
+        XCTAssertTrue(handled)
+        XCTAssertEqual(try store.load(id: note.id)?.body, "Must survive immediate close")
+    }
+
     func testCommandBackspaceKeyEquivalentDeletesLoadedNoteAndLoadsNext() throws {
         let dir = makeTempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
