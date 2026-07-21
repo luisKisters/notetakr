@@ -1,6 +1,6 @@
 "use node";
 
-import { env } from "../_generated/server";
+import { env } from "../env";
 import { CrmError, type CrmConfig } from "./provider";
 
 const ENCRYPTED_API_KEY_PREFIX = "enc:v1:";

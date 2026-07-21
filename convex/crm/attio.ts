@@ -91,10 +91,6 @@ export const attioProvider: CrmProvider = {
     }
 
     const oldNoteIds = noteIdsFromRemoteNoteId(existingNoteId);
-    for (const noteId of oldNoteIds) {
-      await deleteExistingAttioNote(cfg, noteId);
-    }
-
     const noteRefs: AttioNoteRef[] = [];
     for (const personRemoteId of targets) {
       noteRefs.push({
@@ -102,6 +98,8 @@ export const attioProvider: CrmProvider = {
         noteId: await createAttioNote(cfg, personRemoteId, title, markdown),
       });
     }
+
+    await deleteOldAttioNotesBestEffort(cfg, oldNoteIds);
 
     return remoteNoteIdFromRefs(noteRefs);
   },
@@ -142,6 +140,16 @@ async function deleteExistingAttioNote(cfg: CrmConfig, noteId: string) {
       return;
     }
     throw error;
+  }
+}
+
+async function deleteOldAttioNotesBestEffort(cfg: CrmConfig, noteIds: string[]) {
+  for (const noteId of noteIds) {
+    try {
+      await deleteExistingAttioNote(cfg, noteId);
+    } catch {
+      // The replacement note is already created and should remain the stored CRM note.
+    }
   }
 }
 

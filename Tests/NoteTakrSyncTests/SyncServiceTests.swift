@@ -36,6 +36,29 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertEqual(backend.upsertCount, 0)
     }
 
+    func testLocalOnlyDirtyWhileSignedOutQueuesDeleteForNextSignIn() async throws {
+        let store = SyncFixtureStore()
+        let backend = MockSyncBackend(accountState: .signedOut)
+        let outbox = SyncOutbox(rootURL: tempDir)
+        let service = makeService(store: store, backend: backend, outbox: outbox)
+        let id = UUID(uuidString: "14141414-1414-1414-1414-141414141414")!
+        store.put(session: makeSession(id: id))
+        store.put(note: makeNote(id: id, body: "private", localOnly: true))
+
+        XCTAssertTrue(try service.markDirty(localId: id.uuidString))
+        await service.runOnce()
+
+        XCTAssertEqual(backend.upsertCount, 0)
+        XCTAssertTrue(backend.deletedLocalIds.isEmpty)
+        XCTAssertEqual(try outbox.pendingOperations(), [.delete(localId: id.uuidString)])
+
+        backend.accountState = .signedIn(email: "luis@example.test")
+        await service.runOnce()
+
+        XCTAssertEqual(backend.deletedLocalIds, [id.uuidString])
+        XCTAssertTrue(try outbox.pendingOperations().isEmpty)
+    }
+
     func testLocalOnlyMeetingsAreNeverEnqueued() throws {
         let store = SyncFixtureStore()
         let backend = MockSyncBackend(accountState: .signedIn(email: "luis@example.test"))

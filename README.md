@@ -209,7 +209,6 @@ App launch/build configuration:
 |----------|---------|
 | `NOTETAKR_CONVEX_DEPLOYMENT_URL`, `CONVEX_DEPLOYMENT_URL`, or `CONVEX_URL` | Convex deployment URL used by the Mac app |
 | `NOTETAKR_CLERK_PUBLISHABLE_KEY` or `CLERK_PUBLISHABLE_KEY` | Clerk publishable key for Google sign-in |
-| `NOTETAKR_CLERK_CALLBACK_SCHEME` | Optional OAuth callback URL scheme; defaults to the bundle identifier |
 
 Convex environment:
 

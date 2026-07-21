@@ -312,11 +312,7 @@ final class AppModel: ObservableObject {
         else {
             return nil
         }
-        let callbackScheme = firstNonEmpty(
-            env["NOTETAKR_CLERK_CALLBACK_SCHEME"],
-            Bundle.main.object(forInfoDictionaryKey: "NOTETAKR_CLERK_CALLBACK_SCHEME") as? String,
-            Bundle.main.bundleIdentifier
-        ) ?? "notetakr"
+        let callbackScheme = firstNonEmpty(Bundle.main.bundleIdentifier) ?? "notetakr"
         return ConvexSyncConfiguration(
             deploymentURL: deploymentURL.absoluteString,
             clerkPublishableKey: clerkKey,

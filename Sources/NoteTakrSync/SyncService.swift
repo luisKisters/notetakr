@@ -76,9 +76,9 @@ public final class SyncService: @unchecked Sendable {
 
     @discardableResult
     public func markDirty(localId: String) throws -> Bool {
-        guard backend.accountState.isSignedIn else { return false }
         switch try currentPayloadState(localId: localId) {
         case .syncable(let payload):
+            guard backend.accountState.isSignedIn else { return false }
             if isInFlight(localId: localId) {
                 recordDirtyWhileInFlight(payload)
                 return false

@@ -254,6 +254,71 @@ describe("meetings", () => {
     ]);
   });
 
+  test("contentHash change without transcript clears stale summary", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    const { meetingId } = await t.mutation(upsertFromDevice, {
+      payload: payload(),
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(meetingId, {
+        summary: "Old summary",
+        summaryStatus: "ready",
+        summaryError: "old failure",
+        pushStatus: "pushed",
+      });
+    });
+
+    await t.mutation(upsertFromDevice, {
+      payload: payload({
+        contentHash: "hash-2",
+        markdownBody: "Changed notes",
+        transcriptSegments: [],
+      }),
+    });
+
+    const meeting = await t.query(getByLocalId, { localId: "meeting-1" });
+    expect(meeting?.contentHash).toBe("hash-2");
+    expect(meeting?.summary).toBeUndefined();
+    expect(meeting?.summaryStatus).toBeUndefined();
+    expect(meeting?.summaryError).toBeUndefined();
+    expect(meeting?.pushStatus).toBe("pending");
+    await expect(t.query(summaryUpdates, {})).resolves.toEqual([]);
+  });
+
+  test("contentHash change resets crm push status before resummarizing", async () => {
+    vi.useFakeTimers();
+    const t = authedTest();
+
+    const { meetingId } = await t.mutation(upsertFromDevice, {
+      payload: payload(),
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(meetingId, {
+        summary: "Old summary",
+        summaryStatus: "ready",
+        pushStatus: "pushed",
+        unmatchedParticipants: [
+          { name: "Old Guest", email: "old@example.com" },
+        ],
+      });
+    });
+
+    await t.mutation(upsertFromDevice, {
+      payload: payload({
+        contentHash: "hash-2",
+        markdownBody: "Changed notes",
+      }),
+    });
+
+    const meeting = await t.query(getByLocalId, { localId: "meeting-1" });
+    expect(meeting?.summary).toBeUndefined();
+    expect(meeting?.summaryStatus).toBe("pending");
+    expect(meeting?.pushStatus).toBe("pending");
+    expect(meeting?.unmatchedParticipants).toEqual([]);
+  });
+
   test("failed summary resync with unchanged contentHash reschedules summarize", async () => {
     vi.useFakeTimers();
     const t = authedTest();

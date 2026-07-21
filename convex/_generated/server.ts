@@ -31,9 +31,6 @@ export const internalAction: ActionBuilder<DataModel, "internal"> =
   internalActionGeneric;
 export const httpAction: HttpActionBuilder = httpActionGeneric;
 
-export const env: Record<string, string | undefined> =
-  process.env as Record<string, string | undefined>;
-
 export type QueryCtx = GenericQueryCtx<DataModel>;
 export type MutationCtx = GenericMutationCtx<DataModel>;
 export type ActionCtx = GenericActionCtx<DataModel>;

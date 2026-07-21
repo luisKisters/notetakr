@@ -80,6 +80,10 @@ export const upsertFromDevice = mutation({
       existing?.summaryStatus === "ready" &&
       existing.summary !== undefined;
     const crmPushDisabled = payload.crmPushOptOut === true;
+    const shouldResetCrmPush =
+      existing !== null &&
+      !crmPushDisabled &&
+      (contentChanged || crmPushBecameEnabled);
 
     let meetingId = existing?._id;
     const meetingFields = {
@@ -91,12 +95,21 @@ export const upsertFromDevice = mutation({
       participants: payload.participants,
       contentHash: payload.contentHash,
       crmPushOptOut: payload.crmPushOptOut,
+      summary: contentChanged ? undefined : existing?.summary,
       summaryStatus: shouldScheduleSummary
         ? ("pending" as const)
+        : contentChanged
+          ? undefined
         : existing?.summaryStatus,
-      summaryError: shouldScheduleSummary ? undefined : existing?.summaryError,
-      pushStatus: crmPushDisabled ? ("skipped" as const) : existing?.pushStatus,
-      unmatchedParticipants: crmPushDisabled ? [] : existing?.unmatchedParticipants,
+      summaryError:
+        shouldScheduleSummary || contentChanged ? undefined : existing?.summaryError,
+      pushStatus: crmPushDisabled
+        ? ("skipped" as const)
+        : shouldResetCrmPush
+          ? ("pending" as const)
+          : existing?.pushStatus,
+      unmatchedParticipants:
+        crmPushDisabled || shouldResetCrmPush ? [] : existing?.unmatchedParticipants,
     };
 
     if (meetingId === undefined) {

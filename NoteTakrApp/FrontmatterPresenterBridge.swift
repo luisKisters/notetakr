@@ -321,17 +321,16 @@ final class FrontmatterPresenterBridge: ObservableObject {
 
     private func unmatchedCrmParticipants(in note: MeetingNote) -> [Participant] {
         guard crmConnected else { return [] }
+        let knownRemoteIds = knownCrmRemoteIds()
         return note.participants.filter { participant in
+            if let crmRemoteId = normalizedCrmRemoteId(participant.crm),
+               knownRemoteIds.contains(crmRemoteId) {
+                return false
+            }
             guard let email = participant.email?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty else {
                 return true
             }
-            if participant.crm?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty != nil {
-                return false
-            }
-            guard let person = peopleDirectory.person(forEmail: email) else {
-                return true
-            }
-            return !peopleDirectory.providerIds(for: person).contains("crm")
+            return crmRemoteId(forEmail: email) == nil
         }
     }
 
@@ -346,7 +345,23 @@ final class FrontmatterPresenterBridge: ObservableObject {
 
     private func crmRemoteId(forEmail email: String) -> String? {
         guard let person = peopleDirectory.person(forEmail: email) else { return nil }
-        return person.sourceRefs.first { $0.provider == "crm" }?.remoteId
+        return person.sourceRefs.lazy.compactMap { sourceRef in
+            guard sourceRef.provider == "crm" else { return nil }
+            return normalizedCrmRemoteId(sourceRef.remoteId)
+        }.first
+    }
+
+    private func knownCrmRemoteIds() -> Set<String> {
+        Set(peopleDirectory.people(fromProvider: "crm").flatMap { person in
+            person.sourceRefs.compactMap { sourceRef in
+                guard sourceRef.provider == "crm" else { return nil }
+                return normalizedCrmRemoteId(sourceRef.remoteId)
+            }
+        })
+    }
+
+    private func normalizedCrmRemoteId(_ value: String?) -> String? {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
     }
 }
 

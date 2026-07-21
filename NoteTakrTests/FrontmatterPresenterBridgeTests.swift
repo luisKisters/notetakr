@@ -266,6 +266,59 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         XCTAssertEqual(bridge.crmBannerText, "1 participant not in CRM")
     }
 
+    func testCrmRemoteIdWithoutEmailDoesNotAppearInUnmatchedBanner() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(
+            id: "fp-8e",
+            title: "CRM Banner",
+            date: fixedDate(),
+            participants: [
+                Participant(name: "Manual CRM", crm: "person-manual")
+            ]
+        )
+        spy.notes[note.id] = note
+        let crmSource = StaticPeopleSource(providerId: "crm", people: [
+            Person(
+                name: "Manual CRM",
+                emails: [],
+                sourceRefs: [SourceRef(provider: "crm", remoteId: "person-manual")]
+            )
+        ])
+
+        let bridge = FrontmatterPresenterBridge(store: spy, crmPeopleSource: crmSource)
+        bridge.load(note: note)
+        bridge.crmConnected = true
+
+        XCTAssertNil(bridge.crmBannerText)
+    }
+
+    func testStaleCrmRemoteIdFallsBackToEmailMatchingForUnmatchedBanner() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(
+            id: "fp-8f",
+            title: "CRM Banner",
+            date: fixedDate(),
+            participants: [
+                Participant(name: "Email Match", email: "carol@example.com", crm: "stale-person"),
+                Participant(name: "Stale Manual", crm: "stale-person")
+            ]
+        )
+        spy.notes[note.id] = note
+        let crmSource = StaticPeopleSource(providerId: "crm", people: [
+            Person(
+                name: "Carol CRM",
+                emails: ["carol@example.com"],
+                sourceRefs: [SourceRef(provider: "crm", remoteId: "person-carol")]
+            )
+        ])
+
+        let bridge = FrontmatterPresenterBridge(store: spy, crmPeopleSource: crmSource)
+        bridge.load(note: note)
+        bridge.crmConnected = true
+
+        XCTAssertEqual(bridge.crmBannerText, "1 participant not in CRM")
+    }
+
     func testFrontmatterSaveNotifiesDirtyCallback() throws {
         let spy = SpyPresenterStore()
         let note = MeetingNote(id: "fp-dirty", title: "Dirty", date: fixedDate())
