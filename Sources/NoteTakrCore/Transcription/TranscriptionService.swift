@@ -37,7 +37,7 @@ public final class TranscriptionService: @unchecked Sendable {
     /// moves the folder but old session.json files keep absolute paths). When a
     /// stored path is missing, fall back to the same filename inside the session's
     /// *current* directory so those recordings stay transcribable.
-    static func transcriptionSources(
+    public static func transcriptionSources(
         for session: MeetingSession,
         sessionDir: URL? = nil
     ) -> [TranscriptionSource] {

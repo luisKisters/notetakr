@@ -27,8 +27,8 @@ struct SwitcherOverlayView: View {
     var body: some View {
         VStack(spacing: 0) {
             searchBar
-                .padding(.horizontal, 18)
-                .padding(.top, 42)
+                .padding(.horizontal, DesignConstants.contentInset)
+                .padding(.top, 12)
                 .padding(.bottom, 10)
 
             rowList
@@ -102,7 +102,7 @@ struct SwitcherOverlayView: View {
                             .accessibilityIdentifier("switcherEmptyState")
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, DesignConstants.contentInset)
                 .padding(.bottom, 12)
             }
             .accessibilityIdentifier("switcherEventList")

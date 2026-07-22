@@ -96,7 +96,7 @@ public final class FrontmatterPresenter {
         }
         if let startedAt = recordingStartedAt {
             let elapsed = now().timeIntervalSince(startedAt)
-            result.append(.recording(Self.formatElapsed(elapsed)))
+            result.append(.recording(Self.formatRecordingElapsed(elapsed)))
         }
         return result
     }
@@ -241,6 +241,17 @@ public final class FrontmatterPresenter {
             return String(format: "%d:%02d:%02d", h, m, s)
         }
         return String(format: "%d:%02d", m, s)
+    }
+
+    /// Compact live-recording duration shown as an hours-and-minutes clock.
+    /// Any started partial minute occupies the next minute bucket, so the display
+    /// reads 00:01 throughout the first minute without ticking through seconds.
+    public static func formatRecordingElapsed(_ elapsed: TimeInterval) -> String {
+        let clamped = max(0, elapsed)
+        let totalMinutes = clamped == 0 ? 0 : Int(ceil(clamped / 60))
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return String(format: "%02d:%02d", hours, minutes)
     }
 
     private static func trimmedNonEmpty(_ value: String?) -> String? {

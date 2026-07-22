@@ -483,14 +483,14 @@ final class RecordingNoteBridgeTests: XCTestCase {
         }
 
         // 0 seconds elapsed
-        XCTAssertEqual(recordingChipString(), FrontmatterPresenter.formatElapsed(0))
+        XCTAssertEqual(recordingChipString(), FrontmatterPresenter.formatRecordingElapsed(0))
 
-        // 73 seconds elapsed (1:13)
+        // 73 seconds elapsed (1 min)
         currentTime = Date(timeIntervalSinceReferenceDate: 5073)
-        XCTAssertEqual(recordingChipString(), FrontmatterPresenter.formatElapsed(73))
+        XCTAssertEqual(recordingChipString(), FrontmatterPresenter.formatRecordingElapsed(73))
 
-        // 3723 seconds elapsed (1:02:03)
+        // 3723 seconds elapsed (62 min)
         currentTime = Date(timeIntervalSinceReferenceDate: 8723)
-        XCTAssertEqual(recordingChipString(), FrontmatterPresenter.formatElapsed(3723))
+        XCTAssertEqual(recordingChipString(), FrontmatterPresenter.formatRecordingElapsed(3723))
     }
 }

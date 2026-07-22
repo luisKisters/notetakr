@@ -1,5 +1,7 @@
+import AppKit
 import SwiftUI
 import NoteTakrKit
+import NoteTakrCore
 
 struct TranscriptView: View {
     let state: TranscriptState
@@ -28,6 +30,9 @@ struct TranscriptView: View {
             case .failed(let message):
                 failedView(message)
             case .segments:
+                if hasMultipleInRoomSpeakers {
+                    inRoomSpeakerNotice
+                }
                 toolbar
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -141,13 +146,42 @@ struct TranscriptView: View {
 
     // MARK: - Toolbar
 
+    private var hasMultipleInRoomSpeakers: Bool {
+        Set(segments.compactMap { segment -> String? in
+            guard let speaker = segment.speaker,
+                  speaker.hasPrefix(SpeakerLabelResolver.inRoomSpeakerPrefix) else { return nil }
+            return speaker
+        }).count > 1
+    }
+
+    private var inRoomSpeakerNotice: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "mic.badge.plus")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(theme.accent.swiftUIColor)
+                .frame(width: 16, height: 16)
+            Text("Multiple people were detected through this room’s microphone. Names weren’t inferred.")
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(theme.secondaryText.swiftUIColor)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, DesignConstants.contentInset)
+        .padding(.vertical, 9)
+        .background(theme.accent.swiftUIColor.opacity(0.06))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(theme.hairline.swiftUIColor).frame(height: 1)
+        }
+        .accessibilityIdentifier("multipleInRoomSpeakersNotice")
+    }
+
     private var toolbar: some View {
         HStack(spacing: 8) {
             miniButton("Collapse all") { collapsedIndices = Set(0..<segments.count) }
             miniButton("Expand all") { collapsedIndices = [] }
             Spacer()
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, DesignConstants.contentInset)
         .padding(.top, 4)
         .padding(.bottom, 10)
     }
@@ -364,11 +398,18 @@ private struct SpeakerNameCell: View {
                                     .stroke(theme.accent.swiftUIColor, lineWidth: 1)
                             )
                     )
+                    .background(
+                        ClickOutsideCommitter {
+                            commit(keep: true)
+                        }
+                        .allowsHitTesting(false)
+                    )
                     .focused($isFocused)
                     .onSubmit { commit(keep: true) }
                     .onChange(of: isFocused) { focused in
                         if !focused { commit(keep: true) }
                     }
+                    .onDisappear { commit(keep: true) }
                     .task { isFocused = true }
             } else {
                 Button {
@@ -425,6 +466,65 @@ private struct SpeakerNameCell: View {
         if keep, !trimmed.isEmpty {
             onRename(trimmed)
         }
+    }
+}
+
+/// AppKit focus does not necessarily leave a text field when the user clicks
+/// non-focusable SwiftUI content. Monitor the field's window and commit only
+/// when the click lands outside the field's actual bounds.
+private struct ClickOutsideCommitter: NSViewRepresentable {
+    let action: () -> Void
+
+    func makeNSView(context: Context) -> OutsideClickMonitoringView {
+        let view = OutsideClickMonitoringView()
+        view.action = action
+        return view
+    }
+
+    func updateNSView(_ nsView: OutsideClickMonitoringView, context: Context) {
+        nsView.action = action
+        nsView.installMonitorIfNeeded()
+    }
+
+    static func dismantleNSView(_ nsView: OutsideClickMonitoringView, coordinator: ()) {
+        nsView.removeMonitor()
+    }
+}
+
+private final class OutsideClickMonitoringView: NSView {
+    var action: (() -> Void)?
+    private var monitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        installMonitorIfNeeded()
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+
+    func installMonitorIfNeeded() {
+        guard monitor == nil, window != nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self,
+                  let window = self.window,
+                  event.window === window else { return event }
+            let localPoint = self.convert(event.locationInWindow, from: nil)
+            guard !self.bounds.contains(localPoint) else { return event }
+            DispatchQueue.main.async { [weak self] in self?.action?() }
+            return event
+        }
+    }
+
+    func removeMonitor() {
+        guard let monitor else { return }
+        NSEvent.removeMonitor(monitor)
+        self.monitor = nil
+    }
+
+    deinit {
+        removeMonitor()
     }
 }
 

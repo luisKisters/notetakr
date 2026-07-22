@@ -4,7 +4,23 @@ import NoteTakrKit
 public enum TranscriptionError: Error, Sendable, Equatable {
     case audioFileNotFound
     case modelUnavailable
+    case noSpeechDetected
     case transcriptionFailed(String)
+}
+
+extension TranscriptionError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .audioFileNotFound:
+            return "No recording is available for this note."
+        case .modelUnavailable:
+            return "The speech model is not configured."
+        case .noSpeechDetected:
+            return "No speech was detected in the recording."
+        case .transcriptionFailed(let message):
+            return message
+        }
+    }
 }
 
 /// One audio stream to transcribe, tagged with the role it played in the

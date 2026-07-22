@@ -17,7 +17,7 @@ struct MarkdownBodyView: View {
                     blockView(block)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DesignConstants.contentInset)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
         }

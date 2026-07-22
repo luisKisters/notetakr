@@ -132,13 +132,16 @@ log "Building $XCODEPROJ ..."
 PRETTY=(cat)
 command -v xcpretty &>/dev/null && PRETTY=(xcpretty)
 BUILD_EXIT=0
+# ConvexMobile 0.8.x ships a macOS arm64 binary only. Forcing a universal
+# build here makes Xcode attempt an x86_64 link that can never succeed.
 xcodebuild build \
     -project "$XCODEPROJ" \
     -scheme "$SCHEME" \
     -configuration "$CONFIG" \
     -derivedDataPath "$DERIVED_DATA" \
     SYMROOT="$BUILD_DIR/symroot" \
-    ONLY_ACTIVE_ARCH=NO \
+    ARCHS=arm64 \
+    ONLY_ACTIVE_ARCH=YES \
     MACOSX_DEPLOYMENT_TARGET=14.0 \
     PRODUCT_BUNDLE_IDENTIFIER="com.notetakr.app" \
     "${SIGN_ARGS[@]}" \

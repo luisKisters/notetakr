@@ -54,7 +54,7 @@ struct ChipsRowView: View {
             .accessibilityLabel(bridge.isExpanded ? "Collapse meeting details" : "Expand meeting details")
             .accessibilityIdentifier("meetingDetailsToggle")
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, DesignConstants.contentInset)
         .padding(.vertical, 4)
         .padding(.bottom, 2)
     }
