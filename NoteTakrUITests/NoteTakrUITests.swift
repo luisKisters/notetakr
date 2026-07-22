@@ -356,7 +356,7 @@ final class NoteTakrUITests: XCTestCase {
 
         let banner = element("crmUnmatchedBanner")
         XCTAssertTrue(banner.waitForExistence(timeout: 8))
-        let footerTab = app.buttons["Private Notes"]
+        let footerTab = app.buttons["Notes"]
         XCTAssertTrue(footerTab.waitForExistence(timeout: 5))
         XCTAssertLessThan(
             banner.frame.maxY,

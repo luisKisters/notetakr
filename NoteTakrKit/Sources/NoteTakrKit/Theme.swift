@@ -80,6 +80,8 @@ public enum DesignConstants {
     public static let windowRadius:     Double = 16
     public static let chipRadius:       Double = 7
     public static let propsRadius:      Double = 10
+    public static let controlRadius:    Double = 7
+    public static let contentInset:     Double = 13
     public static let windowWidth:      Double = 420
     public static let windowHeight:     Double = 620
 }

@@ -61,7 +61,7 @@ struct EditorView: View {
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(themeColors.primaryText.swiftUIColor)
                 .textFieldStyle(.plain)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DesignConstants.contentInset)
                 .padding(.bottom, 12)
 
                 ChipsRowView(

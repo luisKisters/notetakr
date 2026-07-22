@@ -1045,7 +1045,15 @@ final class AppModel: ObservableObject {
         )
 
         do {
-            let updated = try await service.transcribe(session: latest, vocabulary: vocabEntries)
+            var updated = try await service.transcribe(session: latest, vocabulary: vocabEntries)
+            updated.transcriptSegments = SpeakerLabelResolver.resolve(
+                segments: updated.transcriptSegments,
+                session: updated,
+                userName: appSettings.yourName,
+                inferNamesFromCalendar: appSettings.inferNamesFromCalendar
+            )
+            try store.save(updated)
+            markSyncDirty(localId: noteID)
             transcriptionStates[uuid] = .completed
             FluidAudioAdapter.log.info("transcription COMPLETED for \(noteID, privacy: .public): \(updated.transcriptSegments.count) segment(s)")
             regenerateNote(for: updated)
@@ -1053,17 +1061,19 @@ final class AppModel: ObservableObject {
             return updated.transcriptSegments
         } catch TranscriptionError.modelUnavailable {
             transcriptionStates[uuid] = .modelUnavailable
-            // Re-throw as a `transcriptionFailed` carrying a friendly message: the recording
-            // bridge surfaces `error.localizedDescription` into the Transcript tab, and bare
-            // `TranscriptionError.modelUnavailable` has no LocalizedError text (it would read
-            // "modelUnavailable"). This makes the failure legible instead of a silent/cryptic state.
+            // Keep the setup guidance specific when this is surfaced in the Transcript tab.
             throw TranscriptionError.transcriptionFailed(Self.transcriptionErrorMessage(.modelUnavailable))
         } catch TranscriptionError.audioFileNotFound {
-            transcriptionStates[uuid] = .failed("Audio file not found")
+            transcriptionStates[uuid] = .failed("No recording is available")
             FluidAudioAdapter.log.error("transcription FAILED for \(noteID, privacy: .public): no usable audio files")
             throw TranscriptionError.transcriptionFailed(
-                "No audio found for this note — the recording files are missing or empty."
+                "No recording is available for this note. Record something first, then try again."
             )
+        } catch TranscriptionError.noSpeechDetected {
+            let message = "No speech was detected. The recording may be silent or too short."
+            transcriptionStates[uuid] = .failed(message)
+            FluidAudioAdapter.log.error("transcription FAILED for \(noteID, privacy: .public): no speech detected")
+            throw TranscriptionError.transcriptionFailed(message)
         } catch TranscriptionError.transcriptionFailed(let message) {
             transcriptionStates[uuid] = .failed(message)
             throw TranscriptionError.transcriptionFailed(message)
@@ -1146,7 +1156,9 @@ final class AppModel: ObservableObject {
         case .modelUnavailable:
             return "Speech model not downloaded. Open Settings › Transcription Model to set it up."
         case .audioFileNotFound:
-            return "Audio file not found for this recording."
+            return "No recording is available for this note."
+        case .noSpeechDetected:
+            return "No speech was detected. The recording may be silent or too short."
         case .transcriptionFailed(let message):
             return message
         }

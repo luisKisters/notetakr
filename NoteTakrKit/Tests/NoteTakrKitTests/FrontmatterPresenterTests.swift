@@ -158,9 +158,9 @@ final class FrontmatterPresenterTests: XCTestCase {
             timeZone: TimeZone(secondsFromGMT: 0)!
         )
         presenter.recordingStartedAt = currentTime
-        currentTime = currentTime.addingTimeInterval(754) // 12:34
+        currentTime = currentTime.addingTimeInterval(754) // into minute 13
         let recChip = presenter.chips.first { if case .recording = $0 { return true }; return false }
-        XCTAssertEqual(recChip, .recording("12:34"))
+        XCTAssertEqual(recChip, .recording("00:13"))
     }
 
     func testRecordingChip_absentAfterStop() {
@@ -198,6 +198,16 @@ final class FrontmatterPresenterTests: XCTestCase {
 
     func testElapsedFormat_exactHour() {
         XCTAssertEqual(FrontmatterPresenter.formatElapsed(3600), "1:00:00")
+    }
+
+    func testRecordingElapsedFormat_usesWholeMinutesOnly() {
+        XCTAssertEqual(FrontmatterPresenter.formatRecordingElapsed(0), "00:00")
+        XCTAssertEqual(FrontmatterPresenter.formatRecordingElapsed(1), "00:01")
+        XCTAssertEqual(FrontmatterPresenter.formatRecordingElapsed(59), "00:01")
+        XCTAssertEqual(FrontmatterPresenter.formatRecordingElapsed(60), "00:01")
+        XCTAssertEqual(FrontmatterPresenter.formatRecordingElapsed(61), "00:02")
+        XCTAssertEqual(FrontmatterPresenter.formatRecordingElapsed(3720), "01:02")
+        XCTAssertEqual(FrontmatterPresenter.formatRecordingElapsed(3723), "01:03")
     }
 
     // MARK: - Property rows (updated for new PropertyRow structure)

@@ -166,6 +166,7 @@ jobs:
             MARKETING_VERSION="$MARKETING_VERSION"
             SPARKLE_FEED_URL="$SPARKLE_FEED_URL"
             MACOSX_DEPLOYMENT_TARGET=14.0
+            ARCHS=arm64
           )
           if [[ "${SIGNING_ENABLED:-false}" == "true" ]]; then
             SIGNING_IDENTITY="${APPLE_DEVELOPER_ID_APPLICATION:-Developer ID Application}"

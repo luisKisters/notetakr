@@ -92,7 +92,7 @@ final class NoteEditorViewModelTests: XCTestCase {
     func testFlushCallsDidSaveHook() throws {
         let (vm, _, _) = makeVM(id: "n1", title: "T", body: "")
         let dirty = DirtyIDRecorder()
-        vm.onDidSave = { dirty.record($0) }
+        vm.onDidSave = { dirty.record($0.id) }
 
         try vm.load(noteID: "n1")
         vm.setBody("Edited body")
@@ -104,7 +104,7 @@ final class NoteEditorViewModelTests: XCTestCase {
     func testDebouncedSaveCallsDidSaveHook() throws {
         let (vm, _, scheduler) = makeVM(id: "n1", title: "T", body: "")
         let dirty = DirtyIDRecorder()
-        vm.onDidSave = { dirty.record($0) }
+        vm.onDidSave = { dirty.record($0.id) }
 
         try vm.load(noteID: "n1")
         vm.setBody("Edited body")

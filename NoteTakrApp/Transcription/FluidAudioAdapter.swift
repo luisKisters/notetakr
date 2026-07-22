@@ -457,8 +457,9 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
     ) async throws -> TranscribedSamples {
         let seconds = Double(samples.count) / 16_000.0
         Self.log.info("loaded \(samples.count) samples (\(seconds, format: .fixed(precision: 1))s) from \(sourceDescription, privacy: .public); diarize=\(diarize)")
-        if samples.isEmpty {
+        guard !samples.isEmpty else {
             Self.log.error("audio has ZERO samples — recording captured no audio (check mic/system-audio permissions)")
+            throw TranscriptionError.noSpeechDetected
         }
 
         // ASR and diarization are independent — run them concurrently.
@@ -476,6 +477,10 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
         Self.log.info("ASR text length=\(asr.text.count) chars, diarized spans=\(spans.count); text=\"\(asr.text, privacy: .public)\"")
 
         var words = Self.reconstructWords(from: asr.tokenTimings, fallbackText: asr.text)
+        guard !asr.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !words.isEmpty else {
+            Self.log.info("ASR returned no speech")
+            throw TranscriptionError.noSpeechDetected
+        }
 
         let enabled = vocabulary.filter { $0.isEnabled }
         if !enabled.isEmpty, let timings = asr.tokenTimings, !timings.isEmpty {
@@ -506,11 +511,8 @@ final class FluidAudioAdapter: TranscriptionEngine, @unchecked Sendable {
             }
         }
         if segments.isEmpty {
-            Self.log.info("assembled 0 segments — returning single fallback segment with raw ASR text")
-            return TranscribedSamples(
-                segments: [TranscriptSegment(timestamp: 0, speaker: nil, text: asr.text)],
-                speakerSpans: spans
-            )
+            Self.log.info("assembled 0 segments — no speech detected")
+            throw TranscriptionError.noSpeechDetected
         }
         Self.log.info("assembled \(segments.count) transcript segment(s)")
         return TranscribedSamples(segments: segments, speakerSpans: spans)

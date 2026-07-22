@@ -27,7 +27,7 @@ struct WindowChromeView: View {
             )
         }
         .frame(height: 40)
-        .padding(.horizontal, 13)
+        .padding(.horizontal, DesignConstants.contentInset)
     }
 
     private func chromeButton(
@@ -70,6 +70,7 @@ private struct ClosePanelButton: View {
         }
         .buttonStyle(.plain)
         .frame(width: 20, height: 24, alignment: .leading)
+        .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .help("Close")
         .accessibilityLabel("Close")

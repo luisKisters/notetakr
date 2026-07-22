@@ -48,7 +48,7 @@ struct RecordPillView: View {
 
     var body: some View {
         badge
-            .contentShape(Capsule())
+            .contentShape(RoundedRectangle(cornerRadius: DesignConstants.controlRadius))
     }
 
     // MARK: - Badge shell
@@ -65,11 +65,11 @@ struct RecordPillView: View {
         }
         .frame(height: 26)
         .background(
-            RoundedRectangle(cornerRadius: 999)
+            RoundedRectangle(cornerRadius: DesignConstants.controlRadius)
                 .fill(theme.chipFill.swiftUIColor)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 999)
+            RoundedRectangle(cornerRadius: DesignConstants.controlRadius)
                 .stroke(theme.chipLine.swiftUIColor, lineWidth: 1)
         )
     }
@@ -106,14 +106,14 @@ struct RecordPillView: View {
                 if mainHovering && !isBusy {
                     if hasCaret {
                         UnevenRoundedRectangle(
-                            topLeadingRadius: 999,
-                            bottomLeadingRadius: 999,
+                            topLeadingRadius: DesignConstants.controlRadius,
+                            bottomLeadingRadius: DesignConstants.controlRadius,
                             bottomTrailingRadius: 3,
                             topTrailingRadius: 3
                         )
                         .fill(theme.hoverFill.swiftUIColor)
                     } else {
-                        RoundedRectangle(cornerRadius: 999)
+                        RoundedRectangle(cornerRadius: DesignConstants.controlRadius)
                             .fill(theme.hoverFill.swiftUIColor)
                     }
                 }
@@ -145,8 +145,8 @@ struct RecordPillView: View {
                     UnevenRoundedRectangle(
                         topLeadingRadius: 3,
                         bottomLeadingRadius: 3,
-                        bottomTrailingRadius: 999,
-                        topTrailingRadius: 999
+                        bottomTrailingRadius: DesignConstants.controlRadius,
+                        topTrailingRadius: DesignConstants.controlRadius
                     )
                     .fill(theme.hoverFill.swiftUIColor)
                 }
@@ -201,11 +201,11 @@ struct RecordPillView: View {
             case .idle:
                 Text("Record")
             case .recording(let elapsed):
-                Text(FrontmatterPresenter.formatElapsed(TimeInterval(elapsed)))
+                Text(FrontmatterPresenter.formatRecordingElapsed(TimeInterval(elapsed)))
             case .paused(let elapsed):
                 HStack(spacing: 4) {
                     Text("Paused")
-                    Text(FrontmatterPresenter.formatElapsed(TimeInterval(elapsed)))
+                    Text(FrontmatterPresenter.formatRecordingElapsed(TimeInterval(elapsed)))
                         .opacity(0.55)
                 }
             case .transcribing:

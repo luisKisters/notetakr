@@ -457,6 +457,21 @@ final class NoteTabsPresenterTests: XCTestCase {
         XCTAssertEqual(p.transcriptState(for: "n1"), .empty)
     }
 
+    func testUnavailableAudioDisablesAndBlocksTranscriptGeneration() {
+        let generator = ImmediateTranscriptGenerator(
+            result: .success([RawSegment(speaker: "A", timestamp: 0, text: "Hello")])
+        )
+        let p = NoteTabsPresenter(
+            transcriptGenerator: generator,
+            transcriptAvailability: { _ in false }
+        )
+
+        XCTAssertFalse(p.canGenerateTranscript(for: "n1"))
+        p.generateTranscript(for: "n1")
+        p.transcribeAndSummarize(for: "n1")
+        XCTAssertEqual(p.transcriptState(for: "n1"), .empty)
+    }
+
     // MARK: - transcribeAndSummarize
 
     func testTranscribeAndSummarizeChainsSummaryGeneration() {
