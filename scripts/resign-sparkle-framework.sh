@@ -54,7 +54,7 @@ if [[ ! -d "$SPARKLE_VERSION_DIR" ]]; then
 fi
 
 TIMESTAMP_ARGS=()
-if [[ "$SIGNING_IDENTITY" != "-" ]]; then
+if [[ "$SIGNING_IDENTITY" != "-" && "${NOTETAKR_DISABLE_TIMESTAMP:-0}" != "1" ]]; then
     TIMESTAMP_ARGS+=(--timestamp)
 fi
 

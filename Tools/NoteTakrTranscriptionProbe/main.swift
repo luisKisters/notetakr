@@ -16,7 +16,6 @@ enum ProbeError: Error, CustomStringConvertible {
     case invalidVersion(String)
     case invalidArguments(String)
     case missingSessionAudio(String)
-    case anchorMatchFailed
 
     var description: String {
         switch self {
@@ -32,8 +31,6 @@ enum ProbeError: Error, CustomStringConvertible {
             return message
         case .missingSessionAudio(let role):
             return "Session is missing \(role) audio"
-        case .anchorMatchFailed:
-            return "Mixed transcription finished, but mic VAD did not confidently match a diarized speaker"
         }
     }
 }
@@ -46,6 +43,7 @@ struct ProbeOptions {
     var version: ProbeModelVersion = .v3
     var diarizeOnly = false
     var writeSession = false
+    var userName: String?
 }
 
 struct ProbeOutput: Encodable {
@@ -103,7 +101,8 @@ struct SessionRerunProbeOutput: Encodable {
     let diarizedSpanCount: Int
     let segmentCount: Int
     let speakers: [String]
-    let anchorMatch: AnchorMatch
+    let strategy: String
+    let anchorMatch: AnchorMatch?
     let anchorSpeechWindows: [SpeechWindow]
     let wroteSession: Bool
     let segments: [Segment]
@@ -190,6 +189,9 @@ struct NoteTakrTranscriptionProbe {
             case "--write-session":
                 options.writeSession = true
                 index += 1
+            case "--user-name":
+                options.userName = try value(after: argument, in: arguments, at: index)
+                index += 2
             default:
                 throw ProbeError.invalidArguments("Unknown argument: \(argument)\n\(usage)")
             }
@@ -299,24 +301,41 @@ struct NoteTakrTranscriptionProbe {
             systemAudioSamples: systemAudioSamples
         )
         let result = try await mixedResult
-        guard let anchored = TranscriptMerger.promoteAnchoredSpeaker(
+        let anchored = TranscriptMerger.promoteAnchoredSpeaker(
             in: result.segments,
             speakerSpans: result.speakerSpans,
             anchorWindows: anchorWindows,
             requireAnchorOverlapForPrimary: true
-        ) else {
-            throw ProbeError.anchorMatchFailed
+        )
+        let rawSegments: [TranscriptSegment]
+        let strategy: String
+        if let anchored {
+            rawSegments = anchored.segments
+            strategy = "mixed-anchor"
+        } else {
+            rawSegments = try await transcribeSeparateStreams(
+                microphoneSamples: microphoneSamples,
+                systemAudioSamples: systemAudioSamples,
+                options: options
+            )
+            strategy = "separate-stream-fallback"
         }
+        let resolvedSegments = SpeakerLabelResolver.resolve(
+            segments: rawSegments,
+            session: session,
+            userName: options.userName,
+            inferNamesFromCalendar: true
+        )
 
         if options.writeSession {
-            session.transcriptSegments = anchored.segments
+            session.transcriptSegments = resolvedSegments
             try store.save(session)
             let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
             let markdown = MarkdownNoteRenderer.render(session: session)
             try markdown.write(to: noteURL, atomically: true, encoding: .utf8)
         }
 
-        let speakers = Array(Set(anchored.segments.compactMap(\.speaker))).sorted()
+        let speakers = Array(Set(resolvedSegments.compactMap(\.speaker))).sorted()
         return SessionRerunProbeOutput(
             sessionId: session.id,
             title: session.title,
@@ -328,20 +347,23 @@ struct NoteTakrTranscriptionProbe {
             anchorSpeechWindowCount: anchorWindows.count,
             speechWindowCount: anchorWindows.count,
             diarizedSpanCount: result.speakerSpans.count,
-            segmentCount: anchored.segments.count,
+            segmentCount: resolvedSegments.count,
             speakers: speakers,
-            anchorMatch: SessionRerunProbeOutput.AnchorMatch(
-                speaker: anchored.match.speaker,
-                anchorCoverage: anchored.match.anchorCoverage,
-                speakerCoverage: anchored.match.speakerCoverage,
-                score: anchored.match.score,
-                overlapDuration: anchored.match.overlapDuration
-            ),
+            strategy: strategy,
+            anchorMatch: anchored.map {
+                SessionRerunProbeOutput.AnchorMatch(
+                    speaker: $0.match.speaker,
+                    anchorCoverage: $0.match.anchorCoverage,
+                    speakerCoverage: $0.match.speakerCoverage,
+                    score: $0.match.score,
+                    overlapDuration: $0.match.overlapDuration
+                )
+            },
             anchorSpeechWindows: anchorWindows.map {
                 windowOutput($0, microphoneSamples: microphoneSamples, systemAudioSamples: systemAudioSamples)
             },
             wroteSession: options.writeSession,
-            segments: anchored.segments.map {
+            segments: resolvedSegments.map {
                 SessionRerunProbeOutput.Segment(
                     timestamp: $0.timestamp,
                     speaker: $0.speaker,
@@ -349,6 +371,24 @@ struct NoteTakrTranscriptionProbe {
                 )
             }
         )
+    }
+
+    private static func transcribeSeparateStreams(
+        microphoneSamples: [Float],
+        systemAudioSamples: [Float],
+        options: ProbeOptions
+    ) async throws -> [TranscriptSegment] {
+        async let microphone = transcribeMixed(samples: microphoneSamples, options: options)
+        async let systemAudio = transcribeMixed(samples: systemAudioSamples, options: options)
+        let microphoneResult = try await microphone
+        let systemAudioResult = try await systemAudio
+        return TranscriptMerger.merge([
+            TranscriptMerger.forceSingleSpeaker(
+                microphoneResult.segments,
+                label: TranscriptMerger.primarySpeakerLabel
+            ),
+            TranscriptMerger.offsetSpeakers(systemAudioResult.segments, startingAt: 2),
+        ])
     }
 
     private static func requireSessionURL(_ sessionURL: URL?) throws -> URL {
@@ -616,6 +656,7 @@ struct NoteTakrTranscriptionProbe {
           swift run NoteTakrTranscriptionProbe --audio /path/to/audio.wav --model-folder /path/to/parakeet-tdt-0.6b-v3-coreml --version v3
           swift run NoteTakrTranscriptionProbe --audio /path/to/audio.wav --auto-download --version tdtCtc110m
           swift run NoteTakrTranscriptionProbe --audio /path/to/audio.wav --diarize-only
+          swift run NoteTakrTranscriptionProbe --session /path/to/session --model-folder /path/to/model --version v3 --user-name Luis
         """
     }
 

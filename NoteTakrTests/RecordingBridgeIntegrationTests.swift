@@ -126,7 +126,80 @@ final class RecordingBridgeIntegrationTests: XCTestCase {
         XCTAssertEqual(transcriptionWithWrite.receivedNoteIDs.first, noteID)
     }
 
-    // MARK: - 3. transcribe:false short-circuits
+    // MARK: - 3. Obsidian export follows editor persistence
+
+    func testEditorChangesRefreshOneStableObsidianFile() throws {
+        let root = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let vault = root.appendingPathComponent("Vault", isDirectory: true)
+        let model = AppModel(baseURL: root)
+        model.appSettings.obsidianFolderPath = vault.path
+        model.appSettings.obsidianFileNameTemplate = "e2e-{{id}}-{{title}}"
+        model.appSettings.obsidianTemplate = "# {{title}}\n\n{{notes}}"
+        model.appSettings.obsidianExportEnabled = true
+
+        let id = UUID()
+        let session = MeetingSession(id: id, title: "Initial title", date: Date())
+        try model.store.save(session)
+        try model.noteStore.save(MeetingNote(
+            id: id.uuidString,
+            title: session.title,
+            date: session.date,
+            body: "Initial notes"
+        ))
+
+        model.persistEditorChanges(MeetingNote(
+            id: id.uuidString,
+            title: "Updated title",
+            date: session.date,
+            body: "Updated notes from the editor"
+        ))
+
+        var exports = try markdownFiles(in: vault)
+        XCTAssertEqual(exports.count, 1)
+        XCTAssertTrue(exports[0].lastPathComponent.contains("Updated title"))
+        XCTAssertTrue(try String(contentsOf: exports[0]).contains("Updated notes from the editor"))
+
+        model.persistEditorChanges(MeetingNote(
+            id: id.uuidString,
+            title: "Renamed again",
+            date: session.date,
+            body: "Second automatic update"
+        ))
+
+        exports = try markdownFiles(in: vault)
+        XCTAssertEqual(exports.count, 1, "Renames must move the stable export instead of duplicating it")
+        XCTAssertTrue(exports[0].lastPathComponent.contains("Renamed again"))
+        XCTAssertTrue(try String(contentsOf: exports[0]).contains("Second automatic update"))
+    }
+
+    func testEditorStillExportsWhenCanonicalSessionUpdateIsUnavailable() throws {
+        let root = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let vault = root.appendingPathComponent("Vault", isDirectory: true)
+        let model = AppModel(baseURL: root)
+        model.appSettings.obsidianFolderPath = vault.path
+        model.appSettings.obsidianFileNameTemplate = "e2e-{{id}}"
+        model.appSettings.obsidianTemplate = "# {{title}}\n\n{{notes}}"
+        model.appSettings.obsidianExportEnabled = true
+
+        let note = MeetingNote(
+            id: UUID().uuidString,
+            title: "Recovered editor export",
+            date: Date(),
+            body: "The NoteStore save remains exportable."
+        )
+        try model.noteStore.save(note)
+
+        model.persistEditorChanges(note)
+
+        let exported = try XCTUnwrap(markdownFiles(in: vault).first)
+        let markdown = try String(contentsOf: exported)
+        XCTAssertTrue(markdown.contains("Recovered editor export"))
+        XCTAssertTrue(markdown.contains("The NoteStore save remains exportable."))
+    }
+
+    // MARK: - 4. transcribe:false short-circuits
 
     func testTranscribeFalseSkipsTranscription() {
         let noteID = UUID().uuidString
@@ -172,6 +245,13 @@ final class RecordingBridgeIntegrationTests: XCTestCase {
             .appendingPathComponent("RecordingBridgeTests-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
+    }
+
+    private func markdownFiles(in folder: URL) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "md" }
     }
 }
 

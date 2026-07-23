@@ -148,6 +148,72 @@ final class MeetingLifecycleE2ETests: XCTestCase {
         XCTAssertTrue(try outbox.pendingOperations().isEmpty)
     }
 
+    func testOneOnOneFixtureCarriesResolvedNamesIntoObsidianAndCloud() throws {
+        let sessionStore = SessionStore(baseURL: sessionsRoot)
+        let noteStore = NoteStore(root: sessionsRoot)
+        let id = UUID(uuidString: "91919191-9191-9191-9191-919191919191")!
+        let startedAt = Self.utcDate(2026, 7, 23, 14, 15)
+        var session = MeetingSession(
+            id: id,
+            title: "One-on-one Speaker Fixture",
+            date: startedAt,
+            participants: [
+                NoteTakrCore.Participant(name: "Luis Kisters"),
+                NoteTakrCore.Participant(name: "Theo Fixture", email: "theo@example.invalid"),
+            ],
+            microphoneEnabled: true,
+            systemAudioEnabled: true
+        )
+        session.transcriptSegments = SpeakerLabelResolver.resolve(
+            segments: [
+                .init(timestamp: 0, speaker: "Speaker 1 (You)", text: Self.words(18, prefix: "host")),
+                .init(timestamp: 7, speaker: "Speaker 2", text: Self.words(60, prefix: "guest")),
+            ],
+            session: session,
+            userName: "Luis",
+            inferNamesFromCalendar: true
+        )
+        session.summary = "Luis and Theo validated the privacy-safe fixture."
+        try sessionStore.save(session)
+
+        let note = MeetingNote(
+            id: id.uuidString,
+            title: session.title,
+            date: startedAt,
+            participants: [
+                NoteTakrKit.Participant(name: "Luis Kisters"),
+                NoteTakrKit.Participant(name: "Theo Fixture", email: "theo@example.invalid"),
+            ],
+            body: "Fixture notes"
+        )
+        try noteStore.save(note)
+
+        XCTAssertEqual(session.transcriptSegments.map(\.speaker), ["Luis (You)", "Theo Fixture"])
+
+        let exported = try ObsidianExporter().export(
+            ObsidianExportDocument(
+                note: note,
+                notes: note.body,
+                summary: session.summary,
+                transcript: session.transcriptSegments.map {
+                    ObsidianTranscriptSegment(
+                        timestamp: $0.timestamp,
+                        speaker: $0.speaker,
+                        text: $0.text
+                    )
+                }
+            ),
+            to: obsidianRoot
+        )
+        let markdown = try String(contentsOf: exported)
+        XCTAssertTrue(markdown.contains("**[00:00] Luis (You):**"))
+        XCTAssertTrue(markdown.contains("**[00:07] Theo Fixture:**"))
+
+        let payload = try SyncEnvelope.payload(session: session, note: note)
+        XCTAssertEqual(payload.transcriptSegments.map(\.speaker), ["Luis (You)", "Theo Fixture"])
+        XCTAssertEqual(payload.participants.last?.email, "theo@example.invalid")
+    }
+
     private static func utcDate(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Date {
         var components = DateComponents()
         components.calendar = Calendar(identifier: .gregorian)
@@ -158,6 +224,10 @@ final class MeetingLifecycleE2ETests: XCTestCase {
         components.hour = hour
         components.minute = minute
         return components.date!
+    }
+
+    private static func words(_ count: Int, prefix: String) -> String {
+        (1...count).map { "\(prefix)\($0)" }.joined(separator: " ")
     }
 }
 

@@ -178,6 +178,43 @@ final class FluidAudioAdapterTests: XCTestCase {
         XCTAssertEqual(segments.map(\.text), ["Podcast", "My reply", "Continues"])
     }
 
+    func testMultiSourceFallsBackToSeparateStreamsWhenMicAnchorIsLowConfidence() async throws {
+        let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
+        try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
+        let timings = [
+            token("\u{2581}Hello", 0.0, 0.5),
+            token("\u{2581}there", 0.5, 1.0),
+        ]
+        let runtime = FakeFluidAudioRuntime(text: "Hello there", tokenTimings: timings)
+        let diarizer = FakeDiarizer(spans: [
+            SpeakerSpan(speakerId: "voice", start: 0.0, end: 1.0),
+        ])
+        let micSamples = Array(repeating: Float(0.1), count: 32_000)
+        let systemSamples = Array(repeating: Float(0.2), count: 32_000)
+        let loader = FakeAudioLoader(sampleBatches: [
+            micSamples, systemSamples, // mixed-anchor attempt
+            micSamples, systemSamples, // separate-stream fallback
+        ])
+        let adapter = makeAdapter(
+            store: store,
+            runtime: runtime,
+            loader: loader,
+            diarizer: diarizer,
+            voiceActivityDetector: FakeVoiceActivityDetector(windows: [])
+        )
+
+        let segments = try await adapter.transcribe(
+            sources: [
+                TranscriptionSource(url: makeAudioURL(), role: .microphone),
+                TranscriptionSource(url: makeAudioURL(), role: .systemAudio),
+            ],
+            vocabulary: []
+        )
+
+        XCTAssertEqual(segments.map(\.speaker), ["Speaker 1 (You)", "Speaker 2"])
+        XCTAssertEqual(segments.map(\.text), ["Hello there", "Hello there"])
+    }
+
     func testSingleSourceFallsBackToLegacyDiarization() async throws {
         let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
         try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
