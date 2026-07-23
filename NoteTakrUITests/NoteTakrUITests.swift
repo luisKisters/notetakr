@@ -344,6 +344,33 @@ final class NoteTakrUITests: XCTestCase {
         try waitForPersistedCrmPushStatus(localId: payload.localId, status: "pushed")
     }
 
+    func testRecordingAutomaticallyWritesConfiguredObsidianFile() throws {
+        let obsidianFolder = appSupportRoot
+            .appendingPathComponent("Fixture Vault/Meeting Notes", isDirectory: true)
+        try seedObsidianSettings(folder: obsidianFolder)
+        launch(enablePanelToggleControl: true)
+
+        let recordButton = element("recordPillMainButton")
+        XCTAssertTrue(recordButton.waitForExistence(timeout: 8))
+        recordButton.click()
+        XCTAssertTrue(element("recordPillCaretButton").waitForExistence(timeout: 8))
+        let recordedSession = try waitForRecordedSession()
+        recordButton.click()
+
+        let exported = try waitForObsidianExport(in: obsidianFolder)
+        XCTAssertEqual(
+            exported.url.lastPathComponent,
+            "e2e-\(recordedSession.id.uuidString).md"
+        )
+        XCTAssertTrue(
+            exported.markdown.contains("<!-- notetakr:\(recordedSession.id.uuidString) -->")
+        )
+        XCTAssertTrue(exported.markdown.contains("tags: [meeting, fixture]"))
+        XCTAssertTrue(exported.markdown.contains("# "))
+        XCTAssertFalse(exported.markdown.contains("{{"))
+        XCTAssertFalse(exported.markdown.contains("}}"))
+    }
+
     func testUnmatchedCrmBannerAppearsAboveFooter() throws {
         try seedMeeting(
             id: "66666666-6666-6666-6666-666666666666",
@@ -532,6 +559,60 @@ final class NoteTakrUITests: XCTestCase {
             .appendingPathComponent("MockSyncBackend", isDirectory: true)
     }
 
+    private func seedObsidianSettings(folder: URL) throws {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let settingsRoot = appSupportRoot.appendingPathComponent("NoteTakr", isDirectory: true)
+        try FileManager.default.createDirectory(at: settingsRoot, withIntermediateDirectories: true)
+        let settings = ObsidianFixtureSettings(
+            obsidianExportEnabled: true,
+            obsidianFolderPath: folder.path,
+            obsidianTemplate: """
+            ---
+            tags: [meeting, fixture]
+            ---
+            # {{title}}
+
+            {{notes}}
+
+            {{summary}}
+
+            {{transcript}}
+            """,
+            obsidianFileNameTemplate: "e2e-{{id}}"
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(settings).write(
+            to: settingsRoot.appendingPathComponent("settings.json"),
+            options: .atomic
+        )
+    }
+
+    private func waitForObsidianExport(
+        in folder: URL,
+        timeout: TimeInterval = 10
+    ) throws -> (url: URL, markdown: String) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let files = (try? FileManager.default.contentsOfDirectory(
+                at: folder,
+                includingPropertiesForKeys: nil,
+                options: .skipsHiddenFiles
+            )) ?? []
+            for file in files where file.pathExtension.lowercased() == "md" {
+                guard let markdown = try? String(contentsOf: file, encoding: .utf8),
+                      markdown.contains("<!-- notetakr:") else { continue }
+                return (file, markdown)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        throw NSError(
+            domain: "NoteTakrUITests",
+            code: 7,
+            userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for automatic Obsidian export"]
+        )
+    }
+
     private func element(_ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
@@ -677,9 +758,10 @@ final class NoteTakrUITests: XCTestCase {
     }
 
     private func setAppearanceFromTestProcess(_ appearance: String) {
-        DistributedNotificationCenter.default().post(
-            name: Notification.Name("com.notetakr.e2e.setAppearance"),
+        DistributedNotificationCenter.default().postNotificationName(
+            Notification.Name("com.notetakr.e2e.setAppearance"),
             object: appearance,
+            userInfo: nil,
             deliverImmediately: true
         )
     }
@@ -702,6 +784,7 @@ final class NoteTakrUITests: XCTestCase {
 }
 
 private struct SessionSnapshot: Decodable {
+    let id: UUID
     let inPerson: Bool
     let systemAudioEnabled: Bool
 }
@@ -719,6 +802,13 @@ private struct MockSyncSummary: Encodable {
     let localId: String
     let text: String
     let crmPushStatus: String?
+}
+
+private struct ObsidianFixtureSettings: Encodable {
+    let obsidianExportEnabled: Bool
+    let obsidianFolderPath: String
+    let obsidianTemplate: String
+    let obsidianFileNameTemplate: String
 }
 
 private struct SeedParticipant {

@@ -30,6 +30,10 @@ public final class AppSettingsStore {
     private var _autoDownloadUpdates: Bool = false
     private var _localOnlyByDefault: Bool = false
     private var _crmTwentyBaseURL: String = ""
+    private var _obsidianExportEnabled: Bool = false
+    private var _obsidianFolderPath: String? = nil
+    private var _obsidianTemplate: String = ObsidianExporter.defaultTemplate
+    private var _obsidianFileNameTemplate: String = ObsidianExporter.defaultFileNameTemplate
 
     public init(root: URL) {
         fileURL = root.appendingPathComponent("settings.json")
@@ -118,6 +122,26 @@ public final class AppSettingsStore {
         set { _crmTwentyBaseURL = newValue; saveToDisk() }
     }
 
+    public var obsidianExportEnabled: Bool {
+        get { _obsidianExportEnabled }
+        set { _obsidianExportEnabled = newValue; saveToDisk() }
+    }
+
+    public var obsidianFolderPath: String? {
+        get { _obsidianFolderPath }
+        set { _obsidianFolderPath = newValue; saveToDisk() }
+    }
+
+    public var obsidianTemplate: String {
+        get { _obsidianTemplate }
+        set { _obsidianTemplate = newValue; saveToDisk() }
+    }
+
+    public var obsidianFileNameTemplate: String {
+        get { _obsidianFileNameTemplate }
+        set { _obsidianFileNameTemplate = newValue; saveToDisk() }
+    }
+
     // MARK: - Persistence
 
     private struct Payload: Codable {
@@ -137,6 +161,10 @@ public final class AppSettingsStore {
         var autoDownloadUpdates: Bool?
         var localOnlyByDefault: Bool?
         var crmTwentyBaseURL: String?
+        var obsidianExportEnabled: Bool?
+        var obsidianFolderPath: String?
+        var obsidianTemplate: String?
+        var obsidianFileNameTemplate: String?
     }
 
     private func loadFromDisk() {
@@ -159,6 +187,10 @@ public final class AppSettingsStore {
         if let v = payload.autoDownloadUpdates   { _autoDownloadUpdates = v }
         if let v = payload.localOnlyByDefault    { _localOnlyByDefault = v }
         if let v = payload.crmTwentyBaseURL      { _crmTwentyBaseURL = v }
+        if let v = payload.obsidianExportEnabled { _obsidianExportEnabled = v }
+        _obsidianFolderPath = payload.obsidianFolderPath
+        if let v = payload.obsidianTemplate, !v.isEmpty { _obsidianTemplate = v }
+        if let v = payload.obsidianFileNameTemplate, !v.isEmpty { _obsidianFileNameTemplate = v }
     }
 
     private func saveToDisk() {
@@ -178,7 +210,11 @@ public final class AppSettingsStore {
             autoCheckForUpdates: _autoCheckForUpdates,
             autoDownloadUpdates: _autoDownloadUpdates,
             localOnlyByDefault: _localOnlyByDefault,
-            crmTwentyBaseURL: _crmTwentyBaseURL
+            crmTwentyBaseURL: _crmTwentyBaseURL,
+            obsidianExportEnabled: _obsidianExportEnabled,
+            obsidianFolderPath: _obsidianFolderPath,
+            obsidianTemplate: _obsidianTemplate,
+            obsidianFileNameTemplate: _obsidianFileNameTemplate
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? FileManager.default.createDirectory(

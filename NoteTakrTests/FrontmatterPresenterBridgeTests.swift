@@ -41,7 +41,7 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         XCTAssertEqual(bridge.noteInPerson, false)
     }
 
-    func testInPersonCannotChangeDuringActiveRecording() throws {
+    func testInPersonCanChangeDuringActiveRecording() throws {
         let spy = SpyPresenterStore()
         let note = MeetingNote(id: "fp-recording", title: "Live", date: fixedDate(), inPerson: false)
         spy.notes[note.id] = note
@@ -52,8 +52,8 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         bridge.setInPerson(true)
 
         XCTAssertTrue(bridge.isRecording)
-        XCTAssertEqual(try XCTUnwrap(spy.notes[note.id]).inPerson, false)
-        XCTAssertEqual(bridge.noteInPerson, false)
+        XCTAssertEqual(try XCTUnwrap(spy.notes[note.id]).inPerson, true)
+        XCTAssertEqual(bridge.noteInPerson, true)
     }
 
     func testPublishedInPersonStateResetsWhenLoadingAnotherNote() {

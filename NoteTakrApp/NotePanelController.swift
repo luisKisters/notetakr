@@ -47,6 +47,7 @@ final class NotePanelController {
         frontmatterBridge.onDidSave = { [weak appModel] noteID in
             Task { @MainActor [weak appModel] in
                 appModel?.markSyncDirty(localId: noteID)
+                appModel?.exportNoteToObsidian(noteID: noteID)
             }
         }
         recordPillMachine = RecordPillStateMachine()
@@ -58,6 +59,10 @@ final class NotePanelController {
             frontmatterBridge: frontmatterBridge,
             appSettings: localAppSettings
         )
+        settingsBridge.onExportCurrentNoteToObsidian = { [weak appModel, weak frontmatterBridge = frontmatterBridge] in
+            guard let noteID = frontmatterBridge?.noteID, !noteID.isEmpty else { return nil }
+            return appModel?.exportNoteToObsidian(noteID: noteID)
+        }
 
         let generator: (any SummaryGenerating)?
         let sessionStoreRef: SessionStore?
@@ -120,6 +125,9 @@ final class NotePanelController {
                     ).contentHash
                 }
                 try? ss.save(session)
+                Task { @MainActor [weak appModel] in
+                    appModel?.exportNoteToObsidian(noteID: noteID)
+                }
             }
         }
 
@@ -185,6 +193,7 @@ final class NotePanelController {
                 localOnly: session.localOnly ?? (appSettings.localOnlyByDefault ? true : nil)
             )
             try? store.save(note)
+            appModelRef?.exportNoteToObsidian(noteID: note.id)
         }
 
         loadNote(id: sessionID)
@@ -464,6 +473,7 @@ final class NotePanelController {
             localOnly: appSettings.localOnlyByDefault ? true : nil
         )
         try store.save(note)
+        appModelRef?.exportNoteToObsidian(noteID: note.id)
         return note
     }
 

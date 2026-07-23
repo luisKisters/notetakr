@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     let summaryTemplateStore: SummaryTemplateStore
     let summarizationSettingsStore: SummarizationSettingsStore
     let appSettings: AppSettingsStore
+    let obsidianExporter: ObsidianExporter
     let keychainStore: KeychainStore
     let crmKeychainStore: KeychainStore
     let crmPeopleCacheSource: ConvexPeopleCacheSource
@@ -62,6 +63,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var crmMessage: String?
     @Published private(set) var crmPeopleCacheRevision: Int = 0
     @Published private(set) var crmPushStatuses: [String: CrmPushStatus] = [:]
+    @Published private(set) var obsidianExportMessage: String?
 
     private var transcribingIDs: Set<UUID> = []
     private var summarizingIDs: Set<UUID> = []
@@ -101,6 +103,7 @@ final class AppModel: ObservableObject {
             fileURL: base.appendingPathComponent("NoteTakr/summarization-settings.json")
         )
         appSettings = AppSettingsStore(root: base.appendingPathComponent("NoteTakr"))
+        obsidianExporter = ObsidianExporter()
         keychainStore = KeychainStore()
         crmKeychainStore = KeychainStore(service: "com.notetakr.crm.twenty", account: "api-key")
         crmPeopleCacheSource = ConvexPeopleCacheSource(rootURL: base)
@@ -198,6 +201,7 @@ final class AppModel: ObservableObject {
                 session.summaryContentHash = summaryContentHash
                 try sessionStore.save(session)
                 Task { @MainActor [weak self] in
+                    self?.exportNoteToObsidian(noteID: localId)
                     self?.handleSyncedSummary(
                         localId: localId,
                         text: text,
@@ -922,6 +926,51 @@ final class AppModel: ObservableObject {
         markSyncDirty(localId: noteID)
     }
 
+    // MARK: - Obsidian
+
+    /// Writes the latest local meeting snapshot into the selected Obsidian folder.
+    /// This is deliberately independent from account state and cloud sync.
+    @discardableResult
+    func exportNoteToObsidian(noteID: String) -> URL? {
+        guard appSettings.obsidianExportEnabled,
+              let path = appSettings.obsidianFolderPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.isEmpty,
+              let note = try? noteStore.load(id: noteID) else {
+            return nil
+        }
+
+        let session: MeetingSession? = {
+            guard let uuid = UUID(uuidString: noteID) else { return nil }
+            return try? store.load(id: uuid)
+        }()
+        let notes = session.flatMap { session in
+            session.personalNotes.isEmpty ? nil : session.personalNotes
+        } ?? note.body
+        let transcript = (session?.transcriptSegments ?? []).map {
+            ObsidianTranscriptSegment(timestamp: $0.timestamp, speaker: $0.speaker, text: $0.text)
+        }
+        let document = ObsidianExportDocument(
+            note: note,
+            notes: notes,
+            summary: session?.summary,
+            transcript: transcript
+        )
+
+        do {
+            let url = try obsidianExporter.export(
+                document,
+                to: URL(fileURLWithPath: path, isDirectory: true),
+                template: appSettings.obsidianTemplate,
+                fileNameTemplate: appSettings.obsidianFileNameTemplate
+            )
+            obsidianExportMessage = "Saved to Obsidian: \(url.lastPathComponent)"
+            return url
+        } catch {
+            obsidianExportMessage = error.localizedDescription
+            return nil
+        }
+    }
+
     private func beginRecordingActivity() {
         guard recordingActivity == nil else { return }
         recordingActivity = ProcessInfo.processInfo.beginActivity(
@@ -1206,6 +1255,7 @@ final class AppModel: ObservableObject {
     /// Writes note.md without opening it (used after transcription/summarization updates it).
     private func regenerateNote(for session: MeetingSession) {
         Self.regenerateNote(for: session, store: store, noteStore: noteStore)
+        exportNoteToObsidian(noteID: session.id.uuidString)
     }
 
     private static func regenerateNote(

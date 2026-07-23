@@ -30,6 +30,8 @@ struct SettingsSheetView: View {
     private let transcriptionSettingsStore = TranscriptionSettingsStore()
     @State private var newPerMeetingTerm: String = ""
     @State private var yourNameDraft: String = ""
+    @State private var obsidianTemplateDraft: String = ""
+    @State private var obsidianFileNameDraft: String = ""
 
     private var hairline: Color { theme.hairline.swiftUIColor }
     private var accent: Color { theme.accent.swiftUIColor }
@@ -97,6 +99,8 @@ struct SettingsSheetView: View {
             summarization.reload()
             modelSettings = transcriptionSettingsStore.load()
             yourNameDraft = viewModel.appSettings.yourName
+            obsidianTemplateDraft = viewModel.appSettings.obsidianTemplate
+            obsidianFileNameDraft = viewModel.appSettings.obsidianFileNameTemplate
         }
         .overlay(alignment: .topLeading) {
             AppearanceAccessibilityMarker(
@@ -493,6 +497,8 @@ struct SettingsSheetView: View {
 
             crmSection
 
+            obsidianSection
+
             sectionLabel("App")
 
             settingsRow {
@@ -594,6 +600,144 @@ struct SettingsSheetView: View {
 
             updatesSettingsSection
         }
+    }
+
+    // MARK: - Obsidian
+
+    private var obsidianSection: some View {
+        Group {
+            sectionLabel("Obsidian")
+
+            settingsRow {
+                Toggle(isOn: Binding(
+                    get: { viewModel.appSettings.obsidianExportEnabled },
+                    set: { viewModel.setObsidianExportEnabled($0) }
+                )) {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: "arrow.down.doc").iconStyle(color: textTertiary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Save every meeting to Obsidian")
+                                .font(.system(size: 13)).foregroundColor(textPrimary)
+                            Text("Updates the same Markdown file after notes, transcript, or summary changes")
+                                .font(.system(size: 11)).foregroundColor(textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(accent)
+                .disabled(viewModel.appSettings.obsidianFolderPath == nil)
+                .accessibilityIdentifier("obsidianExportToggle")
+            }
+
+            settingsRow {
+                Image(systemName: "folder").iconStyle(color: textTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Meeting notes folder").font(.system(size: 13)).foregroundColor(textPrimary)
+                    Text(viewModel.appSettings.obsidianFolderPath ?? "Choose a folder inside your vault")
+                        .font(.system(size: 11)).foregroundColor(textTertiary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                Button("Choose…") { chooseObsidianFolder() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12))
+                    .foregroundColor(accent)
+                    .accessibilityIdentifier("chooseObsidianFolderButton")
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text("Filename")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(textSecondary)
+                TextField("{{date}} {{title}}", text: $obsidianFileNameDraft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(textPrimary)
+                    .padding(8)
+                    .background(controlBg)
+                    .cornerRadius(7)
+                    .overlay(RoundedRectangle(cornerRadius: 7)
+                        .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
+                    .onChange(of: obsidianFileNameDraft) { _, value in
+                        guard !value.isEmpty else { return }
+                        viewModel.setObsidianFileNameTemplate(value)
+                    }
+
+                Text("Markdown template")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(textSecondary)
+                    .padding(.top, 3)
+                TextEditor(text: $obsidianTemplateDraft)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(textPrimary)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .frame(minHeight: 145)
+                    .background(controlBg)
+                    .cornerRadius(7)
+                    .overlay(RoundedRectangle(cornerRadius: 7)
+                        .stroke(theme.fieldBorder.swiftUIColor, lineWidth: 0.5))
+                    .onChange(of: obsidianTemplateDraft) { _, value in
+                        guard !value.isEmpty else { return }
+                        viewModel.setObsidianTemplate(value)
+                    }
+
+                Text(ObsidianExporter.supportedPlaceholders.joined(separator: "  "))
+                    .font(.system(size: 9.5, design: .monospaced))
+                    .foregroundColor(textTertiary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 12) {
+                    Button("Reset template") {
+                        viewModel.resetObsidianTemplate()
+                        obsidianTemplateDraft = viewModel.appSettings.obsidianTemplate
+                        obsidianFileNameDraft = viewModel.appSettings.obsidianFileNameTemplate
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundColor(textTertiary)
+
+                    Spacer()
+
+                    Button("Save current note now") {
+                        viewModel.exportCurrentNoteToObsidian()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(accent)
+                    .disabled(!viewModel.appSettings.obsidianExportEnabled)
+                }
+
+                if let message = viewModel.obsidianMessage {
+                    Text(message)
+                        .font(.system(size: 10.5))
+                        .foregroundColor(textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 2)
+        }
+    }
+
+    private func chooseObsidianFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose an Obsidian meeting-notes folder"
+        panel.prompt = "Choose"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        if let path = viewModel.appSettings.obsidianFolderPath {
+            panel.directoryURL = URL(fileURLWithPath: path, isDirectory: true)
+        }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        viewModel.setObsidianFolder(url)
     }
 
     private var accountSyncSection: some View {

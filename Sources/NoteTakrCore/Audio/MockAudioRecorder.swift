@@ -59,16 +59,19 @@ public final class MockAudioRecorder: ReconfigurableAudioRecorder, AudioCaptureR
             currentDirectory = nil
             throw AudioRecorderError.recordingFailed("mock stop failure")
         }
-        let placeholder = Data("RIFF fixture".utf8)
         var results: [URL] = []
         if currentOptions.microphoneEnabled {
             let micURL = dir.appendingPathComponent("microphone.wav")
-            try placeholder.write(to: micURL)
+            try SyntheticMeetingAudio.wavData(
+                turns: SyntheticMeetingAudio.microphoneConversation
+            ).write(to: micURL)
             results.append(micURL)
         }
         if currentOptions.systemAudioEnabled && !omitSystemAudio {
             let sysURL = dir.appendingPathComponent("system-audio.wav")
-            try placeholder.write(to: sysURL)
+            try SyntheticMeetingAudio.wavData(
+                turns: SyntheticMeetingAudio.systemConversation
+            ).write(to: sysURL)
             results.append(sysURL)
         }
         isRecording = false

@@ -30,6 +30,10 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertFalse(store.launchAtLogin)
         XCTAssertNil(store.notesFolderPath)
         XCTAssertFalse(store.localOnlyByDefault)
+        XCTAssertFalse(store.obsidianExportEnabled)
+        XCTAssertNil(store.obsidianFolderPath)
+        XCTAssertEqual(store.obsidianTemplate, ObsidianExporter.defaultTemplate)
+        XCTAssertEqual(store.obsidianFileNameTemplate, ObsidianExporter.defaultFileNameTemplate)
     }
 
     // MARK: - Persistence round-trip
@@ -46,6 +50,10 @@ final class AppSettingsStoreTests: XCTestCase {
         store.launchAtLogin = true
         store.notesFolderPath = "/Users/me/Notes"
         store.localOnlyByDefault = true
+        store.obsidianExportEnabled = true
+        store.obsidianFolderPath = "/Users/me/Vault/Meetings"
+        store.obsidianTemplate = "# {{title}}\n{{notes}}"
+        store.obsidianFileNameTemplate = "{{datetime}} - {{title}}"
 
         let store2 = makeStore(at: root)
         XCTAssertFalse(store2.transcribeByDefault)
@@ -57,6 +65,10 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertTrue(store2.launchAtLogin)
         XCTAssertEqual(store2.notesFolderPath, "/Users/me/Notes")
         XCTAssertTrue(store2.localOnlyByDefault)
+        XCTAssertTrue(store2.obsidianExportEnabled)
+        XCTAssertEqual(store2.obsidianFolderPath, "/Users/me/Vault/Meetings")
+        XCTAssertEqual(store2.obsidianTemplate, "# {{title}}\n{{notes}}")
+        XCTAssertEqual(store2.obsidianFileNameTemplate, "{{datetime}} - {{title}}")
     }
 
     func testNotesFolderPathRoundTrips() {

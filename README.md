@@ -14,6 +14,8 @@ push.
 - Records microphone audio and system audio as separate local files.
 - Generates a Markdown note with metadata, personal notes, and (optionally)
   timestamped transcript segments.
+- Can automatically write each meeting to a selected Obsidian folder using a
+  customizable Markdown and filename template.
 - Offers optional cloud sync through Convex: finished meetings can be uploaded
   without audio, summarized server-side, and mirrored back into the Summary tab.
 - Suggests people from Apple Contacts, CRM cache, calendar attendees, and past
@@ -69,13 +71,19 @@ This is a one-time step per installed version.
 ## GitHub release DMG
 
 The canonical app bundle and DMG are built by GitHub Actions on macOS runners.
-Every push to `main` runs the `Release DMG` workflow, builds the DMG, publishes
-it to a GitHub Release, and updates the Homebrew cask. When the signing secrets
-below are present it signs with a Developer ID certificate, notarizes the DMG,
-and publishes the in-app Sparkle update feed; when they are absent it falls back
-to an **ad-hoc signature** (no notarization, no Sparkle feed) so the build still
-succeeds and remains installable via Homebrew. Adding the secrets later flips the
-same workflow to the full signed-and-notarized path with no other changes.
+Every push to `main` first runs the complete `macOS CI` workflow. `Release DMG`
+starts only after that exact commit passes Kit, Swift package, Convex/live CRM,
+macOS unit, and hosted GUI tests. A failed or cancelled pipeline produces no
+DMG, GitHub Release, Homebrew update, or Sparkle feed. Manual release runs also
+require an already-successful CI run for the selected commit.
+
+After the quality gate, the release workflow archives the tested commit, creates
+the DMG, mounts it again, checks its bundle identifier and version, and verifies
+its code signature before uploading anything. When the signing secrets below
+are present it signs with a Developer ID certificate, notarizes the DMG, and
+publishes the in-app Sparkle update feed; when they are absent it falls back to
+an **ad-hoc signature** (no notarization, no Sparkle feed) so the build remains
+installable via Homebrew.
 
 The signed-and-notarized release path requires these repository secrets (a paid
 Apple Developer Program membership and a Developer ID Application certificate are
@@ -198,6 +206,38 @@ xcodebuild test \
 CI runs Swift and Convex suites automatically on every push via
 `.github/workflows/macos-ci.yml`.
 
+The meeting lifecycle integration test generates valid synthetic microphone and
+system WAV files, passes a four-speaker fake meeting through a deterministic
+test transcription engine, persists the session, exports its Obsidian note, and
+verifies the file-spool cloud-sync payload. It does not claim to test the real
+FluidAudio model or a deployed Convex instance. No real meeting audio or note
+content is used. To additionally exercise a local vault folder:
+
+```
+NOTETAKR_OBSIDIAN_E2E_ROOT="/path/to/vault/Meeting Notes" \
+  swift test --package-path NoteTakrKit --filter testOptInRealVaultRoundTrip
+```
+
+That smoke test removes only the uniquely identified fake note it creates.
+
+## Obsidian export
+
+Open **Settings → General → Obsidian**, choose the folder inside your vault
+where meeting notes should live, and leave automatic export enabled. NoteTakr
+then creates one Markdown file per meeting and refreshes it after edits,
+transcription, speaker renames, and summaries. A stable hidden meeting marker
+prevents duplicate notes; unrelated files with the same title are never
+overwritten.
+
+Both the filename and note body are templates. Supported placeholders are
+`{{title}}`, `{{date}}`, `{{time}}`, `{{datetime}}`, `{{id}}`, `{{notes}}`,
+`{{summary}}`, `{{transcript}}`, `{{participants}}`,
+`{{participant_links}}`, `{{people_yaml}}`, `{{location}}`,
+`{{meeting_link}}`, and `{{calendar_event}}`. The default matches a common
+Obsidian meeting-note layout with YAML `tags`, linked `people`, `Date`, notes,
+summary, and transcript sections. Obsidian export is local and continues to
+work whether cloud sync is enabled or not.
+
 ## Cloud sync, summaries, and CRM
 
 Cloud features are optional. Without the following configuration, the app stays
@@ -226,6 +266,14 @@ present:
 | `TWENTY_TEST_BASE_URL` | Live Twenty instance base URL |
 | `TWENTY_TEST_API_KEY` | Live Twenty API key |
 | `ATTIO_TEST_API_KEY` | Live Attio API key |
+
+On pushes to the canonical repository, CI requires at least one configured live
+test CRM and fails instead of silently skipping both providers. Pull requests
+and forks, which do not receive repository secrets, still run the deterministic
+provider suite. Live tests create uniquely named
+`[nt-test]` contacts and meeting notes in the designated test CRM, verify the
+mirror and note attachment end to end, and remove those records in `finally`
+cleanup blocks. Use test-tenant credentials, never a production CRM key.
 
 CRM API keys entered in the Mac settings are stored in the local Keychain and,
 after a successful connection test, saved encrypted in Convex for background
@@ -336,4 +384,5 @@ set:
 ## Documentation
 
 - `docs/manual-smoke-test.md` — step-by-step physical Mac verification guide
+- `docs/testing.md` — test boundaries, CI/release gates, and E2E improvement plan
 - `docs/plans/20260608-meeting-notes-mvp.md` — original implementation plan

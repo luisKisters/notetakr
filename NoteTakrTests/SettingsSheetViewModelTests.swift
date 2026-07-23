@@ -128,6 +128,39 @@ final class SettingsSheetViewModelTests: XCTestCase {
         XCTAssertEqual(ctx.settings.launchAtLogin, true)
     }
 
+    func testChoosingObsidianFolderEnablesExportAndExportsCurrentNote() {
+        let (vm, ctx) = makeVM()
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Synthetic Obsidian Vault", isDirectory: true)
+        var exportCount = 0
+        vm.onExportCurrentNoteToObsidian = {
+            exportCount += 1
+            return folder.appendingPathComponent("Test Meeting.md")
+        }
+
+        vm.setObsidianFolder(folder)
+
+        XCTAssertTrue(ctx.settings.obsidianExportEnabled)
+        XCTAssertEqual(ctx.settings.obsidianFolderPath, folder.path)
+        XCTAssertEqual(exportCount, 1)
+        XCTAssertEqual(vm.obsidianMessage, "Saved Test Meeting.md")
+    }
+
+    func testObsidianTemplatesPersistAndCanBeReset() {
+        let (vm, ctx) = makeVM()
+        vm.setObsidianTemplate("# {{title}}\n{{notes}}")
+        vm.setObsidianFileNameTemplate("{{date}} - {{title}}")
+
+        XCTAssertEqual(ctx.settings.obsidianTemplate, "# {{title}}\n{{notes}}")
+        XCTAssertEqual(ctx.settings.obsidianFileNameTemplate, "{{date}} - {{title}}")
+
+        vm.resetObsidianTemplate()
+
+        XCTAssertEqual(ctx.settings.obsidianTemplate, ObsidianExporter.defaultTemplate)
+        XCTAssertEqual(ctx.settings.obsidianFileNameTemplate, ObsidianExporter.defaultFileNameTemplate)
+        XCTAssertEqual(vm.obsidianMessage, "Template reset.")
+    }
+
     func testRecordingHotkeyWritesSettingsAndNotifies() throws {
         let (vm, ctx) = makeVM()
         var receivedCombo: HotkeyCombo?

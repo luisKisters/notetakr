@@ -36,6 +36,7 @@ final class SettingsSheetViewModel: ObservableObject {
     @Published var crmAPIKeyConfigured: Bool = false
     @Published var crmConnected: Bool = false
     @Published private(set) var crmMessage: String?
+    @Published private(set) var obsidianMessage: String?
 
     let frontmatterBridge: FrontmatterPresenterBridge
     let appSettings: AppSettingsStore
@@ -55,6 +56,7 @@ final class SettingsSheetViewModel: ObservableObject {
     var onSaveCrmSettings: ((String, String?) -> Void)?
     var onTestCrmConnection: ((String, String?) -> Void)?
     var onRefreshCrmPeople: (() -> Void)?
+    var onExportCurrentNoteToObsidian: (() -> URL?)?
 
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
@@ -195,6 +197,49 @@ final class SettingsSheetViewModel: ObservableObject {
     func setAutoDownloadUpdates(_ value: Bool) {
         appSettings.autoDownloadUpdates = value
         onAutoDownloadUpdatesChange?(value)
+    }
+
+    func setObsidianExportEnabled(_ value: Bool) {
+        appSettings.obsidianExportEnabled = value
+        if value {
+            exportCurrentNoteToObsidian()
+        }
+    }
+
+    func setObsidianFolder(_ url: URL) {
+        appSettings.obsidianFolderPath = url.path
+        appSettings.obsidianExportEnabled = true
+        exportCurrentNoteToObsidian()
+    }
+
+    func setObsidianTemplate(_ template: String) {
+        appSettings.obsidianTemplate = template
+    }
+
+    func setObsidianFileNameTemplate(_ template: String) {
+        appSettings.obsidianFileNameTemplate = template
+    }
+
+    func resetObsidianTemplate() {
+        appSettings.obsidianTemplate = ObsidianExporter.defaultTemplate
+        appSettings.obsidianFileNameTemplate = ObsidianExporter.defaultFileNameTemplate
+        obsidianMessage = "Template reset."
+    }
+
+    func exportCurrentNoteToObsidian() {
+        guard appSettings.obsidianExportEnabled else {
+            obsidianMessage = "Turn on automatic export first."
+            return
+        }
+        guard appSettings.obsidianFolderPath?.isEmpty == false else {
+            obsidianMessage = "Choose an Obsidian folder first."
+            return
+        }
+        if let url = onExportCurrentNoteToObsidian?() {
+            obsidianMessage = "Saved \(url.lastPathComponent)"
+        } else {
+            obsidianMessage = "The current note could not be exported."
+        }
     }
 
     func signInWithGoogle() {

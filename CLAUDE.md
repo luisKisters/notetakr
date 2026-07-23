@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- `NoteTakrKit` is Foundation-only app logic: note/frontmatter models, presenters, people directory, settings stores, and pure UI state machines. Keep logic here when it does not need AppKit, AVFoundation, Convex SDKs, or filesystem formats outside the note store.
+- `NoteTakrKit` is Foundation-only app logic: note/frontmatter models, presenters, people directory, settings stores, Obsidian template/export logic, and pure UI state machines. Keep logic here when it does not need AppKit, AVFoundation, or Convex SDKs.
 - `Sources/NoteTakrCore` owns recording, transcription, summarization, calendar models, and session storage. It may depend on `NoteTakrKit`.
 - `Sources/NoteTakrSync` owns sync payloads, outbox persistence, backend protocols, Convex backend adapters, file-spool e2e backend, and CRM people cache. Clerk/Convex SDK symbols stay hidden behind this target.
 - `NoteTakrApp` wires app services, SwiftUI/AppKit views, settings, and bridges. AppModel owns the sync service, account state, CRM connection state, and dirty hooks.
@@ -31,6 +31,8 @@
 - Sync/Core target builds: `swift build --target NoteTakrSyncTests` and `swift build --target NoteTakrCoreTests`
 - Convex unit/integration-gated tests: `cd convex && npm test`
 - Convex typecheck: `cd convex && npm run typecheck`
+- Opt-in real-vault export smoke test:
+  `NOTETAKR_OBSIDIAN_E2E_ROOT=/path/to/meeting-notes swift test --package-path NoteTakrKit --filter testOptInRealVaultRoundTrip`
 - Full macOS app/UI tests require Xcode on macOS:
   `xcodebuild test -project Notetakr.xcodeproj -scheme NoteTakr -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO`
 
