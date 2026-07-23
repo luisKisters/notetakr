@@ -33,7 +33,7 @@ struct PropertyPanelView: View {
                     .stroke(theme.hairline.swiftUIColor, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: DesignConstants.propsRadius))
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DesignConstants.contentInset)
             .padding(.bottom, 6)
             .transition(.asymmetric(
                 insertion: .opacity.combined(with: .offset(y: -4)),
@@ -1698,6 +1698,9 @@ private struct EditableTextValue: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.fieldBorder.swiftUIColor, lineWidth: 1))
                 .focused($focused)
                 .onSubmit { commit() }
+                .onChange(of: focused) { _, isFocused in
+                    if !isFocused { commit() }
+                }
                 .onExitCommand { cancel() }
                 .onAppear {
                     editText = value
@@ -1730,6 +1733,7 @@ private struct EditableTextValue: View {
     }
 
     private func commit() {
+        guard isEditing else { return }
         let trimmed = editText.trimmingCharacters(in: .whitespaces)
         onCommit(trimmed.isEmpty ? nil : trimmed)
         isEditing = false

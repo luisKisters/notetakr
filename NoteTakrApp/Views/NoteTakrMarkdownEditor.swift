@@ -24,9 +24,13 @@ struct NoteTakrMarkdownEditor: View {
     private var configuration: MarkdownEditorConfiguration {
         var config = MarkdownEditorConfiguration.default
         config.theme = markdownTheme
-        config.textInsets = TextInsets(horizontal: 16, vertical: 12)
+        config.textInsets = TextInsets(
+            horizontal: CGFloat(DesignConstants.contentInset),
+            vertical: 12
+        )
         config.scrollers = .vertical
         config.paragraph = ParagraphStyle(spacingFactor: 0.22, lineHeightExtraSpacing: 3)
+        config.lists = ListStyle(indentPerLevel: 10, extraLineHeight: 2)
         config.headings = HeadingStyle(
             fontMultipliers: [1.70, 1.42, 1.22, 1.08, 1.0, 0.94],
             topSpacingEm: [0.24, 0.22, 0.18, 0.14, 0.10, 0.08]

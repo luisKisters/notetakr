@@ -116,7 +116,7 @@ struct SettingsSheetView: View {
             tabButton(.vocabulary,  icon: "book.closed",              label: "Vocabulary")
             tabButton(.permissions, icon: "checkmark.shield",         label: "Permissions")
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, DesignConstants.contentInset)
         .padding(.vertical, 9)
         .background(Color.clear)
     }
@@ -152,7 +152,7 @@ struct SettingsSheetView: View {
 
             Spacer()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, DesignConstants.contentInset)
         .padding(.vertical, 7)
         .background(accent.opacity(0.05))
         .overlay(alignment: .bottom) {
@@ -174,7 +174,7 @@ struct SettingsSheetView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 18)
+            .padding(.horizontal, DesignConstants.contentInset)
             .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

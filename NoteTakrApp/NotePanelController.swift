@@ -73,6 +73,15 @@ final class NotePanelController {
         let presenter = NoteTabsPresenter(
             summaryGenerator: generator,
             transcriptGenerator: transcriptionAdapter,  // enables the "Generate transcript" button
+            transcriptAvailability: { noteID in
+                guard let sessionStoreRef,
+                      let uuid = UUID(uuidString: noteID),
+                      let session = try? sessionStoreRef.load(id: uuid) else { return false }
+                return !TranscriptionService.transcriptionSources(
+                    for: session,
+                    sessionDir: sessionStoreRef.sessionURL(for: session)
+                ).isEmpty
+            },
             editorFlush: { try editorViewModel.flush() }
         )
 

@@ -209,6 +209,41 @@ final class FluidAudioAdapterTests: XCTestCase {
         }
     }
 
+    func testEmptyDecodedAudioThrowsNoSpeechDetectedBeforeASR() async throws {
+        let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
+        try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
+        let runtime = FakeFluidAudioRuntime(text: "should not run")
+        let adapter = makeAdapter(
+            store: store,
+            runtime: runtime,
+            loader: FakeAudioLoader(samples: [])
+        )
+
+        do {
+            _ = try await adapter.transcribe(audioURL: makeAudioURL(), vocabulary: [])
+            XCTFail("Expected noSpeechDetected")
+        } catch TranscriptionError.noSpeechDetected {
+            XCTAssertNil(runtime.receivedSettings)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testEmptyASRResultThrowsNoSpeechDetected() async throws {
+        let store = TranscriptionSettingsStore(fileURL: makeTempFileURL())
+        try store.save(TranscriptionModelSettings(source: .fluidAudioDefaultCache, modelVersion: .v3))
+        let adapter = makeAdapter(store: store, runtime: FakeFluidAudioRuntime(text: "   "))
+
+        do {
+            _ = try await adapter.transcribe(audioURL: makeAudioURL(), vocabulary: [])
+            XCTFail("Expected noSpeechDetected")
+        } catch TranscriptionError.noSpeechDetected {
+            // Expected.
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeAdapter(
@@ -270,7 +305,7 @@ final class FakeAudioLoader: AudioSampleLoading, @unchecked Sendable {
     private var sampleBatches: [[Float]]
     private(set) var didLoad = false
 
-    init(samples: [Float] = []) {
+    init(samples: [Float] = [0.1]) {
         self.samples = samples
         self.sampleBatches = []
     }

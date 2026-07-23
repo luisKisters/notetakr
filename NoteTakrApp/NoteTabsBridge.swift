@@ -11,7 +11,10 @@ final class NoteTabsBridge: ObservableObject {
     let presenter: NoteTabsPresenter
     private(set) var currentNoteID: String?
 
-    var canGenerateTranscript: Bool { presenter.hasTranscriptGenerator }
+    var canGenerateTranscript: Bool {
+        guard let currentNoteID else { return false }
+        return presenter.canGenerateTranscript(for: currentNoteID)
+    }
 
     init(presenter: NoteTabsPresenter) {
         self.presenter = presenter

@@ -79,6 +79,7 @@ public final class NoteTabsPresenter {
 
     private let summaryGenerator: (any SummaryGenerating)?
     private let transcriptGenerator: (any TranscriptGenerating)?
+    private let transcriptAvailability: (String) -> Bool
     private let editorFlush: () throws -> Void
 
     public var hasTranscriptGenerator: Bool { transcriptGenerator != nil }
@@ -90,11 +91,17 @@ public final class NoteTabsPresenter {
     public init(
         summaryGenerator: (any SummaryGenerating)? = nil,
         transcriptGenerator: (any TranscriptGenerating)? = nil,
+        transcriptAvailability: @escaping (String) -> Bool = { _ in true },
         editorFlush: @escaping () throws -> Void = {}
     ) {
         self.summaryGenerator = summaryGenerator
         self.transcriptGenerator = transcriptGenerator
+        self.transcriptAvailability = transcriptAvailability
         self.editorFlush = editorFlush
+    }
+
+    public func canGenerateTranscript(for noteID: String) -> Bool {
+        transcriptGenerator != nil && transcriptAvailability(noteID)
     }
 
     // MARK: - Tab Selection
@@ -167,7 +174,7 @@ public final class NoteTabsPresenter {
     }
 
     public func generateTranscript(for noteID: String) {
-        guard let generator = transcriptGenerator else { return }
+        guard canGenerateTranscript(for: noteID), let generator = transcriptGenerator else { return }
         guard transcriptByNoteID[noteID] != .generating else { return }
         transcriptByNoteID[noteID] = .generating
         onChange?()
@@ -188,7 +195,7 @@ public final class NoteTabsPresenter {
     }
 
     public func transcribeAndSummarize(for noteID: String) {
-        guard let generator = transcriptGenerator else { return }
+        guard canGenerateTranscript(for: noteID), let generator = transcriptGenerator else { return }
         guard transcriptByNoteID[noteID] != .generating else { return }
         transcriptByNoteID[noteID] = .generating
         onChange?()
