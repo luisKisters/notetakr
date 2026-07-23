@@ -18,6 +18,8 @@
 		AAFADE000000000000000512 /* SessionViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000211 /* SessionViewTests.swift */; };
 		AAFADE000000000000000506 /* EventKitCalendarAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */; };
 		AAFADE000000000000000513 /* EventKitAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000212 /* EventKitAdapterTests.swift */; };
+		AAFADE00000000000000B000 /* AppleContactsSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000B001 /* AppleContactsSource.swift */; };
+		AAFADE00000000000000B002 /* AppleContactsSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000B003 /* AppleContactsSourceTests.swift */; };
 		AAFADE000000000000000514 /* NativeAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000213 /* NativeAudioRecorder.swift */; };
 		AAFADE000000000000000515 /* SystemAudioCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000214 /* SystemAudioCapturer.swift */; };
 		AAFADE000000000000000516 /* AudioPermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000215 /* AudioPermissionManager.swift */; };
@@ -30,6 +32,7 @@
 		AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */; };
 		AAFADE000000000000000525 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000803 /* FluidAudio */; };
 		AAFADE000000000000000526 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000804 /* Sparkle */; };
+		AAFADE000000000000000527 /* NoteTakrSync in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE000000000000000805 /* NoteTakrSync */; };
 		AAFADE00000000000000F006 /* MarkdownEngine in Frameworks */ = {isa = PBXBuildFile; productRef = AAFADE00000000000000F008 /* MarkdownEngine */; };
 		AAFADE00000000000000052A /* MeetingNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021A /* MeetingNotificationScheduler.swift */; };
 		AAFADE00000000000000052B /* MVPPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFADE00000000000000021B /* MVPPolishTests.swift */; };
@@ -104,6 +107,8 @@
 		AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NoteTakrLaunchTests.swift; path = NoteTakrTests/NoteTakrLaunchTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000211 /* SessionViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionViewTests.swift; path = NoteTakrTests/SessionViewTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000212 /* EventKitAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitAdapterTests.swift; path = NoteTakrTests/EventKitAdapterTests.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000B001 /* AppleContactsSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppleContactsSource.swift; path = NoteTakrApp/People/AppleContactsSource.swift; sourceTree = "<group>"; };
+		AAFADE00000000000000B003 /* AppleContactsSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppleContactsSourceTests.swift; path = NoteTakrTests/AppleContactsSourceTests.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000213 /* NativeAudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeAudioRecorder.swift; path = NoteTakrApp/Audio/NativeAudioRecorder.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000214 /* SystemAudioCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SystemAudioCapturer.swift; path = NoteTakrApp/Audio/SystemAudioCapturer.swift; sourceTree = "<group>"; };
 		AAFADE000000000000000215 /* AudioPermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AudioPermissionManager.swift; path = NoteTakrApp/Audio/AudioPermissionManager.swift; sourceTree = "<group>"; };
@@ -158,6 +163,7 @@
 				AAFADE000000000000000503 /* NoteTakrCore in Frameworks */,
 				AAFADE000000000000000525 /* FluidAudio in Frameworks */,
 				AAFADE000000000000000526 /* Sparkle in Frameworks */,
+				AAFADE000000000000000527 /* NoteTakrSync in Frameworks */,
 				AAFADE000000000000000560 /* NoteTakrKit in Frameworks */,
 				AAFADE00000000000000F006 /* MarkdownEngine in Frameworks */,
 			);
@@ -200,6 +206,7 @@
 				AAFADE000000000000000202 /* StatusBarController.swift */,
 				AAFADE000000000000000203 /* Info.plist */,
 				AAFADE000000000000000206 /* EventKitCalendarAdapter.swift */,
+				AAFADE00000000000000B001 /* AppleContactsSource.swift */,
 				AAFADE000000000000000213 /* NativeAudioRecorder.swift */,
 				AAFADE000000000000000214 /* SystemAudioCapturer.swift */,
 				AAFADE000000000000000215 /* AudioPermissionManager.swift */,
@@ -246,6 +253,7 @@
 				AAFADE000000000000000210 /* NoteTakrLaunchTests.swift */,
 				AAFADE000000000000000211 /* SessionViewTests.swift */,
 				AAFADE000000000000000212 /* EventKitAdapterTests.swift */,
+				AAFADE00000000000000B003 /* AppleContactsSourceTests.swift */,
 				AAFADE000000000000000217 /* NativeAudioRecorderTests.swift */,
 				AAFADE000000000000000219 /* FluidAudioAdapterTests.swift */,
 				AAFADE000000000000000220 /* TranscriptionSettingsStoreTests.swift */,
@@ -299,6 +307,7 @@
 				AAFADE000000000000000801 /* NoteTakrCore */,
 				AAFADE000000000000000803 /* FluidAudio */,
 				AAFADE000000000000000804 /* Sparkle */,
+				AAFADE000000000000000805 /* NoteTakrSync */,
 				AAFADE000000000000000851 /* NoteTakrKit */,
 				AAFADE00000000000000F008 /* MarkdownEngine */,
 			);
@@ -415,6 +424,7 @@
 				AAFADE000000000000000501 /* AppDelegate.swift in Sources */,
 				AAFADE000000000000000502 /* StatusBarController.swift in Sources */,
 				AAFADE000000000000000506 /* EventKitCalendarAdapter.swift in Sources */,
+				AAFADE00000000000000B000 /* AppleContactsSource.swift in Sources */,
 				AAFADE000000000000000514 /* NativeAudioRecorder.swift in Sources */,
 				AAFADE000000000000000515 /* SystemAudioCapturer.swift in Sources */,
 				AAFADE000000000000000516 /* AudioPermissionManager.swift in Sources */,
@@ -461,6 +471,7 @@
 				AAFADE000000000000000510 /* NoteTakrLaunchTests.swift in Sources */,
 				AAFADE000000000000000512 /* SessionViewTests.swift in Sources */,
 				AAFADE000000000000000513 /* EventKitAdapterTests.swift in Sources */,
+				AAFADE00000000000000B002 /* AppleContactsSourceTests.swift in Sources */,
 				AAFADE000000000000000518 /* NativeAudioRecorderTests.swift in Sources */,
 				AAFADE000000000000000520 /* FluidAudioAdapterTests.swift in Sources */,
 				AAFADE000000000000000523 /* TranscriptionSettingsStoreTests.swift in Sources */,
@@ -817,6 +828,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AAFADE000000000000000901 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		AAFADE000000000000000805 /* NoteTakrSync */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAFADE000000000000000800 /* XCLocalSwiftPackageReference "." */;
+			productName = NoteTakrSync;
 		};
 		AAFADE000000000000000851 /* NoteTakrKit */ = {
 			isa = XCSwiftPackageProductDependency;

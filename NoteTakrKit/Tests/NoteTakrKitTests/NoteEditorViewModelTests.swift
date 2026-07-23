@@ -89,6 +89,30 @@ final class NoteEditorViewModelTests: XCTestCase {
         XCTAssertEqual(spy.lastSaved?.participants, [Participant(name: "Ada Lovelace")])
     }
 
+    func testFlushCallsDidSaveHook() throws {
+        let (vm, _, _) = makeVM(id: "n1", title: "T", body: "")
+        let dirty = DirtyIDRecorder()
+        vm.onDidSave = { dirty.record($0.id) }
+
+        try vm.load(noteID: "n1")
+        vm.setBody("Edited body")
+        try vm.flush()
+
+        XCTAssertEqual(dirty.ids, ["n1"])
+    }
+
+    func testDebouncedSaveCallsDidSaveHook() throws {
+        let (vm, _, scheduler) = makeVM(id: "n1", title: "T", body: "")
+        let dirty = DirtyIDRecorder()
+        vm.onDidSave = { dirty.record($0.id) }
+
+        try vm.load(noteID: "n1")
+        vm.setBody("Edited body")
+        scheduler.fireAll()
+
+        XCTAssertEqual(dirty.ids, ["n1"])
+    }
+
     // MARK: - Loading a new note flushes the previous one
 
     func testLoadNewNoteFlushesOldOne() throws {
@@ -328,5 +352,13 @@ final class StoreSpy: NoteStoring {
         saveCallCount += 1
         savedNotes.append(note)
         notes[note.id] = note
+    }
+}
+
+private final class DirtyIDRecorder {
+    private(set) var ids: [String] = []
+
+    func record(_ id: String) {
+        ids.append(id)
     }
 }

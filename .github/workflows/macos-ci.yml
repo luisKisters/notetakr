@@ -8,6 +8,25 @@ on:
   workflow_dispatch:
 
 jobs:
+  workflow-lint:
+    name: GitHub Actions workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate workflows with actionlint
+        run: |
+          set -euo pipefail
+          ACTIONLINT_VERSION="1.7.12"
+          ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}" \
+            -o "$RUNNER_TEMP/$ARCHIVE"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/$ARCHIVE" \
+            | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" .github/workflows/*.yml
+
   kit-tests:
     name: Kit Tests (Linux)
     runs-on: ubuntu-latest
@@ -62,6 +81,48 @@ jobs:
       - name: Run Swift package tests
         run: swift test
 
+  convex-tests:
+    name: Convex Tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: convex/package-lock.json
+
+      - name: Install dependencies
+        run: cd convex && npm ci
+
+      - name: Run Convex tests
+        env:
+          TWENTY_TEST_BASE_URL: ${{ secrets.TWENTY_TEST_BASE_URL }}
+          TWENTY_TEST_API_KEY: ${{ secrets.TWENTY_TEST_API_KEY }}
+          ATTIO_TEST_API_KEY: ${{ secrets.ATTIO_TEST_API_KEY }}
+        run: |
+          HAS_LIVE_CRM=0
+          if [[ -z "${TWENTY_TEST_BASE_URL}" || -z "${TWENTY_TEST_API_KEY}" ]]; then
+            echo "::warning::Skipping Twenty live integration tests because TWENTY_TEST_BASE_URL or TWENTY_TEST_API_KEY repo secret is missing."
+          else
+            echo "Twenty live integration secrets are present; npm test will run the live suite."
+            HAS_LIVE_CRM=1
+          fi
+          if [[ -z "${ATTIO_TEST_API_KEY}" ]]; then
+            echo "::warning::Skipping Attio live integration tests because ATTIO_TEST_API_KEY repo secret is missing."
+          else
+            echo "Attio live integration secret is present; npm test will run the live suite."
+            HAS_LIVE_CRM=1
+          fi
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REPOSITORY}" == "luisKisters/notetakr" && "${HAS_LIVE_CRM}" != "1" ]]; then
+            echo "::error::Canonical-repository pushes require Twenty or Attio test-tenant secrets so the live fake-contact/note suite cannot silently skip."
+            exit 1
+          fi
+          cd convex && npm test
+
   xcode-build-and-test:
     name: Xcode Build & Test
     needs: kit-tests
@@ -110,7 +171,7 @@ jobs:
             -project Notetakr.xcodeproj \
             -scheme NoteTakr \
             -destination 'platform=macOS' \
-            -only-testing:NoteTakrTests \
+            -skip-testing:NoteTakrUITests \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -126,8 +187,8 @@ jobs:
 
   gui-e2e:
     name: Hosted macOS GUI E2E
-    if: github.event_name == 'workflow_dispatch'
-    needs: kit-tests
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [workflow-lint, kit-tests, swift-package-tests, convex-tests, xcode-build-and-test]
     runs-on: macos-15
     timeout-minutes: 20
     steps:

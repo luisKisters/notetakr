@@ -1,12 +1,57 @@
 {
   "pins" : [
     {
+      "identity" : "clerk-convex-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/clerk/clerk-convex-swift",
+      "state" : {
+        "revision" : "5c7e62ee329a00df0f9ed73462c54b069a7286ab",
+        "version" : "0.1.0"
+      }
+    },
+    {
+      "identity" : "clerk-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/clerk/clerk-ios.git",
+      "state" : {
+        "revision" : "997512d21c29ef91acdc33ee0c307260dd26ca55",
+        "version" : "1.0.2"
+      }
+    },
+    {
+      "identity" : "convex-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/get-convex/convex-swift",
+      "state" : {
+        "revision" : "125b71b2f8725931a5b0e8252f0799ef2adad120",
+        "version" : "0.8.1"
+      }
+    },
+    {
       "identity" : "fluidaudio",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio.git",
       "state" : {
         "revision" : "7f963cdc43ba89c5993654f1e138047d517a818d",
         "version" : "0.15.2"
+      }
+    },
+    {
+      "identity" : "nuke",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kean/Nuke.git",
+      "state" : {
+        "revision" : "83e19143355b02e9261edb2323b3e1e93287ebb9",
+        "version" : "12.9.0"
+      }
+    },
+    {
+      "identity" : "phonenumberkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/marmelroy/PhoneNumberKit",
+      "state" : {
+        "revision" : "169ab10234347fb19b37441f2867ace896a284b0",
+        "version" : "4.3.0"
       }
     },
     {

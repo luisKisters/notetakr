@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import NoteTakrKit
 import NoteTakrCore
+import NoteTakrSync
 
 /// Floating note panel (420×620). Owns the Kit NoteStore + all bridges.
 /// AppDelegate calls `show()`, `recordingStarted(sessionID:)`, `recordingStopped()`.
@@ -30,6 +31,8 @@ final class NotePanelController {
     private var pillTickTimer: Timer?
     private var pillPipelineCancellables = Set<AnyCancellable>()
     private var calendarCancellables = Set<AnyCancellable>()
+    private var syncCancellables = Set<AnyCancellable>()
+    private var syncedSummaryNoteIDs = Set<String>()
     private var appearanceCancellable: AnyCancellable?
     private weak var appModelRef: AppModel?
     private var suppressNextStopPipeline = false
@@ -37,7 +40,16 @@ final class NotePanelController {
     init(notesRoot: URL, appModel: AppModel? = nil) {
         store = NoteStore(root: notesRoot)
         bridge = NoteEditorBridge(store: store)
-        frontmatterBridge = FrontmatterPresenterBridge(store: store)
+        frontmatterBridge = FrontmatterPresenterBridge(
+            store: store,
+            crmPeopleSource: appModel?.crmPeopleCacheSource
+        )
+        frontmatterBridge.onDidSave = { [weak appModel] noteID in
+            Task { @MainActor [weak appModel] in
+                appModel?.markSyncDirty(localId: noteID)
+                appModel?.exportNoteToObsidian(noteID: noteID)
+            }
+        }
         recordPillMachine = RecordPillStateMachine()
 
         let settingsRoot = notesRoot.deletingLastPathComponent()
@@ -47,6 +59,10 @@ final class NotePanelController {
             frontmatterBridge: frontmatterBridge,
             appSettings: localAppSettings
         )
+        settingsBridge.onExportCurrentNoteToObsidian = { [weak appModel, weak frontmatterBridge = frontmatterBridge] in
+            guard let noteID = frontmatterBridge?.noteID, !noteID.isEmpty else { return nil }
+            return appModel?.exportNoteToObsidian(noteID: noteID)
+        }
 
         let generator: (any SummaryGenerating)?
         let sessionStoreRef: SessionStore?
@@ -56,7 +72,18 @@ final class NotePanelController {
                 sessionStore: appModel.store,
                 settingsStore: appModel.summarizationSettingsStore,
                 templateStore: appModel.summaryTemplateStore,
-                keychainStore: appModel.keychainStore
+                keychainStore: appModel.keychainStore,
+                shouldUseCloudSummary: { [weak appModel] noteID in
+                    await MainActor.run {
+                        appModel?.canUseCloudSummary(for: noteID) ?? false
+                    }
+                },
+                cloudGenerator: { [weak appModel] noteID in
+                    guard let appModel else {
+                        throw SummaryGeneratingAdapter.AdapterError.sessionNotFound
+                    }
+                    return try await appModel.generateServerSummary(for: noteID)
+                }
             )
             generator = adapter
             sessionStoreRef = appModel.store
@@ -86,11 +113,21 @@ final class NotePanelController {
         )
 
         if let ss = sessionStoreRef {
+            let noteStore = store
             presenter.onPersistSummary = { noteID, summary in
                 guard let uuid = UUID(uuidString: noteID),
                       var session = try? ss.load(id: uuid) else { return }
                 session.summary = summary
+                if let note = try? noteStore.load(id: noteID) {
+                    session.summaryContentHash = try? SyncEnvelope.payload(
+                        session: session,
+                        note: note
+                    ).contentHash
+                }
                 try? ss.save(session)
+                Task { @MainActor [weak appModel] in
+                    appModel?.exportNoteToObsidian(noteID: noteID)
+                }
             }
         }
 
@@ -119,6 +156,7 @@ final class NotePanelController {
         wireSwitcher()
         wireRecordPill(appModel: appModel)
         wireCalendarSync(appModel: appModel)
+        wireSync(appModel: appModel)
     }
 
     /// Updates calendar events in the switcher from an external snapshot.
@@ -151,9 +189,11 @@ final class NotePanelController {
                 participants: session.participants.map {
                     NoteTakrKit.Participant(name: $0.name, email: $0.email, crm: $0.crm)
                 },
-                inPerson: session.inPerson
+                inPerson: session.inPerson,
+                localOnly: session.localOnly ?? (appSettings.localOnlyByDefault ? true : nil)
             )
             try? store.save(note)
+            appModelRef?.exportNoteToObsidian(noteID: note.id)
         }
 
         loadNote(id: sessionID)
@@ -316,7 +356,7 @@ final class NotePanelController {
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.center()
-        p.contentView = HoverTrackingHostingView(
+        let hostingView = HoverTrackingHostingView(
             rootView: EditorView(
                 bridge: bridge,
                 frontmatterBridge: frontmatterBridge,
@@ -333,6 +373,13 @@ final class NotePanelController {
                 p?.hideNativeTrafficLights()
             }
         )
+        // The panel owns its size. Allowing NSHostingView to publish the editor's
+        // intrinsic size makes tall AppKit-backed content expand the window beyond
+        // the visible screen instead of letting the editor fill the 420×620 panel.
+        hostingView.sizingOptions = []
+        p.contentView = hostingView
+        p.setContentSize(NSSize(width: 420, height: 620))
+        p.center()
         appearanceCancellable = settingsBridge.$currentAppearance
             .removeDuplicates()
             .sink { [weak p] appearance in
@@ -403,7 +450,7 @@ final class NotePanelController {
         if let first = notes.first {
             note = first
         } else {
-            note = try? store.create(title: "Untitled meeting", date: Date())
+            note = try? createBlankNote()
         }
         guard let note else { return }
         loadNote(id: note.id)
@@ -411,11 +458,23 @@ final class NotePanelController {
 
     /// Creates a blank note and loads it into the editor. Used by local ⌘N commands.
     func createNewNote() {
-        if let note = try? store.create(title: "Untitled meeting", date: Date()) {
+        if let note = try? createBlankNote() {
             loadNote(id: note.id)
             // Keep the panel up front and key — creating a note must never look like the window closed.
             ensurePanelKey()
         }
+    }
+
+    private func createBlankNote() throws -> MeetingNote {
+        let note = MeetingNote(
+            id: UUID().uuidString,
+            title: "Untitled meeting",
+            date: Date(),
+            localOnly: appSettings.localOnlyByDefault ? true : nil
+        )
+        try store.save(note)
+        appModelRef?.exportNoteToObsidian(noteID: note.id)
+        return note
     }
 
     private func wireRecordPill(appModel: AppModel?) {
@@ -689,6 +748,141 @@ final class NotePanelController {
             .store(in: &calendarCancellables)
     }
 
+    private func wireSync(appModel: AppModel?) {
+        guard let appModel else { return }
+        settingsBridge.accountState = appModel.syncAccountState
+        settingsBridge.setAccountMessage(appModel.syncAccountMessage)
+        settingsBridge.crmConnected = appModel.crmConnected
+        settingsBridge.crmAPIKeyConfigured = appModel.crmAPIKeyConfigured
+        settingsBridge.setCrmMessage(appModel.crmMessage)
+        frontmatterBridge.crmConnected = appModel.crmConnected
+        settingsBridge.onSignInWithGoogle = { [weak appModel] in
+            Task { @MainActor [weak appModel] in
+                await appModel?.signInWithGoogle()
+            }
+        }
+        settingsBridge.onSignOut = { [weak appModel] in
+            Task { @MainActor [weak appModel] in
+                await appModel?.signOut()
+            }
+        }
+        settingsBridge.onSaveCrmSettings = { [weak appModel] baseURL, apiKey in
+            Task { @MainActor [weak appModel] in
+                await appModel?.saveCrmSettings(baseURL: baseURL, apiKey: apiKey)
+            }
+        }
+        settingsBridge.onTestCrmConnection = { [weak appModel] baseURL, apiKey in
+            Task { @MainActor [weak appModel] in
+                await appModel?.testCrmConnection(baseURL: baseURL, apiKey: apiKey)
+            }
+        }
+        settingsBridge.onRefreshCrmPeople = { [weak appModel] in
+            Task { @MainActor [weak appModel] in
+                await appModel?.refreshCrmPeople()
+            }
+        }
+
+        appModel.$syncAccountState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.settingsBridge.accountState = state
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$syncAccountMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                self?.settingsBridge.setAccountMessage(message)
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$syncSummaryStates
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] states in
+                guard let self else { return }
+                let currentNoteIDs = Set(states.keys)
+                let removedNoteIDs = self.syncedSummaryNoteIDs.subtracting(currentNoteIDs)
+                self.syncedSummaryNoteIDs = currentNoteIDs
+                for noteID in removedNoteIDs {
+                    self.restorePersistedSummaryState(for: noteID)
+                }
+                for (noteID, state) in states {
+                    self.tabsBridge.presenter.setSummaryState(state, for: noteID)
+                }
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmConnected
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] connected in
+                self?.settingsBridge.crmConnected = connected
+                self?.frontmatterBridge.crmConnected = connected
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmAPIKeyConfigured
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] configured in
+                self?.settingsBridge.crmAPIKeyConfigured = configured
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmPeopleCacheRevision
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.frontmatterBridge.rebuildPeopleIndex(notes: (try? self.store.list()) ?? [])
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmPushStatuses
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] statuses in
+                guard let self,
+                      let status = statuses[self.frontmatterBridge.noteID] else {
+                    return
+                }
+                self.frontmatterBridge.applyPersistedCrmPushStatus(
+                    status,
+                    for: self.frontmatterBridge.noteID
+                )
+            }
+            .store(in: &syncCancellables)
+
+        appModel.$crmMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                self?.settingsBridge.setCrmMessage(message)
+            }
+            .store(in: &syncCancellables)
+    }
+
+    private func restorePersistedSummaryState(for noteID: String) {
+        if let sessionStore,
+           let uuid = UUID(uuidString: noteID),
+           let session = try? sessionStore.load(id: uuid),
+           let summary = currentPersistedSummary(for: session) {
+            tabsBridge.presenter.setSummary(summary, for: noteID)
+        } else {
+            tabsBridge.presenter.clearSummaryState(for: noteID)
+        }
+    }
+
+    private func currentPersistedSummary(for session: MeetingSession) -> String? {
+        guard let summary = session.summary, !summary.isEmpty else {
+            return nil
+        }
+        guard let summaryContentHash = session.summaryContentHash else {
+            return summary
+        }
+        guard let note = try? store.load(id: session.id.uuidString),
+              let currentContentHash = try? SyncEnvelope.payload(session: session, note: note).contentHash,
+              currentContentHash == summaryContentHash else {
+            return nil
+        }
+        return summary
+    }
+
     #if DEBUG
     private static func e2eActiveRecording(now: Date = Date()) -> ActiveRecordingInfo? {
         guard ProcessInfo.processInfo.environment["NOTETAKR_E2E_ACTIVE_RECORDING"] == "1" else {
@@ -788,7 +982,7 @@ final class NotePanelController {
         }
         switcherBridge.onCreateBlankNote = { [weak self] in
             guard let self else { return }
-            if let note = try? self.store.create(title: "Untitled meeting", date: Date()) {
+            if let note = try? self.createBlankNote() {
                 self.loadNote(id: note.id)
                 // Keep the panel up front and key — creating a note must never look like the window closed.
                 self.ensurePanelKey()
@@ -802,7 +996,7 @@ final class NotePanelController {
             let remaining = (try? self.store.list()) ?? []
             if let next = remaining.first(where: { $0.id != deletedID }) ?? remaining.first {
                 self.loadNote(id: next.id)
-            } else if let blank = try? self.store.create(title: "Untitled meeting", date: Date()) {
+            } else if let blank = try? self.createBlankNote() {
                 self.loadNote(id: blank.id)
             }
             self.ensurePanelKey()
@@ -860,8 +1054,13 @@ final class NotePanelController {
                 RawSegment(speaker: seg.speaker, timestamp: seg.timestamp, text: seg.text)
             }
             tabsBridge.presenter.setSegments(rawSegments, for: id)
-            if let summary = session.summary, !summary.isEmpty {
+            if let summary = currentPersistedSummary(for: session) {
                 tabsBridge.presenter.setSummary(summary, for: id)
+            } else {
+                tabsBridge.presenter.clearSummaryState(for: id)
+            }
+            if let syncState = appModelRef?.syncSummaryStates[id] {
+                tabsBridge.presenter.setSummaryState(syncState, for: id)
             }
             frontmatterBridge.audioFileURL = Self.audioFileURL(for: session, store: ss)
             frontmatterBridge.hasCompletedRecording = frontmatterBridge.audioFileURL != nil

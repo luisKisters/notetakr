@@ -1,0 +1,291 @@
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { mutation, query } from "./_generated/server";
+
+const participant = v.object({
+  name: v.string(),
+  email: v.optional(v.string()),
+  crm: v.optional(v.string()),
+});
+
+const transcriptSegment = v.object({
+  seq: v.number(),
+  startMs: v.number(),
+  speaker: v.optional(v.string()),
+  text: v.string(),
+});
+
+const meetingPayload = v.object({
+  localId: v.string(),
+  title: v.string(),
+  startedAt: v.string(),
+  calendarEventId: v.optional(v.string()),
+  participants: v.array(participant),
+  markdownBody: v.string(),
+  transcriptSegments: v.array(transcriptSegment),
+  crmPushOptOut: v.optional(v.boolean()),
+  contentHash: v.string(),
+});
+
+const summaryStatus = v.union(
+  v.literal("pending"),
+  v.literal("ready"),
+  v.literal("failed"),
+);
+
+const pushStatus = v.union(
+  v.literal("pending"),
+  v.literal("pushed"),
+  v.literal("failed"),
+  v.literal("skipped"),
+);
+
+async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (identity === null) {
+    throw new Error("Authentication required");
+  }
+  return identity.subject;
+}
+
+export const upsertFromDevice = mutation({
+  args: {
+    payload: meetingPayload,
+  },
+  returns: v.object({
+    meetingId: v.id("meetings"),
+    scheduledSummary: v.boolean(),
+  }),
+  handler: async (ctx, { payload }) => {
+    const userId = await requireUserId(ctx);
+
+    const existing = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_localId", (q) =>
+        q.eq("userId", userId).eq("localId", payload.localId),
+      )
+      .unique();
+
+    const hasTranscript = payload.transcriptSegments.length > 0;
+    const contentChanged =
+      existing === null || existing.contentHash !== payload.contentHash;
+    const shouldRetryFailedSummary = existing?.summaryStatus === "failed";
+    const shouldScheduleSummary =
+      hasTranscript && (contentChanged || shouldRetryFailedSummary);
+    const crmPushBecameEnabled =
+      existing?.crmPushOptOut === true && payload.crmPushOptOut !== true;
+    const shouldScheduleCrmPush =
+      !shouldScheduleSummary &&
+      crmPushBecameEnabled &&
+      existing?.summaryStatus === "ready" &&
+      existing.summary !== undefined;
+    const crmPushDisabled = payload.crmPushOptOut === true;
+    const shouldResetCrmPush =
+      existing !== null &&
+      !crmPushDisabled &&
+      (contentChanged || crmPushBecameEnabled);
+
+    let meetingId = existing?._id;
+    const meetingFields = {
+      userId,
+      localId: payload.localId,
+      title: payload.title,
+      startedAt: payload.startedAt,
+      calendarEventId: payload.calendarEventId,
+      participants: payload.participants,
+      contentHash: payload.contentHash,
+      crmPushOptOut: payload.crmPushOptOut,
+      summary: contentChanged ? undefined : existing?.summary,
+      summaryStatus: shouldScheduleSummary
+        ? ("pending" as const)
+        : contentChanged
+          ? undefined
+        : existing?.summaryStatus,
+      summaryError:
+        shouldScheduleSummary || contentChanged ? undefined : existing?.summaryError,
+      pushStatus: crmPushDisabled
+        ? ("skipped" as const)
+        : shouldResetCrmPush
+          ? ("pending" as const)
+          : existing?.pushStatus,
+      unmatchedParticipants:
+        crmPushDisabled || shouldResetCrmPush ? [] : existing?.unmatchedParticipants,
+    };
+
+    if (meetingId === undefined) {
+      meetingId = await ctx.db.insert("meetings", meetingFields);
+    } else {
+      await ctx.db.patch(meetingId, meetingFields);
+    }
+
+    const existingNote = await ctx.db
+      .query("notes")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", meetingId))
+      .unique();
+
+    if (existingNote === null) {
+      await ctx.db.insert("notes", {
+        userId,
+        meetingId,
+        markdownBody: payload.markdownBody,
+      });
+    } else {
+      await ctx.db.patch(existingNote._id, {
+        userId,
+        markdownBody: payload.markdownBody,
+      });
+    }
+
+    const existingSegments = await ctx.db
+      .query("transcriptSegments")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", meetingId))
+      .collect();
+    for (const segment of existingSegments) {
+      await ctx.db.delete(segment._id);
+    }
+    for (const segment of payload.transcriptSegments) {
+      await ctx.db.insert("transcriptSegments", {
+        userId,
+        meetingId,
+        ...segment,
+      });
+    }
+
+    if (shouldScheduleSummary) {
+      await ctx.scheduler.runAfter(0, internal.summarize.summarizeMeeting, { meetingId });
+    }
+    if (shouldScheduleCrmPush) {
+      await ctx.scheduler.runAfter(0, internal.crm.push.pushMeetingToCrm, {
+        meetingId,
+      });
+    }
+
+    return { meetingId, scheduledSummary: shouldScheduleSummary };
+  },
+});
+
+export const deleteFromDevice = mutation({
+  args: {
+    localId: v.string(),
+  },
+  returns: v.object({
+    deleted: v.boolean(),
+  }),
+  handler: async (ctx, { localId }) => {
+    const userId = await requireUserId(ctx);
+    const meeting = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_localId", (q) =>
+        q.eq("userId", userId).eq("localId", localId),
+      )
+      .unique();
+    if (meeting === null) {
+      return { deleted: false };
+    }
+
+    const notes = await ctx.db
+      .query("notes")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", meeting._id))
+      .collect();
+    for (const note of notes) {
+      await ctx.db.delete(note._id);
+    }
+
+    const segments = await ctx.db
+      .query("transcriptSegments")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", meeting._id))
+      .collect();
+    for (const segment of segments) {
+      await ctx.db.delete(segment._id);
+    }
+
+    await ctx.db.delete(meeting._id);
+    return { deleted: true };
+  },
+});
+
+export const getByLocalId = query({
+  args: {
+    localId: v.string(),
+  },
+  handler: async (ctx, { localId }) => {
+    const userId = await requireUserId(ctx);
+    return await ctx.db
+      .query("meetings")
+      .withIndex("by_user_localId", (q) =>
+        q.eq("userId", userId).eq("localId", localId),
+      )
+      .unique();
+  },
+});
+
+export const readySummaries = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      localId: v.string(),
+      contentHash: v.string(),
+      summary: v.optional(v.string()),
+      summaryStatus: v.optional(summaryStatus),
+      summaryError: v.optional(v.string()),
+      pushStatus: v.optional(pushStatus),
+    }),
+  ),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const meetings = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_summaryStatus", (q) =>
+        q.eq("userId", userId).eq("summaryStatus", "ready"),
+      )
+      .collect();
+    return meetings
+      .map((meeting) => ({
+        localId: meeting.localId,
+        contentHash: meeting.contentHash,
+        summary: meeting.summary,
+        summaryStatus: meeting.summaryStatus,
+        ...(meeting.summaryError === undefined ? {} : { summaryError: meeting.summaryError }),
+        ...(meeting.pushStatus === undefined ? {} : { pushStatus: meeting.pushStatus }),
+      }));
+  },
+});
+
+export const summaryUpdates = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      localId: v.string(),
+      contentHash: v.string(),
+      summary: v.optional(v.string()),
+      summaryStatus: v.optional(summaryStatus),
+      summaryError: v.optional(v.string()),
+      pushStatus: v.optional(pushStatus),
+    }),
+  ),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const readyMeetings = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_summaryStatus", (q) =>
+        q.eq("userId", userId).eq("summaryStatus", "ready"),
+      )
+      .collect();
+    const failedMeetings = await ctx.db
+      .query("meetings")
+      .withIndex("by_user_summaryStatus", (q) =>
+        q.eq("userId", userId).eq("summaryStatus", "failed"),
+      )
+      .collect();
+    const meetings = [...readyMeetings, ...failedMeetings];
+    return meetings
+      .map((meeting) => ({
+        localId: meeting.localId,
+        contentHash: meeting.contentHash,
+        summary: meeting.summary,
+        summaryStatus: meeting.summaryStatus,
+        ...(meeting.summaryError === undefined ? {} : { summaryError: meeting.summaryError }),
+        ...(meeting.pushStatus === undefined ? {} : { pushStatus: meeting.pushStatus }),
+      }));
+  },
+});

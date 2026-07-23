@@ -16,7 +16,7 @@ final class NoteTabsBridgeTests: XCTestCase {
     // MARK: - 1. Presenter wiring with a fake SummaryGenerating
 
     func testGenerateSummaryTransitionsGeneratingThenReady() {
-        let gen = ImmediateSummaryGenerator(result: .success("Test summary"))
+        let gen = ControlledSummaryGenerator()
         let presenter = NoteTabsPresenter(summaryGenerator: gen)
         let bridge = NoteTabsBridge(presenter: presenter)
         bridge.load(noteID: "test-note")
@@ -28,6 +28,7 @@ final class NoteTabsBridgeTests: XCTestCase {
 
         bridge.generateSummary()
         XCTAssertEqual(presenter.summaryState(for: "test-note"), .generating)
+        gen.complete(with: "Test summary")
 
         waitForExpectations(timeout: 2)
         if case .ready(let text) = bridge.summaryState {
@@ -168,6 +169,34 @@ final class NoteTabsBridgeTests: XCTestCase {
 }
 
 // MARK: - Test doubles
+
+private final class ControlledSummaryGenerator: SummaryGenerating, @unchecked Sendable {
+    private let lock = NSLock()
+    private var result: String?
+    private var continuation: CheckedContinuation<String, Never>?
+
+    func generate(for noteID: String) async throws -> String {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if let result {
+                lock.unlock()
+                continuation.resume(returning: result)
+            } else {
+                self.continuation = continuation
+                lock.unlock()
+            }
+        }
+    }
+
+    func complete(with result: String) {
+        lock.lock()
+        self.result = result
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume(returning: result)
+    }
+}
 
 private final class ImmediateSummaryGenerator: SummaryGenerating {
     let result: Result<String, Error>

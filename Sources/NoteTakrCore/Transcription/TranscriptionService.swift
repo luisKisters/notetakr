@@ -4,10 +4,16 @@ import NoteTakrKit
 public final class TranscriptionService: @unchecked Sendable {
     private let engine: any TranscriptionEngine
     private let store: SessionStore
+    private let markDirty: @Sendable (String) -> Void
 
-    public init(engine: any TranscriptionEngine, store: SessionStore) {
+    public init(
+        engine: any TranscriptionEngine,
+        store: SessionStore,
+        markDirty: @escaping @Sendable (String) -> Void = { _ in }
+    ) {
         self.engine = engine
         self.store = store
+        self.markDirty = markDirty
     }
 
     /// Transcribes every captured audio stream in the session (microphone +
@@ -25,7 +31,8 @@ public final class TranscriptionService: @unchecked Sendable {
         var updated = session
         updated.transcriptSegments = segments
         try store.save(updated)
-        generateNote(for: updated)
+        try generateNote(for: updated)
+        markDirty(updated.id.uuidString)
         return updated
     }
 
@@ -89,9 +96,16 @@ public final class TranscriptionService: @unchecked Sendable {
         }
     }
 
-    private func generateNote(for session: MeetingSession) {
+    private func generateNote(for session: MeetingSession) throws {
         let markdown = MarkdownNoteRenderer.render(session: session)
+        let noteStore = NoteStore(root: store.baseURL)
+        if var note = try noteStore.load(id: session.id.uuidString) {
+            note.body = markdown
+            try noteStore.save(note)
+            return
+        }
+
         let noteURL = store.sessionURL(for: session).appendingPathComponent("note.md")
-        try? markdown.write(to: noteURL, atomically: true, encoding: .utf8)
+        try markdown.write(to: noteURL, atomically: true, encoding: .utf8)
     }
 }

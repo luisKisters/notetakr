@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import NoteTakrKit
+import NoteTakrSync
 
 // MARK: - Tab
 
@@ -28,6 +29,14 @@ final class SettingsSheetViewModel: ObservableObject {
     @Published var currentAppearance: Appearance
     @Published private(set) var hotkeyConflictMessage: String?
     @Published private(set) var hotkeyRegistrationMessages: [String] = []
+    @Published var accountState: AccountState = .signedOut
+    @Published private(set) var accountMessage: String?
+    @Published var crmBaseURLDraft: String
+    @Published var crmAPIKeyDraft: String = ""
+    @Published var crmAPIKeyConfigured: Bool = false
+    @Published var crmConnected: Bool = false
+    @Published private(set) var crmMessage: String?
+    @Published private(set) var obsidianMessage: String?
 
     let frontmatterBridge: FrontmatterPresenterBridge
     let appSettings: AppSettingsStore
@@ -42,11 +51,18 @@ final class SettingsSheetViewModel: ObservableObject {
     var onAutoCheckForUpdatesChange: ((Bool) -> Void)?
     /// Called when the user toggles auto-download-updates so the live updater can be updated.
     var onAutoDownloadUpdatesChange: ((Bool) -> Void)?
+    var onSignInWithGoogle: (() -> Void)?
+    var onSignOut: (() -> Void)?
+    var onSaveCrmSettings: ((String, String?) -> Void)?
+    var onTestCrmConnection: ((String, String?) -> Void)?
+    var onRefreshCrmPeople: (() -> Void)?
+    var onExportCurrentNoteToObsidian: (() -> URL?)?
 
     init(frontmatterBridge: FrontmatterPresenterBridge, appSettings: AppSettingsStore) {
         self.frontmatterBridge = frontmatterBridge
         self.appSettings = appSettings
         self.currentAppearance = appSettings.appearance
+        self.crmBaseURLDraft = appSettings.crmTwentyBaseURL
         self.frontmatterObservation = frontmatterBridge.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
@@ -75,6 +91,14 @@ final class SettingsSheetViewModel: ObservableObject {
         frontmatterBridge.setInPerson(value)
     }
 
+    func setLocalOnlyThisMeeting(_ value: Bool) {
+        frontmatterBridge.setLocalOnly(value)
+    }
+
+    func setCrmPushThisMeeting(_ value: Bool) {
+        frontmatterBridge.setCrmPushEnabled(value)
+    }
+
     func unlinkEvent() {
         frontmatterBridge.unlinkEvent()
     }
@@ -99,6 +123,10 @@ final class SettingsSheetViewModel: ObservableObject {
 
     func setInPersonByDefault(_ value: Bool) {
         appSettings.inPersonByDefault = value
+    }
+
+    func setLocalOnlyByDefault(_ value: Bool) {
+        appSettings.localOnlyByDefault = value
     }
 
     func setLaunchAtLogin(_ value: Bool) {
@@ -171,6 +199,89 @@ final class SettingsSheetViewModel: ObservableObject {
         onAutoDownloadUpdatesChange?(value)
     }
 
+    func setObsidianExportEnabled(_ value: Bool) {
+        appSettings.obsidianExportEnabled = value
+        if value {
+            exportCurrentNoteToObsidian()
+        }
+    }
+
+    func setObsidianFolder(_ url: URL) {
+        appSettings.obsidianFolderPath = url.path
+        appSettings.obsidianExportEnabled = true
+        exportCurrentNoteToObsidian()
+    }
+
+    func setObsidianTemplate(_ template: String) {
+        appSettings.obsidianTemplate = template
+    }
+
+    func setObsidianFileNameTemplate(_ template: String) {
+        appSettings.obsidianFileNameTemplate = template
+    }
+
+    func resetObsidianTemplate() {
+        appSettings.obsidianTemplate = ObsidianExporter.defaultTemplate
+        appSettings.obsidianFileNameTemplate = ObsidianExporter.defaultFileNameTemplate
+        obsidianMessage = "Template reset."
+    }
+
+    func exportCurrentNoteToObsidian() {
+        guard appSettings.obsidianExportEnabled else {
+            obsidianMessage = "Turn on automatic export first."
+            return
+        }
+        guard appSettings.obsidianFolderPath?.isEmpty == false else {
+            obsidianMessage = "Choose an Obsidian folder first."
+            return
+        }
+        if let url = onExportCurrentNoteToObsidian?() {
+            obsidianMessage = "Saved \(url.lastPathComponent)"
+        } else {
+            obsidianMessage = "The current note could not be exported."
+        }
+    }
+
+    func signInWithGoogle() {
+        accountMessage = nil
+        onSignInWithGoogle?()
+    }
+
+    func signOut() {
+        accountMessage = nil
+        onSignOut?()
+    }
+
+    func setAccountMessage(_ message: String?) {
+        accountMessage = message
+    }
+
+    func saveCrmSettings() {
+        crmMessage = nil
+        onSaveCrmSettings?(
+            crmBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+            crmAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        )
+        crmAPIKeyDraft = ""
+    }
+
+    func testCrmConnection() {
+        crmMessage = nil
+        onTestCrmConnection?(
+            crmBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+            crmAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        )
+    }
+
+    func refreshCrmPeople() {
+        crmMessage = nil
+        onRefreshCrmPeople?()
+    }
+
+    func setCrmMessage(_ message: String?) {
+        crmMessage = message
+    }
+
     // MARK: - Sheet lifecycle
 
     func close() {
@@ -179,4 +290,10 @@ final class SettingsSheetViewModel: ObservableObject {
 
     private static let hotkeyConflictText =
         "Choose different shortcuts for showing the note and starting recording."
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
 }

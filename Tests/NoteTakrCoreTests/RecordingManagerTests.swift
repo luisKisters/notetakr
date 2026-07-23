@@ -118,6 +118,20 @@ final class RecordingManagerTests: XCTestCase {
         XCTAssertEqual(loaded?.audioFilePaths.count, 2)
     }
 
+    func testStopRecordingMarksSessionDirtyAfterSave() async throws {
+        let dirty = DirtyIDRecorder()
+        manager = RecordingManager(
+            store: store,
+            recorder: recorder,
+            markDirty: { dirty.record($0) }
+        )
+
+        _ = try await manager.startRecording(title: "Dirty Stop")
+        let stopped = try await manager.stopRecording()
+
+        XCTAssertEqual(dirty.ids, [stopped.id.uuidString])
+    }
+
     func testStopRecordingWithInPersonSessionSkipsSystemAudio() async throws {
         let input = MeetingSession(
             title: "In Person",
@@ -488,5 +502,22 @@ private final class MovedFolderAudioRecorder: ConfigurableAudioRecorder, AudioCa
         try Data("audio data that exists despite a stale recorder URL".utf8).write(to: url)
         isRecording = false
         return []
+    }
+}
+
+private final class DirtyIDRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedIDs: [String] = []
+
+    var ids: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedIDs
+    }
+
+    func record(_ id: String) {
+        lock.lock()
+        recordedIDs.append(id)
+        lock.unlock()
     }
 }

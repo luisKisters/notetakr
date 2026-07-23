@@ -30,7 +30,15 @@ public protocol HTTPDataFetching: Sendable {
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
+#if canImport(FoundationNetworking)
+extension URLSession: HTTPDataFetching {
+    public func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        try await data(for: request, delegate: nil)
+    }
+}
+#else
 extension URLSession: HTTPDataFetching {}
+#endif
 
 /// Minimal OpenRouter chat-completions client. Foundation-only so it lives in
 /// Core and stays testable.

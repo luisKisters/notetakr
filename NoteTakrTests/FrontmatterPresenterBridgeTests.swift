@@ -41,7 +41,7 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         XCTAssertEqual(bridge.noteInPerson, false)
     }
 
-    func testInPersonCannotChangeDuringActiveRecording() throws {
+    func testInPersonCanChangeDuringActiveRecording() throws {
         let spy = SpyPresenterStore()
         let note = MeetingNote(id: "fp-recording", title: "Live", date: fixedDate(), inPerson: false)
         spy.notes[note.id] = note
@@ -52,8 +52,8 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         bridge.setInPerson(true)
 
         XCTAssertTrue(bridge.isRecording)
-        XCTAssertEqual(try XCTUnwrap(spy.notes[note.id]).inPerson, false)
-        XCTAssertEqual(bridge.noteInPerson, false)
+        XCTAssertEqual(try XCTUnwrap(spy.notes[note.id]).inPerson, true)
+        XCTAssertEqual(bridge.noteInPerson, true)
     }
 
     func testPublishedInPersonStateResetsWhenLoadingAnotherNote() {
@@ -209,6 +209,130 @@ final class FrontmatterPresenterBridgeTests: XCTestCase {
         ])
     }
 
+    func testLinkCalendarEventAutoMatchesParticipantToCRMSource() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(id: "fp-8c", title: "Unlinked", date: fixedDate())
+        spy.notes[note.id] = note
+        let crmSource = StaticPeopleSource(providerId: "crm", people: [
+            Person(
+                name: "Carol CRM",
+                emails: ["carol@example.com"],
+                sourceRefs: [SourceRef(provider: "crm", remoteId: "person-carol")]
+            )
+        ])
+
+        let bridge = FrontmatterPresenterBridge(store: spy, crmPeopleSource: crmSource)
+        bridge.load(note: note)
+
+        bridge.linkCalendarEvent(
+            id: "event-crm",
+            title: "CRM Event",
+            attendees: [
+                Participant(name: "Carol CRM", email: "carol@example.com")
+            ],
+            startDate: fixedDate()
+        )
+
+        let saved = try XCTUnwrap(spy.notes[note.id])
+        XCTAssertEqual(saved.participants, [
+            Participant(name: "Carol CRM", email: "carol@example.com", crm: "person-carol")
+        ])
+    }
+
+    func testCrmMatchedEmailDoesNotAppearInUnmatchedBanner() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(
+            id: "fp-8d",
+            title: "CRM Banner",
+            date: fixedDate(),
+            participants: [
+                Participant(name: "Carol CRM", email: "carol@example.com"),
+                Participant(name: "Mystery Guest")
+            ]
+        )
+        spy.notes[note.id] = note
+        let crmSource = StaticPeopleSource(providerId: "crm", people: [
+            Person(
+                name: "Carol CRM",
+                emails: ["carol@example.com"],
+                sourceRefs: [SourceRef(provider: "crm", remoteId: "person-carol")]
+            )
+        ])
+
+        let bridge = FrontmatterPresenterBridge(store: spy, crmPeopleSource: crmSource)
+        bridge.load(note: note)
+        bridge.crmConnected = true
+
+        XCTAssertEqual(bridge.crmBannerText, "1 participant not in CRM")
+    }
+
+    func testCrmRemoteIdWithoutEmailDoesNotAppearInUnmatchedBanner() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(
+            id: "fp-8e",
+            title: "CRM Banner",
+            date: fixedDate(),
+            participants: [
+                Participant(name: "Manual CRM", crm: "person-manual")
+            ]
+        )
+        spy.notes[note.id] = note
+        let crmSource = StaticPeopleSource(providerId: "crm", people: [
+            Person(
+                name: "Manual CRM",
+                emails: [],
+                sourceRefs: [SourceRef(provider: "crm", remoteId: "person-manual")]
+            )
+        ])
+
+        let bridge = FrontmatterPresenterBridge(store: spy, crmPeopleSource: crmSource)
+        bridge.load(note: note)
+        bridge.crmConnected = true
+
+        XCTAssertNil(bridge.crmBannerText)
+    }
+
+    func testStaleCrmRemoteIdFallsBackToEmailMatchingForUnmatchedBanner() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(
+            id: "fp-8f",
+            title: "CRM Banner",
+            date: fixedDate(),
+            participants: [
+                Participant(name: "Email Match", email: "carol@example.com", crm: "stale-person"),
+                Participant(name: "Stale Manual", crm: "stale-person")
+            ]
+        )
+        spy.notes[note.id] = note
+        let crmSource = StaticPeopleSource(providerId: "crm", people: [
+            Person(
+                name: "Carol CRM",
+                emails: ["carol@example.com"],
+                sourceRefs: [SourceRef(provider: "crm", remoteId: "person-carol")]
+            )
+        ])
+
+        let bridge = FrontmatterPresenterBridge(store: spy, crmPeopleSource: crmSource)
+        bridge.load(note: note)
+        bridge.crmConnected = true
+
+        XCTAssertEqual(bridge.crmBannerText, "1 participant not in CRM")
+    }
+
+    func testFrontmatterSaveNotifiesDirtyCallback() throws {
+        let spy = SpyPresenterStore()
+        let note = MeetingNote(id: "fp-dirty", title: "Dirty", date: fixedDate())
+        spy.notes[note.id] = note
+        let bridge = FrontmatterPresenterBridge(store: spy)
+        var dirtyIDs: [String] = []
+        bridge.onDidSave = { dirtyIDs.append($0) }
+        bridge.load(note: note)
+
+        bridge.setLocalOnly(true)
+
+        XCTAssertEqual(dirtyIDs, [note.id])
+    }
+
     // MARK: - People suggestions
 
     func testParticipantSuggestionsUseLocalNotesAndCalendarEvents() throws {
@@ -316,4 +440,20 @@ private final class SpyPresenterStore: NoteStoring, @unchecked Sendable {
 
     func load(id: String) throws -> MeetingNote? { notes[id] }
     func save(_ note: MeetingNote) throws { notes[note.id] = note }
+}
+
+private struct StaticPeopleSource: PeopleSource {
+    var providerId: String
+    var people: [Person]
+
+    func allPeople() -> [Person] {
+        people
+    }
+
+    func search(_ query: String) -> [Person] {
+        people.filter { person in
+            person.name.localizedCaseInsensitiveContains(query) ||
+            person.emails.contains { $0.localizedCaseInsensitiveContains(query) }
+        }
+    }
 }

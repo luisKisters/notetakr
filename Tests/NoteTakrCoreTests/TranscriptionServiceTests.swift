@@ -54,6 +54,71 @@ final class TranscriptionServiceTests: XCTestCase {
         XCTAssertEqual(reloaded?.transcriptSegments.count, 3)
     }
 
+    func testTranscribeMarksSessionDirtyAfterPersistingTranscript() async throws {
+        let engine = MockTranscriptionEngine()
+        let dirty = DirtyIDRecorder()
+        let service = TranscriptionService(
+            engine: engine,
+            store: store,
+            markDirty: { dirty.record($0) }
+        )
+        var session = MeetingSession(title: "Meeting", date: Date())
+        session.audioFilePaths = [audioFile.path]
+        try store.save(session)
+
+        let updated = try await service.transcribe(session: session, vocabulary: [])
+        let reloaded = try XCTUnwrap(store.load(id: session.id))
+
+        XCTAssertEqual(reloaded.transcriptSegments, updated.transcriptSegments)
+        XCTAssertEqual(dirty.ids, [session.id.uuidString])
+    }
+
+    func testTranscribePreservesNoteFrontmatterBeforeMarkingDirty() async throws {
+        let engine = MockTranscriptionEngine()
+        let noteStore = NoteStore(root: tempDir)
+        let snapshots = DirtyNoteSnapshotRecorder()
+        let service = TranscriptionService(
+            engine: engine,
+            store: store,
+            markDirty: { id in
+                let loadedNote: MeetingNote?
+                do {
+                    loadedNote = try noteStore.load(id: id)
+                } catch {
+                    loadedNote = nil
+                }
+                snapshots.record(
+                    localOnly: loadedNote?.localOnly,
+                    crmPushOptOut: loadedNote?.crmPushOptOut
+                )
+            }
+        )
+        let id = UUID(uuidString: "67676767-6767-6767-6767-676767676767")!
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        var session = MeetingSession(id: id, title: "Protected Meeting", date: date)
+        session.audioFilePaths = [audioFile.path]
+        try store.save(session)
+        try noteStore.save(MeetingNote(
+            id: id.uuidString,
+            title: "Protected Meeting",
+            date: date,
+            participants: [NoteTakrKit.Participant(name: "Ada", email: "ada@example.test", crm: "crm-1")],
+            localOnly: true,
+            crmPushOptOut: true,
+            body: "private draft"
+        ))
+
+        _ = try await service.transcribe(session: session, vocabulary: [])
+
+        XCTAssertEqual(snapshots.localOnlyValues, [true])
+        XCTAssertEqual(snapshots.crmPushOptOutValues, [true])
+        let reloadedNote = try XCTUnwrap(noteStore.load(id: id.uuidString))
+        XCTAssertEqual(reloadedNote.localOnly, true)
+        XCTAssertEqual(reloadedNote.crmPushOptOut, true)
+        XCTAssertEqual(reloadedNote.participants.first?.crm, "crm-1")
+        XCTAssertTrue(reloadedNote.body.contains("## Transcript"))
+    }
+
     func testTranscribePassesVocabulary() async throws {
         let engine = MockTranscriptionEngine()
         let service = TranscriptionService(engine: engine, store: store)
@@ -260,6 +325,48 @@ private final class SourceCapturingTranscriptionEngine: TranscriptionEngine, @un
     func transcribe(sources: [TranscriptionSource], vocabulary: [VocabularyEntry]) async throws -> [TranscriptSegment] {
         lastSources = sources
         return [TranscriptSegment(timestamp: 0, speaker: "Speaker 1", text: "multi")]
+    }
+}
+
+private final class DirtyIDRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedIDs: [String] = []
+
+    var ids: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedIDs
+    }
+
+    func record(_ id: String) {
+        lock.lock()
+        recordedIDs.append(id)
+        lock.unlock()
+    }
+}
+
+private final class DirtyNoteSnapshotRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedLocalOnlyValues: [Bool?] = []
+    private var recordedCrmPushOptOutValues: [Bool?] = []
+
+    var localOnlyValues: [Bool?] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedLocalOnlyValues
+    }
+
+    var crmPushOptOutValues: [Bool?] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedCrmPushOptOutValues
+    }
+
+    func record(localOnly: Bool?, crmPushOptOut: Bool?) {
+        lock.lock()
+        recordedLocalOnlyValues.append(localOnly)
+        recordedCrmPushOptOutValues.append(crmPushOptOut)
+        lock.unlock()
     }
 }
 

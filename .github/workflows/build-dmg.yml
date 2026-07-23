@@ -1,6 +1,10 @@
 name: Release DMG
 
 on:
+  workflow_run:
+    workflows: ["macOS CI"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       publish_release:
@@ -8,11 +12,9 @@ on:
         required: false
         type: boolean
         default: false
-  push:
-    branches: ["main"]
-
 permissions:
   contents: write
+  actions: read
 
 env:
   APP_NAME: NoteTakr
@@ -22,12 +24,70 @@ env:
   XCODEPROJ: Notetakr.xcodeproj
 
 jobs:
+  quality-gate:
+    name: Require a successful CI run for this commit
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.gate.outputs.release_sha }}
+    steps:
+      - name: Verify tested commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            if [[ "$CI_HEAD_BRANCH" != "main" || "$CI_CONCLUSION" != "success" ]]; then
+              echo "::error::Release blocked: macOS CI for main concluded '$CI_CONCLUSION'."
+              exit 1
+            fi
+            RELEASE_SHA="$CI_HEAD_SHA"
+          else
+            RELEASE_SHA="$GITHUB_SHA"
+            MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+            if [[ "$RELEASE_SHA" != "$MAIN_SHA" ]]; then
+              echo "::error::Manual releases are restricted to the current main commit ($MAIN_SHA)."
+              exit 1
+            fi
+            SUCCESSFUL_RUNS="$(
+              gh run list \
+                --repo "$GITHUB_REPOSITORY" \
+                --workflow macos-ci.yml \
+                --commit "$RELEASE_SHA" \
+                --status success \
+                --limit 20 \
+                --json conclusion,headSha \
+                --jq 'map(select(.conclusion == "success")) | length'
+            )"
+            if [[ "$SUCCESSFUL_RUNS" == "0" ]]; then
+              echo "::error::Release blocked: this commit has no successful macOS CI run."
+              exit 1
+            fi
+          fi
+
+          if [[ -z "$RELEASE_SHA" ]]; then
+            echo "::error::Release blocked: no tested commit SHA was resolved."
+            exit 1
+          fi
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "Release is gated to tested commit $RELEASE_SHA."
+
   dmg:
-    name: Build .dmg (ad-hoc by default; signs, notarizes & releases when signing secrets exist)
+    name: Build tested .dmg (ad-hoc by default; signs, notarizes & releases when signing secrets exist)
+    needs: quality-gate
     runs-on: macos-15
+    env:
+      RELEASE_SHA: ${{ needs.quality-gate.outputs.release_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.quality-gate.outputs.release_sha }}
 
       - name: Select Xcode 16
         run: |
@@ -252,6 +312,24 @@ jobs:
           xcrun stapler staple "$DMG_NAME"
           spctl --assess --type open --context context:primary-signature --verbose "$DMG_NAME"
 
+      - name: Verify packaged .dmg
+        run: |
+          set -euo pipefail
+          MOUNT_POINT="$RUNNER_TEMP/notetakr-dmg-verify"
+          mkdir -p "$MOUNT_POINT"
+          hdiutil verify "$DMG_NAME"
+          hdiutil attach "$DMG_NAME" -readonly -nobrowse -mountpoint "$MOUNT_POINT"
+          trap 'hdiutil detach "$MOUNT_POINT" -force >/dev/null 2>&1 || true' EXIT
+
+          PACKAGED_APP="$MOUNT_POINT/$APP_NAME.app"
+          test -d "$PACKAGED_APP"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_APP/Contents/Info.plist")" = "$BUNDLE_ID"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PACKAGED_APP/Contents/Info.plist")" = "$MARKETING_VERSION"
+          codesign --verify --deep --strict --verbose=2 "$PACKAGED_APP"
+          test -x "$PACKAGED_APP/Contents/MacOS/$APP_NAME"
+          hdiutil detach "$MOUNT_POINT"
+          trap - EXIT
+
       - name: Upload .dmg artifact
         uses: actions/upload-artifact@v4
         with:
@@ -260,16 +338,16 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        if: github.event_name == 'workflow_run' || github.event.inputs.publish_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [[ "${SIGNING_ENABLED:-false}" == "true" ]]; then
-            NOTES="Signed and notarized macOS DMG built from ${GITHUB_SHA}."
+            NOTES="Signed and notarized macOS DMG built from tested commit ${RELEASE_SHA}."
           else
             NOTES="$(cat <<NOTE
-          Ad-hoc signed (not notarized) macOS DMG built from ${GITHUB_SHA}.
+          Ad-hoc signed (not notarized) macOS DMG built from tested commit ${RELEASE_SHA}.
 
           **Install with Homebrew (no Gatekeeper prompt):**
           \`\`\`
@@ -282,12 +360,12 @@ jobs:
           )"
           fi
           gh release create "$RELEASE_TAG" "$DMG_NAME" \
-            --target "$GITHUB_SHA" \
+            --target "$RELEASE_SHA" \
             --title "$APP_NAME $MARKETING_VERSION ($BUILD_NUMBER)" \
             --notes "$NOTES"
 
       - name: Update Homebrew cask
-        if: github.event_name == 'push' || github.event.inputs.publish_release == 'true'
+        if: github.event_name == 'workflow_run' || github.event.inputs.publish_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -334,7 +412,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Download Sparkle tools
-        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
+        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'workflow_run' || github.event.inputs.publish_release == 'true')
         run: |
           set -euo pipefail
           curl -fsSL \
@@ -346,7 +424,7 @@ jobs:
           echo "SPARKLE_TOOLS_DIR=$RUNNER_TEMP/Sparkle" >> "$GITHUB_ENV"
 
       - name: Generate Sparkle appcast
-        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
+        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'workflow_run' || github.event.inputs.publish_release == 'true')
         env:
           SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
         run: |
@@ -367,7 +445,7 @@ jobs:
           test -s appcast.xml
 
       - name: Publish Sparkle appcast
-        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'push' || github.event.inputs.publish_release == 'true')
+        if: env.SIGNING_ENABLED == 'true' && (github.event_name == 'workflow_run' || github.event.inputs.publish_release == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -24,6 +24,8 @@ public enum PropertyRow: Equatable {
     case meetingLink(String?)
     /// In-person toggle.
     case inPerson(Bool)
+    /// CRM push status from the cloud pipeline.
+    case crmPushStatus(CrmPushStatus?)
     /// Transcript row — renders the record pill or player depending on recording state.
     case transcript
 }
@@ -67,6 +69,7 @@ public final class FrontmatterPresenter {
 
     public private(set) var note: MeetingNote
     public var isExpanded: Bool = false
+    public var onDidSave: ((MeetingNote) -> Void)?
     public var onChange: (() -> Void)?
     public var recordingStartedAt: Date?
 
@@ -102,22 +105,40 @@ public final class FrontmatterPresenter {
     }
 
     public var propertyRows: [PropertyRow] {
-        [
+        var rows: [PropertyRow] = [
             .event(id: note.calendarEvent, title: note.title),
             .dateTime(date: note.date, end: note.end),
             .people(note.participants),
             .location(note.locationText),
             .meetingLink(note.meetingLink),
             .inPerson(note.inPerson ?? false),
-            .transcript
         ]
+        if note.crmPushStatus != nil {
+            rows.append(.crmPushStatus(note.crmPushStatus))
+        }
+        rows.append(.transcript)
+        return rows
     }
 
     // MARK: - Mutations
 
     public func setInPerson(_ inPerson: Bool) throws {
         note.inPerson = inPerson
-        try store.save(note)
+        try saveAndNotify()
+    }
+
+    public func setLocalOnly(_ localOnly: Bool) throws {
+        note.localOnly = localOnly
+        try saveAndNotify()
+    }
+
+    public func setCrmPushEnabled(_ enabled: Bool) throws {
+        note.crmPushOptOut = enabled ? nil : true
+        try saveAndNotify()
+    }
+
+    public func applyPersistedCrmPushStatus(_ status: CrmPushStatus?) {
+        note.crmPushStatus = status
         onChange?()
     }
 
@@ -131,61 +152,52 @@ public final class FrontmatterPresenter {
         note.locationText = Self.trimmedNonEmpty(event.locationText)
         note.meetingLink = Self.trimmedNonEmpty(event.meetingLink)
         note.participants = Self.normalizedParticipants(event.participants)
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func unlinkEvent() throws {
         note.calendarEvent = nil
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func addParticipant(_ participant: Participant) throws {
         let normalized = Self.normalizedParticipant(participant)
         guard !note.participants.contains(where: { ParticipantIdentity.matches($0, normalized) }) else { return }
         note.participants.append(normalized)
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func removeParticipant(_ participant: Participant) throws {
         note.participants.removeAll { $0 == participant }
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func setLocationText(_ text: String?) throws {
         let trimmed = text?.trimmingCharacters(in: .whitespaces)
         note.locationText = trimmed?.isEmpty == false ? trimmed : nil
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func setMeetingLink(_ link: String?) throws {
         let trimmed = link?.trimmingCharacters(in: .whitespaces)
         note.meetingLink = trimmed?.isEmpty == false ? trimmed : nil
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func setDate(_ date: Date, end: Date? = nil) throws {
         note.date = date
         note.end = end
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func setTranscribe(_ transcribe: Bool) throws {
         note.transcribe = transcribe
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func setLanguage(_ language: TranscribeLanguage) throws {
         note.language = language
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func addVocabularyTerm(_ term: String) throws {
@@ -194,13 +206,17 @@ public final class FrontmatterPresenter {
               !note.vocabulary.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame })
         else { return }
         note.vocabulary.append(trimmed)
-        try store.save(note)
-        onChange?()
+        try saveAndNotify()
     }
 
     public func removeVocabularyTerm(_ term: String) throws {
         note.vocabulary.removeAll { $0.caseInsensitiveCompare(term) == .orderedSame }
+        try saveAndNotify()
+    }
+
+    private func saveAndNotify() throws {
         try store.save(note)
+        onDidSave?(note)
         onChange?()
     }
 
