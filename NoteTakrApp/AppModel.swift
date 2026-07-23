@@ -80,8 +80,8 @@ final class AppModel: ObservableObject {
     /// Called when recording stops; argument is the session ID string (nil on error).
     var onRecordingStopped: ((String?) -> Void)?
 
-    init() {
-        let base = Self.applicationSupportBaseURL()
+    init(baseURL: URL? = nil, audioRecorder: (any AudioRecorder)? = nil) {
+        let base = baseURL ?? Self.applicationSupportBaseURL()
         let sessionsDir = base.appendingPathComponent("NoteTakr/Sessions", isDirectory: true)
         store = SessionStore(baseURL: sessionsDir)
         noteStore = NoteStore(root: sessionsDir)
@@ -107,7 +107,10 @@ final class AppModel: ObservableObject {
         keychainStore = KeychainStore()
         crmKeychainStore = KeychainStore(service: "com.notetakr.crm.twenty", account: "api-key")
         crmPeopleCacheSource = ConvexPeopleCacheSource(rootURL: base)
-        recordingManager = RecordingManager(store: store, recorder: Self.makeAudioRecorder())
+        recordingManager = RecordingManager(
+            store: store,
+            recorder: audioRecorder ?? Self.makeAudioRecorder()
+        )
         configureSync(rootURL: base)
         refreshCrmConnectionState()
 
@@ -889,6 +892,9 @@ final class AppModel: ObservableObject {
             FluidAudioAdapter.log.error("recording STOP failed: \(String(describing: error), privacy: .public)")
         }
         isRecording = false
+        if let stopped {
+            exportNoteToObsidian(noteID: stopped.id.uuidString)
+        }
         onRecordingStopped?(stopped?.id.uuidString)
     }
 
@@ -1242,13 +1248,26 @@ final class AppModel: ObservableObject {
     /// Keeps session.json canonical for private editor content, then restores
     /// the generated note.md sections from that same session snapshot.
     func persistEditorChanges(_ note: MeetingNote) {
-        guard let id = UUID(uuidString: note.id),
-              let updated = try? store.updateEditorContent(
-                id: id,
-                title: note.title,
-                personalNotes: note.body
-              ) else { return }
-        regenerateNote(for: updated)
+        // Keep this method correct even when a caller has not yet flushed the
+        // editor's NoteStore. In particular, the title must move the local note
+        // folder before Obsidian computes its filename from the latest snapshot.
+        try? noteStore.save(note)
+        guard let id = UUID(uuidString: note.id) else {
+            exportNoteToObsidian(noteID: note.id)
+            return
+        }
+        if let updated = try? store.updateEditorContent(
+            id: id,
+            title: note.title,
+            personalNotes: note.body
+        ) {
+            regenerateNote(for: updated)
+        } else {
+            // The editor's NoteStore save has already succeeded. Do not leave an
+            // enabled Obsidian export stale merely because the canonical session
+            // snapshot could not be updated during a concurrent recording stop.
+            exportNoteToObsidian(noteID: note.id)
+        }
         _ = markSyncDirty(localId: note.id)
     }
 

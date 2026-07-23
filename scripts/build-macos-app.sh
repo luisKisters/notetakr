@@ -13,9 +13,9 @@
 #   build/NoteTakr.app  — always written here, regardless of --install.
 #
 # Signing:
-#   By default the build uses CODE_SIGN_IDENTITY="" (ad-hoc / no signing),
-#   which is sufficient for local development and preserves TCC permissions
-#   as long as the bundle identifier (com.notetakr.app) does not change.
+#   By default the build uses CODE_SIGN_IDENTITY="" (ad-hoc / no signing).
+#   This runs locally, but macOS privacy grants do not survive code changes
+#   because every changed ad-hoc build has a different designated requirement.
 #   To use a real identity, set NOTETAKR_SIGN_IDENTITY in the environment:
 #     NOTETAKR_SIGN_IDENTITY="Apple Development" scripts/build-macos-app.sh
 #
@@ -80,6 +80,7 @@ mkdir -p "$BUILD_DIR" "$DERIVED_DATA"
 
 # --- Signing identity ---
 SIGN_IDENTITY="${NOTETAKR_SIGN_IDENTITY:-}"
+OUTER_APP_ENTITLEMENTS=""
 if [[ -z "$SIGN_IDENTITY" ]]; then
     SIGN_ARGS=(
         CODE_SIGN_IDENTITY=""
@@ -89,25 +90,29 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
     log "Signing: ad-hoc (no identity). Set NOTETAKR_SIGN_IDENTITY to use a real identity."
 else
     SIGN_ARGS=(CODE_SIGN_IDENTITY="$SIGN_IDENTITY")
-    if [[ "$SIGN_IDENTITY" == "-" ]]; then
-        AD_HOC_ENTITLEMENTS="$BUILD_DIR/NoteTakr.ad-hoc.entitlements"
-        cp "$REPO_ROOT/NoteTakrApp/NoteTakr.entitlements" "$AD_HOC_ENTITLEMENTS"
+    if [[ "$SIGN_IDENTITY" == "-" || "${NOTETAKR_DISABLE_LIBRARY_VALIDATION:-0}" == "1" ]]; then
+        LOCAL_SIGNING_ENTITLEMENTS="$BUILD_DIR/NoteTakr.local-signing.entitlements"
+        cp "$REPO_ROOT/NoteTakrApp/NoteTakr.entitlements" "$LOCAL_SIGNING_ENTITLEMENTS"
         /usr/libexec/PlistBuddy \
             -c "Add :com.apple.security.cs.disable-library-validation bool true" \
-            "$AD_HOC_ENTITLEMENTS" 2>/dev/null || \
+            "$LOCAL_SIGNING_ENTITLEMENTS" 2>/dev/null || \
             /usr/libexec/PlistBuddy \
                 -c "Set :com.apple.security.cs.disable-library-validation true" \
-                "$AD_HOC_ENTITLEMENTS"
-        SIGN_ARGS+=(
-            CODE_SIGN_STYLE=Manual
-            CODE_SIGNING_REQUIRED=YES
-            CODE_SIGNING_ALLOWED=YES
-            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
-            CODE_SIGN_ENTITLEMENTS="$AD_HOC_ENTITLEMENTS"
-            DEVELOPMENT_TEAM=""
-        )
-        log "Signing: ad-hoc with disabled library validation for embedded Sparkle."
-    else
+                "$LOCAL_SIGNING_ENTITLEMENTS"
+        OUTER_APP_ENTITLEMENTS="$LOCAL_SIGNING_ENTITLEMENTS"
+        if [[ "$SIGN_IDENTITY" == "-" ]]; then
+            SIGN_ARGS+=(
+                CODE_SIGN_STYLE=Manual
+                CODE_SIGNING_REQUIRED=YES
+                CODE_SIGNING_ALLOWED=YES
+                DEVELOPMENT_TEAM=""
+            )
+            log "Signing: ad-hoc with disabled library validation for embedded Sparkle."
+        else
+            log "Local signing: disabled library validation for embedded Sparkle."
+        fi
+    fi
+    if [[ "$SIGN_IDENTITY" != "-" ]]; then
         # The project sets DEVELOPMENT_TEAM="" with automatic signing, which
         # xcodebuild rejects. Manual style signs directly with the identity;
         # no provisioning profile is needed for these entitlements on macOS.
@@ -171,7 +176,11 @@ cp -Rp "$BUILT_APP" "$OUTPUT_APP"
 log "Copied to: $OUTPUT_APP"
 
 if [[ -n "$SIGN_IDENTITY" ]]; then
-    bash "$REPO_ROOT/scripts/resign-sparkle-framework.sh" "$OUTPUT_APP" "$SIGN_IDENTITY"
+    RESIGN_ARGS=("$OUTPUT_APP" "$SIGN_IDENTITY")
+    if [[ -n "$OUTER_APP_ENTITLEMENTS" ]]; then
+        RESIGN_ARGS+=("$OUTER_APP_ENTITLEMENTS")
+    fi
+    bash "$REPO_ROOT/scripts/resign-sparkle-framework.sh" "${RESIGN_ARGS[@]}"
 fi
 
 # --- Verify bundle identifier ---
@@ -191,8 +200,12 @@ if $INSTALL; then
     fi
     cp -Rp "$OUTPUT_APP" "$INSTALL_DEST"
     log "Installed: $INSTALL_DEST"
-    log "NOTE: If macOS TCC entries exist for an older build, existing permissions"
-    log "are preserved as long as the bundle identifier (com.notetakr.app) is unchanged."
+    if [[ -z "$SIGN_IDENTITY" || "$SIGN_IDENTITY" == "-" ]]; then
+        log "NOTE: This build is ad-hoc signed; privacy permissions may be requested again after code changes."
+        log "Use scripts/dev-reinstall.sh for a stable local development identity."
+    else
+        log "Stable signing is active, so macOS can preserve privacy permissions across rebuilds."
+    fi
 fi
 
 log "Done. App is at: $OUTPUT_APP"

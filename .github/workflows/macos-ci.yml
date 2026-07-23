@@ -78,6 +78,11 @@ jobs:
       - name: Build transcription probe
         run: swift build --target NoteTakrTranscriptionProbe
 
+      - name: Run privacy-safe lifecycle fixtures
+        run: |
+          swift test --filter MeetingLifecycleE2ETests
+          swift test --filter SpeakerLabelResolverTests
+
       - name: Run Swift package tests
         run: swift test
 
