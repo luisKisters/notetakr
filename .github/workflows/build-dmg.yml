@@ -91,7 +91,7 @@ jobs:
 
       - name: Select Xcode 16
         run: |
-          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -r | head -1 || true)"
+          XCODE_PATH="$(find /Applications -maxdepth 1 -type d -name 'Xcode_16*.app' -print 2>/dev/null | sort -r | head -1 || true)"
           if [[ -z "$XCODE_PATH" && -d /Applications/Xcode.app ]]; then
             XCODE_PATH="/Applications/Xcode.app"
           fi

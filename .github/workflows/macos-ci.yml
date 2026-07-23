@@ -47,7 +47,7 @@ jobs:
 
       - name: Select Xcode 16
         run: |
-          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -r | head -1 || true)"
+          XCODE_PATH="$(find /Applications -maxdepth 1 -type d -name 'Xcode_16*.app' -print 2>/dev/null | sort -r | head -1 || true)"
           if [[ -z "$XCODE_PATH" && -d /Applications/Xcode.app ]]; then
             XCODE_PATH="/Applications/Xcode.app"
           fi
@@ -117,11 +117,13 @@ jobs:
             echo "Attio live integration secret is present; npm test will run the live suite."
             HAS_LIVE_CRM=1
           fi
+          cd convex
+          npm test
+          npm run typecheck
           if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REPOSITORY}" == "luisKisters/notetakr" && "${HAS_LIVE_CRM}" != "1" ]]; then
             echo "::error::Canonical-repository pushes require Twenty or Attio test-tenant secrets so the live fake-contact/note suite cannot silently skip."
             exit 1
           fi
-          cd convex && npm test
 
   xcode-build-and-test:
     name: Xcode Build & Test
@@ -133,7 +135,7 @@ jobs:
 
       - name: Select Xcode 16
         run: |
-          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -r | head -1 || true)"
+          XCODE_PATH="$(find /Applications -maxdepth 1 -type d -name 'Xcode_16*.app' -print 2>/dev/null | sort -r | head -1 || true)"
           if [[ -z "$XCODE_PATH" && -d /Applications/Xcode.app ]]; then
             XCODE_PATH="/Applications/Xcode.app"
           fi
@@ -197,7 +199,7 @@ jobs:
 
       - name: Select Xcode 16
         run: |
-          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -r | head -1 || true)"
+          XCODE_PATH="$(find /Applications -maxdepth 1 -type d -name 'Xcode_16*.app' -print 2>/dev/null | sort -r | head -1 || true)"
           if [[ -z "$XCODE_PATH" && -d /Applications/Xcode.app ]]; then
             XCODE_PATH="/Applications/Xcode.app"
           fi
